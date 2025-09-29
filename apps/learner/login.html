@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login | Quiz Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      html,
+      body {
+        font-family: 'Segoe UI', 'Tahoma', 'Geneva', 'Verdana', sans-serif;
+        background-color: #f0f4f8; /* A slightly cooler off-white */
+        color: #1a202c;
+      }
+
+      /* Vector background for the decorative side panel on desktop */
+      .vector-background {
+        background: linear-gradient(
+          135deg,
+          #e0f7fa 0%,
+          #b2ebf2 50%,
+          #80deea 100%
+        );
+        position: relative;
+        overflow: hidden;
+      }
+
+      .vector-background::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background-image:
+          radial-gradient(
+            circle at 25% 25%,
+            rgba(255, 255, 255, 0.15) 0%,
+            transparent 30%
+          ),
+          radial-gradient(
+            circle at 75% 75%,
+            rgba(255, 255, 255, 0.1) 0%,
+            transparent 30%
+          );
+        animation: rotate 30s linear infinite;
+      }
+
+      @keyframes rotate {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Custom input styles for a softer look */
+      .form-input {
+        background-color: #fdfdff;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s ease;
+      }
+
+      .form-input:focus {
+        outline: none;
+        border-color: #4dd0e1;
+        box-shadow: 0 0 0 3px rgba(77, 208, 225, 0.2);
+      }
+
+      /* Button style matching the dashboard */
+      .btn-primary {
+        background: linear-gradient(135deg, #0e7490, #088ea5, #0ca5b5);
+        color: #ffffff;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(14, 116, 144, 0.3);
+      }
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(14, 116, 144, 0.4);
+      }
+    </style>
+  </head>
+  <body class="antialiased text-gray-900">
+    <div class="min-h-screen flex md:grid md:grid-cols-2">
+      <!-- Login Form Section -->
+      <div class="w-full flex items-center justify-center p-6 sm:p-8">
+        <div class="max-w-md w-full">
+          <!-- Header -->
+          <div>
+            <svg
+              class="h-10 w-auto text-cyan-700"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M12.312 2.969c.943 0 1.844.297 2.61.859l-1.032 1.031a2.999 2.999 0 10-4.242 4.243L8.617 8.07A4.482 4.482 0 0112.312 6.5c.995 0 1.93.324 2.688.875l-1.047 1.047a1.5 1.5 0 102.121 2.121l1.047-1.047c.55 1.054.55 2.296 0 3.35l-1.047 1.047a1.5 1.5 0 102.121 2.121l1.047-1.047c.55.758.875 1.693.875 2.688a4.482 4.482 0 01-1.57 3.695l-1.031-1.032a2.999 2.999 0 10-4.243-4.242l1.032-1.031a4.482 4.482 0 01-3.695 1.57c-.995 0-1.93-.324-2.688-.875l1.047-1.047a1.5 1.5 0 10-2.121-2.121L6.72 15.15c-.55-1.054-.55-2.296 0-3.35l1.047-1.047a1.5 1.5 0 10-2.121-2.121L4.695 9.68A4.482 4.482 0 016.266 6c0-1.23.492-2.35 1.305-3.164L6.54 1.805A6.002 6.002 0 00.75 6.266c-1 2.387.104 5.234 2.227 7.357a1.5 1.5 0 002.121 0l1.016-1.016c.33-.33.33-.865 0-1.195l-1.047-1.047a2.983 2.983 0 010-4.218l1.047-1.047a1.5 1.5 0 000-2.121L5.11 2.227A6.024 6.024 0 006.266.75c2.515-1.104 5.362-.001 7.357 2.122l-1.31 1.31a4.48 4.48 0 01-2.61-.858z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            <h2 class="mt-4 text-2xl font-extrabold text-gray-800">
+              Sign in to your account
+            </h2>
+            <p class="mt-2 text-sm text-gray-600">
+              Or
+              <a href="#" class="font-medium text-cyan-600 hover:text-cyan-500"
+                >start your 14-day free trial</a
+              >
+            </p>
+          </div>
+
+          <!-- Form -->
+          <div
+            id="login-feedback"
+            class="hidden mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            data-role="feedback"
+          ></div>
+
+          <form id="loginForm" class="mt-6 space-y-6">
+            <div class="rounded-md shadow-sm -space-y-px">
+              <div>
+                <label for="email-address" class="sr-only"
+                  >Email or username</label
+                >
+                <input
+                  id="email-address"
+                  name="email"
+                  type="text"
+                  autocomplete="username"
+                  required
+                  class="form-input appearance-none rounded-none relative block w-full px-3 py-3 border placeholder-gray-500 text-gray-900 rounded-t-md focus:z-10 sm:text-sm"
+                  placeholder="Email or username"
+                />
+              </div>
+              <div class="relative">
+                <label for="password" class="sr-only">Password</label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autocomplete="current-password"
+                  required
+                  class="form-input appearance-none rounded-none relative block w-full px-3 py-3 border placeholder-gray-500 text-gray-900 rounded-b-md focus:z-10 sm:text-sm"
+                  placeholder="Password"
+                />
+                <button
+                  type="button"
+                  id="togglePassword"
+                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
+                >
+                  <!-- Eye icon for password visibility -->
+                  <svg
+                    id="eyeIcon"
+                    class="h-5 w-5 text-gray-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                    />
+                  </svg>
+                  <svg
+                    id="eyeOffIcon"
+                    class="h-5 w-5 text-gray-500 hidden"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.05 10.05 0 013.542-5.175M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c1.206 0 2.37.248 3.448.69M19.07 19.07L4.93 4.93"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <div class="flex items-center">
+                <input
+                  id="remember-me"
+                  name="remember-me"
+                  type="checkbox"
+                  class="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-300 rounded"
+                />
+                <label
+                  for="remember-me"
+                  class="ml-2 block text-sm text-gray-900"
+                >
+                  Remember me
+                </label>
+              </div>
+
+              <div class="text-sm">
+                <a
+                  href="#"
+                  class="font-medium text-cyan-600 hover:text-cyan-500"
+                >
+                  Forgot your password?
+                </a>
+              </div>
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                class="btn-primary group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500"
+                data-role="submit"
+              >
+                <span data-role="submit-text">Sign in</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Decorative Side Panel (Hidden on mobile) -->
+      <div
+        class="hidden md:flex flex-col items-center justify-center p-12 text-center vector-background relative"
+      >
+        <div class="z-10">
+          <h1
+            class="text-4xl lg:text-5xl font-extrabold text-white tracking-tight"
+          >
+            Unlock Your Classroom's Potential
+          </h1>
+          <p class="mt-6 text-lg text-cyan-100 max-w-lg">
+            Create engaging quizzes, track student progress, and gain valuable
+            insights, all in one seamless platform.
+          </p>
+        </div>
+      </div>
+    </div>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const loginForm = document.getElementById('loginForm');
+        const passwordInput = document.getElementById('password');
+        const togglePasswordBtn = document.getElementById('togglePassword');
+        const eyeIcon = document.getElementById('eyeIcon');
+        const eyeOffIcon = document.getElementById('eyeOffIcon');
+
+        // Toggle password visibility
+        togglePasswordBtn.addEventListener('click', () => {
+          const type =
+            passwordInput.getAttribute('type') === 'password'
+              ? 'text'
+              : 'password';
+          passwordInput.setAttribute('type', type);
+
+          // Toggle eye icons
+          eyeIcon.classList.toggle('hidden');
+          eyeOffIcon.classList.toggle('hidden');
+        });
+
+        // Handle form submission
+        loginForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const email = document.getElementById('email-address').value;
+          console.log(`Attempting login for email: ${email}`);
+
+          // Here you would add your Supabase authentication logic
+          // For now, it just logs to the console.
+
+          alert(
+            'Login functionality is for demonstration. Check the console for details.'
+          );
+
+          // Example of redirecting after a successful login
+          // window.location.href = 'teacher_dashboard.html';
+        });
+      });
+    </script>
+    <script>
+      window.__SUPABASE_CONFIG__ = window.__SUPABASE_CONFIG__ || {
+        url: 'https://ghnhfagydcynhkgbazbj.supabase.co',
+        anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobmhmYWd5ZGN5bmhrZ2JhemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwMDM2MjQsImV4cCI6MjA3NDU3OTYyNH0.KHgZ_ESTneR0CqWBGfu-JOmI3eBBLCZr1XG-g2vpclw',
+      };
+    </script>
+    <script type="module" src="./src/auth.js"></script>
+  </body>
+</html>

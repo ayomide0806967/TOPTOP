@@ -1,0 +1,638 @@
+import { getSupabaseClient } from '../../shared/supabaseClient.js';
+
+const elements = {
+  greeting: document.querySelector('[data-role="user-greeting"]'),
+  email: document.querySelector('[data-role="user-email"]'),
+  toast: document.querySelector('[data-role="toast"]'),
+  statStatus: document.querySelector('[data-role="stat-status"]'),
+  statProgress: document.querySelector('[data-role="stat-progress"]'),
+  statScore: document.querySelector('[data-role="stat-score"]'),
+  statStreak: document.querySelector('[data-role="stat-streak"]'),
+  progressBar: document.querySelector('[data-role="progress-bar"]'),
+  progressLabel: document.querySelector('[data-role="progress-label"]'),
+  quizTitle: document.querySelector('[data-role="quiz-title"]'),
+  quizSubtitle: document.querySelector('[data-role="quiz-subtitle"]'),
+  quizTimer: document.querySelector('[data-role="quiz-timer"]'),
+  quizTimerValue: document.querySelector('[data-role="quiz-timer-value"]'),
+  questions: document.querySelector('[data-role="questions"]'),
+  completionBanner: document.querySelector('[data-role="completion-banner"]'),
+  historyBody: document.querySelector('[data-role="history-body"]'),
+  historySummary: document.querySelector('[data-role="history-summary"]'),
+  regenerateBtn: document.querySelector('[data-role="regenerate-quiz"]'),
+  resumeBtn: document.querySelector('[data-role="resume-quiz"]'),
+  logoutBtn: document.querySelector('[data-role="logout"]'),
+  scheduleNotice: document.querySelector('[data-role="schedule-notice"]'),
+  scheduleHeadline: document.querySelector('[data-role="schedule-notice-headline"]'),
+  scheduleDetail: document.querySelector('[data-role="schedule-notice-detail"]'),
+  scheduleMeta: document.querySelector('[data-role="schedule-notice-meta"]'),
+};
+
+const state = {
+  supabase: null,
+  user: null,
+  profile: null,
+  todayQuiz: null,
+  history: [],
+  scheduleHealth: null,
+};
+
+const NOTICE_TONE_CLASSES = {
+  positive: ['border-emerald-200', 'bg-emerald-50', 'text-emerald-800'],
+  warning: ['border-amber-200', 'bg-amber-50', 'text-amber-800'],
+  danger: ['border-rose-200', 'bg-rose-50', 'text-rose-800'],
+  info: ['border-slate-200', 'bg-white', 'text-slate-700'],
+};
+
+const ALL_TONE_CLASSES = [
+  ...new Set(Object.values(NOTICE_TONE_CLASSES).flat()),
+];
+
+function showToast(message, type = 'info') {
+  if (!elements.toast) return;
+  elements.toast.textContent = message;
+  elements.toast.classList.remove('hidden');
+  elements.toast.classList.remove(
+    'border-red-200', 'bg-red-50', 'text-red-700',
+    'border-emerald-200', 'bg-emerald-50', 'text-emerald-700',
+    'border-sky-200', 'bg-sky-50', 'text-sky-700'
+  );
+
+  if (type === 'error') {
+    elements.toast.classList.add('border-red-200', 'bg-red-50', 'text-red-700');
+  } else if (type === 'success') {
+    elements.toast.classList.add('border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
+  } else {
+    elements.toast.classList.add('border-sky-200', 'bg-sky-50', 'text-sky-700');
+  }
+
+  window.clearTimeout(elements.toast.dataset.timeoutId);
+  const timeoutId = window.setTimeout(() => {
+    elements.toast?.classList.add('hidden');
+  }, 5000);
+  elements.toast.dataset.timeoutId = timeoutId;
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '—';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return dateString;
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function setScheduleTone(tone = 'info') {
+  const container = elements.scheduleNotice;
+  if (!container) return;
+  container.classList.remove(...ALL_TONE_CLASSES);
+  const classes = NOTICE_TONE_CLASSES[tone] || NOTICE_TONE_CLASSES.info;
+  container.classList.add(...classes);
+}
+
+function updateScheduleNotice(health) {
+  const container = elements.scheduleNotice;
+  if (!container) return;
+  const headline = elements.scheduleHeadline;
+  const detail = elements.scheduleDetail;
+  const meta = elements.scheduleMeta;
+
+  container.classList.add('hidden');
+  if (headline) headline.textContent = 'Daily schedule status';
+  if (detail) detail.textContent = 'Loading latest schedule data…';
+  if (meta) meta.textContent = '';
+
+  if (!health) {
+    return;
+  }
+
+  let tone = 'info';
+  let headlineText = '';
+  let detailText = '';
+  let metaText = '';
+  const target = Number(health.question_target ?? 0);
+  const count = Number(health.question_count ?? 0);
+  const missing = Number(health.missing_questions ?? 0);
+  const dayOffset = Number.isFinite(Number(health.day_offset))
+    ? Number(health.day_offset)
+    : null;
+  const dayLabel = dayOffset !== null ? `Day ${dayOffset + 1}` : null;
+
+  switch (health.status) {
+    case 'ready':
+    case 'published':
+      tone = 'positive';
+      headlineText = "Today's Question Pool is Ready";
+      detailText = target
+        ? `${count}/${target} questions prepared for your daily practice.`
+        : `${count} questions available for today.`;
+      break;
+    case 'underfilled':
+      tone = 'warning';
+      headlineText = "Today's pool is being prepared";
+      detailText = missing
+        ? `${missing} question${missing === 1 ? '' : 's'} still being added. Check back soon.`
+        : 'We are finalising a few more questions for today.';
+      break;
+    case 'planned':
+      tone = 'warning';
+      headlineText = "Today's pool is being finalised";
+      detailText = 'Your questions will be ready shortly.';
+      break;
+    case 'unscheduled':
+      tone = 'danger';
+      headlineText = 'Schedule not ready yet';
+      detailText = 'Your department has not scheduled this day yet.';
+      break;
+    case 'no_subscription':
+      tone = 'info';
+      headlineText = 'Subscription Required';
+      detailText = 'Activate a subscription plan to access daily questions.';
+      break;
+    case 'no_active_cycle':
+      tone = 'info';
+      headlineText = 'Next study slot starting soon';
+      detailText = 'Daily questions will be available once the upcoming slot begins.';
+      break;
+    case 'error':
+      tone = 'danger';
+      headlineText = 'Unable to load schedule';
+      detailText = health.message || 'Please refresh the page to try again.';
+      break;
+    default:
+      tone = 'info';
+      headlineText = 'Checking daily schedule…';
+      detailText = 'Loading your question pool status.';
+      break;
+  }
+
+  const cycleTitle = health.cycle_title ? `Cycle: ${health.cycle_title}` : '';
+  const windowDates =
+    health.starts_on || health.ends_on
+      ? `Window: ${formatDate(health.starts_on)} – ${formatDate(health.ends_on)}`
+      : '';
+  const nextReady = health.next_ready_date
+    ? `Next ready: ${formatDate(health.next_ready_date)}`
+    : '';
+  metaText = [cycleTitle, dayLabel, windowDates, nextReady]
+    .filter(Boolean)
+    .join(' · ');
+
+  if (headline) headline.textContent = headlineText;
+  if (detail) detail.textContent = detailText;
+  if (meta) meta.textContent = metaText;
+  setScheduleTone(tone);
+  container.classList.remove('hidden');
+}
+
+function updateHeader() {
+  if (state.profile?.full_name && elements.greeting) {
+    const firstName = state.profile.full_name.split(' ')[0];
+    elements.greeting.textContent = `Welcome back, ${firstName}`;
+  } else if (state.user?.email && elements.greeting) {
+    elements.greeting.textContent = `Welcome back, ${state.user.email.split('@')[0]}`;
+  }
+
+  if (elements.email && state.user?.email) {
+    elements.email.textContent = state.user.email;
+  }
+}
+
+function toPercent(numerator, denominator) {
+  if (!denominator) return 0;
+  return Math.round((numerator / denominator) * 100);
+}
+
+function updateQuizSection() {
+  // Hide timer and progress bar on main dashboard
+  if (elements.quizTimer) {
+    elements.quizTimer.classList.add('hidden');
+  }
+  if (elements.progressBar) {
+    elements.progressBar.style.width = '0%';
+  }
+  if (elements.progressLabel) {
+    elements.progressLabel.textContent = '';
+  }
+
+  // Update quiz card based on today's quiz status
+  if (!state.todayQuiz) {
+    // No quiz exists yet
+    if (elements.quizTitle) {
+      elements.quizTitle.textContent = "Today's Questions";
+    }
+    if (elements.quizSubtitle) {
+      elements.quizSubtitle.textContent = 'Your daily practice questions are ready to generate';
+    }
+    if (elements.resumeBtn) {
+      elements.resumeBtn.textContent = 'Start Daily Questions';
+      elements.resumeBtn.classList.remove('hidden');
+    }
+    if (elements.regenerateBtn) {
+      elements.regenerateBtn.classList.add('hidden');
+    }
+    if (elements.questions) {
+      elements.questions.innerHTML = `
+        <div class="rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center">
+          <svg class="h-16 w-16 mx-auto text-cyan-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+          </svg>
+          <h3 class="text-lg font-semibold text-slate-900 mb-2">Ready to Practice?</h3>
+          <p class="text-sm text-slate-600 mb-4">Click "Start Daily Questions" to begin your personalized practice session for today.</p>
+          <p class="text-xs text-slate-500">Questions are tailored to your department and study progress</p>
+        </div>
+      `;
+    }
+  } else if (state.todayQuiz.status === 'completed') {
+    // Quiz completed
+    if (elements.quizTitle) {
+      elements.quizTitle.textContent = "Today's Questions - Completed ✓";
+    }
+    if (elements.quizSubtitle) {
+      const score = state.todayQuiz.correct_answers || 0;
+      const total = state.todayQuiz.total_questions || 0;
+      const percent = total ? toPercent(score, total) : 0;
+      elements.quizSubtitle.textContent = `Score: ${score}/${total} (${percent}%)`;
+    }
+    if (elements.resumeBtn) {
+      elements.resumeBtn.textContent = 'Review Results';
+      elements.resumeBtn.classList.remove('hidden');
+    }
+    if (elements.regenerateBtn) {
+      elements.regenerateBtn.classList.remove('hidden');
+    }
+    if (elements.questions) {
+      elements.questions.innerHTML = `
+        <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-8 text-center">
+          <svg class="h-16 w-16 mx-auto text-emerald-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <h3 class="text-lg font-semibold text-emerald-900 mb-2">Great Job!</h3>
+          <p class="text-sm text-emerald-700 mb-4">You've completed today's questions. Click "Review Results" to see detailed feedback and corrections.</p>
+          <div class="flex justify-center gap-4 text-sm">
+            <span class="font-medium">Score: ${state.todayQuiz.correct_answers}/${state.todayQuiz.total_questions}</span>
+            <span class="font-medium">${toPercent(state.todayQuiz.correct_answers, state.todayQuiz.total_questions)}%</span>
+          </div>
+        </div>
+      `;
+    }
+    if (elements.completionBanner) {
+      elements.completionBanner.classList.remove('hidden');
+    }
+  } else {
+    // Quiz in progress or assigned
+    if (elements.quizTitle) {
+      elements.quizTitle.textContent = "Today's Questions - In Progress";
+    }
+    if (elements.quizSubtitle) {
+      elements.quizSubtitle.textContent = 'Continue where you left off';
+    }
+    if (elements.resumeBtn) {
+      elements.resumeBtn.textContent = 'Continue Quiz';
+      elements.resumeBtn.classList.remove('hidden');
+    }
+    if (elements.regenerateBtn) {
+      elements.regenerateBtn.classList.remove('hidden');
+    }
+    if (elements.questions) {
+      elements.questions.innerHTML = `
+        <div class="rounded-2xl border border-cyan-200 bg-cyan-50 px-6 py-8 text-center">
+          <svg class="h-16 w-16 mx-auto text-cyan-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <h3 class="text-lg font-semibold text-cyan-900 mb-2">Quiz in Progress</h3>
+          <p class="text-sm text-cyan-700 mb-4">You have an ongoing quiz session. Click "Continue Quiz" to resume answering questions.</p>
+          <p class="text-xs text-cyan-600">Your progress is automatically saved</p>
+        </div>
+      `;
+    }
+  }
+
+  updateStats();
+}
+
+function updateStats() {
+  // Update status
+  if (elements.statStatus) {
+    if (!state.todayQuiz) {
+      elements.statStatus.textContent = 'Not Started';
+    } else {
+      elements.statStatus.textContent = state.todayQuiz.status
+        ? state.todayQuiz.status.replace(/_/g, ' ')
+        : '—';
+    }
+  }
+
+  // Update progress
+  if (elements.statProgress) {
+    if (!state.todayQuiz) {
+      elements.statProgress.textContent = '0 / 0';
+    } else if (state.todayQuiz.status === 'completed') {
+      elements.statProgress.textContent = `${state.todayQuiz.total_questions} / ${state.todayQuiz.total_questions}`;
+    } else {
+      // For in-progress, we'd need to fetch actual answered count
+      elements.statProgress.textContent = '— / —';
+    }
+  }
+
+  // Update score
+  if (elements.statScore) {
+    if (!state.todayQuiz || state.todayQuiz.status !== 'completed') {
+      elements.statScore.textContent = '—';
+    } else {
+      elements.statScore.textContent = `${state.todayQuiz.correct_answers} correct`;
+    }
+  }
+}
+
+function renderHistory() {
+  if (!elements.historyBody) return;
+  if (!state.history.length) {
+    elements.historyBody.innerHTML =
+      '<tr><td class="px-4 py-4 text-slate-500" colspan="4">No quiz history yet. Complete today\'s quiz to start your streak.</td></tr>';
+    elements.historySummary.textContent = '0 completed this week';
+    if (elements.statStreak) {
+      elements.statStreak.textContent = '0 days';
+    }
+    return;
+  }
+
+  const rows = state.history
+    .map((item) => {
+      const statusBadge = (() => {
+        const base =
+          'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ';
+        if (item.status === 'completed') {
+          return `<span class="${base} bg-emerald-100 text-emerald-700">Completed</span>`;
+        }
+        if (item.status === 'in_progress') {
+          return `<span class="${base} bg-sky-100 text-sky-700">In Progress</span>`;
+        }
+        return `<span class="${base} bg-slate-100 text-slate-500">Assigned</span>`;
+      })();
+
+      const score = item.total_questions
+        ? `${item.correct_answers}/${item.total_questions} (${toPercent(item.correct_answers, item.total_questions)}%)`
+        : '—';
+
+      const reviewBtn = item.status === 'completed' 
+        ? `<button onclick="window.location.href='result-face.html?daily_quiz_id=${item.id}'" class="text-cyan-600 hover:text-cyan-700 text-sm font-medium">Review</button>`
+        : '—';
+
+      return `
+      <tr>
+        <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-700">${formatDate(item.assigned_date)}</td>
+        <td class="px-4 py-3">${statusBadge}</td>
+        <td class="px-4 py-3 text-sm text-slate-700">${score}</td>
+        <td class="px-4 py-3 text-sm text-slate-500">${reviewBtn}</td>
+      </tr>
+    `;
+    })
+    .join('');
+
+  elements.historyBody.innerHTML = rows;
+
+  const completedThisWeek = state.history.filter(
+    (item) => item.status === 'completed'
+  ).length;
+  elements.historySummary.textContent = `${completedThisWeek} completed in last ${state.history.length} days`;
+
+  const streak = calculateStreak(state.history);
+  if (elements.statStreak) {
+    elements.statStreak.textContent = `${streak} ${streak === 1 ? 'day' : 'days'}`;
+  }
+}
+
+function calculateStreak(history) {
+  const sorted = history
+    .map((item) => ({ ...item, assigned_date: item.assigned_date }))
+    .sort((a, b) => new Date(b.assigned_date) - new Date(a.assigned_date));
+
+  let streak = 0;
+  let cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+
+  for (const item of sorted) {
+    const itemDate = new Date(item.assigned_date);
+    itemDate.setHours(0, 0, 0, 0);
+
+    if (itemDate.getTime() === cursor.getTime()) {
+      if (item.status === 'completed') {
+        streak += 1;
+        cursor.setDate(cursor.getDate() - 1);
+        continue;
+      }
+      break;
+    }
+
+    if (itemDate < cursor) {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+async function loadScheduleHealth() {
+  if (!state.supabase) {
+    updateScheduleNotice(null);
+    return;
+  }
+  try {
+    const { data, error } = await state.supabase.rpc('get_user_schedule_health');
+    if (error) throw error;
+    state.scheduleHealth = data || null;
+    updateScheduleNotice(state.scheduleHealth);
+  } catch (error) {
+    console.error('[Dashboard] loadScheduleHealth failed', error);
+    state.scheduleHealth = { status: 'error', message: error.message };
+    updateScheduleNotice(state.scheduleHealth);
+  }
+}
+
+async function checkTodayQuiz() {
+  const today = new Date().toISOString().slice(0, 10);
+  
+  try {
+    const { data: quiz, error } = await state.supabase
+      .from('daily_quizzes')
+      .select('id, status, total_questions, correct_answers, started_at, completed_at, assigned_date')
+      .eq('user_id', state.user.id)
+      .eq('assigned_date', today)
+      .maybeSingle();
+
+    if (error) throw error;
+    state.todayQuiz = quiz;
+    updateQuizSection();
+  } catch (error) {
+    console.error('[Dashboard] checkTodayQuiz failed', error);
+    showToast('Unable to check today\'s quiz status', 'error');
+  }
+}
+
+async function startOrResumeQuiz() {
+  try {
+    if (!state.todayQuiz) {
+      // Generate new quiz first
+      showToast('Generating your daily questions...', 'info');
+      const { data: generated, error: generateError } = await state.supabase.rpc('generate_daily_quiz');
+      if (generateError) {
+        // Handle specific error messages
+        const message = generateError.message || '';
+        if (message.includes('no active subscription')) {
+          showToast('You need an active subscription to access daily questions', 'error');
+          return;
+        }
+        if (message.includes('no active study slot')) {
+          showToast('No active study slot for your department today', 'error');
+          return;
+        }
+        throw generateError;
+      }
+      
+      const quizId = Array.isArray(generated) ? generated[0]?.daily_quiz_id : generated?.daily_quiz_id;
+      if (!quizId) {
+        throw new Error('Failed to generate quiz');
+      }
+      
+      // Navigate to exam page
+      window.location.href = `exam-face.html?daily_quiz_id=${quizId}`;
+    } else if (state.todayQuiz.status === 'completed') {
+      // Navigate to results page
+      window.location.href = `result-face.html?daily_quiz_id=${state.todayQuiz.id}`;
+    } else {
+      // Resume existing quiz
+      window.location.href = `exam-face.html?daily_quiz_id=${state.todayQuiz.id}`;
+    }
+  } catch (error) {
+    console.error('[Dashboard] startOrResumeQuiz failed', error);
+    showToast(error.message || 'Unable to start quiz. Please try again.', 'error');
+  }
+}
+
+async function regenerateQuiz() {
+  if (!window.confirm('Generate a fresh quiz for today? Your previous answers will be cleared.')) {
+    return;
+  }
+  
+  try {
+    showToast('Generating new questions...', 'info');
+    const { error: genError } = await state.supabase.rpc('generate_daily_quiz');
+    if (genError) throw genError;
+    
+    await checkTodayQuiz();
+    await refreshHistory();
+    showToast('New daily quiz generated!', 'success');
+  } catch (error) {
+    console.error('[Dashboard] regenerateQuiz failed', error);
+    showToast(error.message || 'Unable to generate new quiz', 'error');
+  }
+}
+
+async function refreshHistory() {
+  try {
+    const { data, error } = await state.supabase
+      .from('daily_quizzes')
+      .select('id, assigned_date, status, total_questions, correct_answers, completed_at')
+      .eq('user_id', state.user.id)
+      .order('assigned_date', { ascending: false })
+      .limit(14);
+    if (error) throw error;
+
+    state.history = data || [];
+    renderHistory();
+  } catch (error) {
+    console.error('[Dashboard] refreshHistory failed', error);
+    showToast('Unable to load history', 'error');
+  }
+}
+
+async function ensureProfile() {
+  const fallbackName = state.user.email?.split('@')[0] ?? 'Learner';
+  try {
+    const { data, error } = await state.supabase
+      .from('profiles')
+      .select('id, full_name, role, last_seen_at')
+      .eq('id', state.user.id)
+      .maybeSingle();
+    if (error) throw error;
+
+    if (!data) {
+      const { data: inserted, error: insertError } = await state.supabase
+        .from('profiles')
+        .upsert({
+          id: state.user.id,
+          full_name: state.user.user_metadata?.full_name ?? fallbackName,
+          role: 'learner',
+          last_seen_at: new Date().toISOString(),
+        })
+        .select('id, full_name, role, last_seen_at')
+        .single();
+      if (insertError) throw insertError;
+      state.profile = inserted;
+    } else {
+      const { data: updated, error: updateError } = await state.supabase
+        .from('profiles')
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq('id', state.user.id)
+        .select('id, full_name, role, last_seen_at')
+        .single();
+      if (!updateError && updated) {
+        state.profile = updated;
+      } else {
+        state.profile = data;
+      }
+    }
+  } catch (error) {
+    console.error('[Dashboard] ensureProfile failed', error);
+    showToast('Unable to load profile', 'error');
+    state.profile = { full_name: fallbackName };
+  }
+}
+
+async function handleLogout() {
+  try {
+    await state.supabase.auth.signOut();
+    window.location.replace('login.html');
+  } catch (error) {
+    console.error('[Dashboard] signOut failed', error);
+    showToast('Unable to sign out. Please try again.', 'error');
+  }
+}
+
+async function initialise() {
+  try {
+    state.supabase = await getSupabaseClient();
+    const { data: { session } } = await state.supabase.auth.getSession();
+    if (!session?.user) {
+      window.location.replace('login.html');
+      return;
+    }
+    state.user = session.user;
+
+    state.supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (!newSession?.user) {
+        window.location.replace('login.html');
+      }
+    });
+
+    await ensureProfile();
+    updateHeader();
+
+    // Bind event listeners
+    elements.resumeBtn?.addEventListener('click', startOrResumeQuiz);
+    elements.regenerateBtn?.addEventListener('click', regenerateQuiz);
+    elements.logoutBtn?.addEventListener('click', handleLogout);
+
+    // Load data without auto-generating quiz
+    await loadScheduleHealth();
+    await checkTodayQuiz();
+    await refreshHistory();
+  } catch (error) {
+    console.error('[Dashboard] initialisation failed', error);
+    showToast('Something went wrong while loading the dashboard.', 'error');
+  }
+}
+
+initialise();

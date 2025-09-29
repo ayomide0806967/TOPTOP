@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Subscription Plans | Academic Nightingale</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        font-family: 'Segoe UI', 'Tahoma', 'Geneva', 'Verdana', sans-serif;
+      }
+      .plan-card {
+        position: relative;
+        border-radius: 1.75rem;
+        padding: 2.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.75rem;
+        background: var(
+          --card-bg,
+          linear-gradient(155deg, #f6e8d5 0%, #e6d0ab 45%, #cfb080 100%)
+        );
+        color: var(--card-text, #2d2114);
+        box-shadow: var(
+          --card-shadow,
+          0 40px 65px -30px rgba(87, 59, 25, 0.45)
+        );
+        transition:
+          transform 0.3s ease,
+          box-shadow 0.3s ease;
+      }
+      .plan-card:hover {
+        transform: translateY(-6px);
+        box-shadow: var(
+          --card-shadow-hover,
+          0 48px 80px -32px rgba(87, 59, 25, 0.55)
+        );
+      }
+      .plan-card--soft {
+        --card-bg: linear-gradient(
+          155deg,
+          #f6e8d5 0%,
+          #e6d0ab 45%,
+          #cfb080 100%
+        );
+        --card-text: #2d2114;
+        --card-icon-bg: rgba(255, 255, 255, 0.65);
+        --card-icon-color: rgba(82, 54, 27, 0.9);
+        --card-feature-icon: rgba(82, 54, 27, 0.9);
+        --card-pill-bg: rgba(255, 255, 255, 0.75);
+        --card-pill-text: #2d2114;
+        --card-footer-bg: linear-gradient(160deg, #1a140f 0%, #0f0a07 100%);
+        --card-footer-text: #f8e9d0;
+        --card-shadow: 0 40px 65px -30px rgba(87, 59, 25, 0.45);
+        --card-shadow-hover: 0 48px 80px -32px rgba(87, 59, 25, 0.55);
+      }
+      .plan-card--contrast {
+        --card-bg: linear-gradient(
+          155deg,
+          #302419 0%,
+          #1d140d 45%,
+          #0b0704 100%
+        );
+        --card-text: #f8ebd2;
+        --card-icon-bg: rgba(255, 255, 255, 0.18);
+        --card-icon-color: #f7e2ba;
+        --card-feature-icon: rgba(250, 224, 186, 0.95);
+        --card-pill-bg: rgba(248, 225, 184, 0.18);
+        --card-pill-text: #f5d9a8;
+        --card-footer-bg: linear-gradient(
+          155deg,
+          #f7e5b8 0%,
+          #eec88f 60%,
+          #dfb372 100%
+        );
+        --card-footer-text: #2d2114;
+        --card-shadow: 0 40px 65px -30px rgba(12, 10, 8, 0.7);
+        --card-shadow-hover: 0 50px 90px -35px rgba(12, 10, 8, 0.75);
+      }
+      .plan-card__badge {
+        display: inline-flex;
+        align-self: flex-start;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.9rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.2);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      }
+      .plan-card--soft .plan-card__badge {
+        color: #2d2114;
+        background: rgba(255, 255, 255, 0.78);
+      }
+      .plan-card__header {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+      }
+      .plan-card__icon {
+        width: 3.25rem;
+        height: 3.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 1.5rem;
+        background: var(--card-icon-bg, rgba(255, 255, 255, 0.6));
+        color: var(--card-icon-color, currentColor);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.45),
+          0 12px 30px -18px rgba(15, 23, 42, 0.55);
+      }
+      .plan-card__icon svg {
+        width: 1.75rem;
+        height: 1.75rem;
+      }
+      .plan-card__title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        letter-spacing: -0.015em;
+      }
+      .plan-card__subtitle {
+        margin-top: 0.35rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        opacity: 0.82;
+      }
+      .plan-card__features {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        font-size: 0.95rem;
+      }
+      .plan-card__features li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+      }
+      .plan-card__features svg {
+        flex-shrink: 0;
+        width: 1.05rem;
+        height: 1.05rem;
+        margin-top: 0.1rem;
+        color: var(--card-feature-icon, currentColor);
+      }
+      .plan-card__meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+      .plan-card__price {
+        font-size: 1.9rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .plan-card__price span {
+        display: block;
+        margin-top: 0.15rem;
+        font-size: 0.8rem;
+        font-weight: 500;
+        opacity: 0.8;
+        color: var(--card-price-muted, currentColor);
+      }
+      .plan-card__pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.4rem 0.9rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        border-radius: 9999px;
+        background: var(--card-pill-bg, rgba(255, 255, 255, 0.6));
+        color: var(--card-pill-text, currentColor);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+        text-decoration: none;
+      }
+      .plan-card__actions {
+        margin-top: auto;
+      }
+      .plan-card__cta {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 1.25rem;
+        padding: 0.95rem 1.5rem;
+        font-weight: 600;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        background: var(
+          --card-footer-bg,
+          linear-gradient(150deg, #15100b, #0d0805)
+        );
+        color: var(--card-footer-text, #f8e9d0);
+        box-shadow: var(
+          --card-footer-shadow,
+          0 18px 25px -20px rgba(15, 23, 42, 0.7)
+        );
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+      .plan-card__cta:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 20px 30px -20px rgba(15, 23, 42, 0.75);
+      }
+      @media (max-width: 640px) {
+        .plan-card {
+          padding: 2rem;
+        }
+        .plan-card__meta {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .plan-card__cta {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-slate-100 text-slate-900 antialiased">
+    <header class="bg-white/80 backdrop-blur border-b border-slate-200/60">
+      <div
+        class="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8"
+      >
+        <div class="flex items-center gap-3">
+          <svg
+            class="h-9 w-9 text-cyan-700"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M12.312 2.969c.943 0 1.844.297 2.61.859l-1.032 1.031a2.999 2.999 0 10-4.242 4.243L8.617 8.07A4.482 4.482 0 0112.312 6.5c.995 0 1.93.324 2.688.875l-1.047 1.047a1.5 1.5 0 102.121 2.121l1.047-1.047c.55 1.054.55 2.296 0 3.35l-1.047 1.047a1.5 1.5 0 102.121 2.121l1.047-1.047c.55.758.875 1.693.875 2.688a4.482 4.482 0 01-1.57 3.695l-1.031-1.032a2.999 2.999 0 10-4.243-4.242l1.032-1.031a4.482 4.482 0 01-3.695 1.57c-.995 0-1.93-.324-2.688-.875l1.047-1.047a1.5 1.5 0 10-2.121-2.121L4.695 9.68A4.482 4.482 0 016.266 6c0-1.23.492-2.35 1.305-3.164L6.54 1.805A6.002 6.002 0 00.75 6.266c-1 2.387.104 5.234 2.227 7.357a1.5 1.5 0 002.121 0l1.016-1.016c.33-.33.33-.865 0-1.195l-1.047-1.047a2.983 2.983 0 010-4.218l1.047-1.047a1.5 1.5 0 000-2.121L5.11 2.227A6.024 6.024 0 006.266.75c2.515-1.104 5.362-.001 7.357 2.122l-1.31 1.31a4.48 4.48 0 01-2.61-.858z"
+              clip-rule="evenodd"
+            ></path>
+          </svg>
+          <span class="text-lg font-semibold text-slate-800"
+            >Academic Nightingale</span
+          >
+        </div>
+        <nav
+          class="hidden items-center gap-6 text-sm font-medium text-slate-600 sm:flex"
+        >
+          <a href="index.html" class="hover:text-cyan-700">Home</a>
+          <a href="subscription-plans.html" class="text-cyan-700">Pricing</a>
+          <a href="login.html" class="hover:text-cyan-700">Learner Login</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+      <section class="text-center">
+        <span
+          class="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-cyan-700"
+          >Flexible Plans</span
+        >
+        <h1 class="mt-4 text-4xl font-extrabold text-slate-900 sm:text-5xl">
+          Plans that grow with your mastery
+        </h1>
+        <p class="mx-auto mt-4 max-w-3xl text-lg text-slate-600">
+          Pick the subscription that matches your pace. Every plan includes
+          curated questions, analytics, and study tools aligned with your
+          department.
+        </p>
+        <div
+          class="mt-8 flex flex-wrap justify-center gap-3"
+          data-role="department-tabs"
+        ></div>
+        <button
+          type="button"
+          data-role="change-department"
+          class="mt-4 hidden text-sm font-semibold text-cyan-700 hover:text-cyan-900"
+        >
+          Change department
+        </button>
+      </section>
+
+      <section class="mt-12">
+        <div
+          id="pricing-error"
+          class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          data-role="pricing-error"
+        ></div>
+        <div class="mt-6 space-y-12" data-role="pricing-grid"></div>
+      </section>
+
+      <section
+        class="mt-16 rounded-3xl bg-white p-8 shadow-xl shadow-cyan-500/10"
+      >
+        <h2 class="text-2xl font-semibold text-slate-900">Frequently Asked</h2>
+        <dl class="mt-6 space-y-5 text-sm text-slate-600">
+          <div>
+            <dt class="font-semibold text-slate-800">
+              Can I switch plans later?
+            </dt>
+            <dd class="mt-2">
+              Absolutely. Upgrading or downgrading keeps your study history and
+              analytics intact.
+            </dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-slate-800">
+              Do plans include daily quizzes?
+            </dt>
+            <dd class="mt-2">
+              Yes. Every active subscription unlocks adaptive daily quizzes
+              sourced from your department&apos;s content.
+            </dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-slate-800">
+              Is there institutional pricing?
+            </dt>
+            <dd class="mt-2">
+              Yes. Reach out to our team for cohort, faculty, or campus-wide
+              deployments.
+            </dd>
+          </div>
+        </dl>
+      </section>
+    </main>
+
+    <footer class="mt-16 border-t border-slate-200 bg-white/80">
+      <div
+        class="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"
+      >
+        <p>
+          &copy; <span id="pricing-year"></span> Academic Nightingale. All
+          rights reserved.
+        </p>
+        <div class="flex items-center gap-4">
+          <a
+            href="mailto:support@academicnightingale.com"
+            class="hover:text-cyan-700"
+            >Contact support</a
+          >
+          <a href="#" class="hover:text-cyan-700">Privacy policy</a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <script>
+      window.__PAYSTACK_CONFIG__ = window.__PAYSTACK_CONFIG__ || {
+        publicKey: 'pk_test_943cfcdf1016a38545eeeefed3a0735df0e2caf4',
+      };
+    </script>
+    <script>
+      window.__SUPABASE_CONFIG__ = window.__SUPABASE_CONFIG__ || {
+        url: 'https://ghnhfagydcynhkgbazbj.supabase.co',
+        anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobmhmYWd5ZGN5bmhrZ2JhemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwMDM2MjQsImV4cCI6MjA3NDU3OTYyNH0.KHgZ_ESTneR0CqWBGfu-JOmI3eBBLCZr1XG-g2vpclw',
+      };
+    </script>
+    <script type="module" src="./src/pricing.js"></script>
+
+    <div
+      data-role="department-gate"
+      class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/80 px-4"
+    >
+      <div class="w-full max-w-3xl rounded-2xl bg-white p-8 shadow-2xl">
+        <h2 class="text-2xl font-semibold text-slate-900">
+          Choose your department
+        </h2>
+        <p class="mt-2 text-sm text-slate-600">
+          We’ll personalise pricing and daily question bundles for your track.
+        </p>
+        <div
+          class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2"
+          data-role="department-options"
+        ></div>
+        <button
+          type="button"
+          data-role="select-general"
+          class="mt-6 inline-flex items-center justify-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-400 hover:text-slate-800"
+        >
+          Show other plans
+        </button>
+      </div>
+    </div>
+  </body>
+</html>

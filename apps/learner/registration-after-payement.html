@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Finish Setup | Academic Nightingale</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      html,
+      body {
+        font-family: 'Segoe UI', 'Tahoma', 'Geneva', 'Verdana', sans-serif;
+        background-color: #f8fafc;
+        color: #1a202c;
+      }
+
+      .decorative-panel-bg {
+        background: linear-gradient(160deg, #0e7490 0%, #0ca5b5 100%);
+      }
+
+      .form-input {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s ease;
+      }
+
+      .form-input:focus {
+        outline: none;
+        border-color: #0ca5b5;
+        box-shadow: 0 0 0 3px rgba(12, 165, 181, 0.2);
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #0e7490, #088ea5, #0ca5b5);
+        color: #ffffff;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(14, 116, 144, 0.3);
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(14, 116, 144, 0.35);
+      }
+
+      .btn-primary:disabled {
+        background: #94a3b8;
+        box-shadow: none;
+        cursor: not-allowed;
+      }
+
+      .strength-bar-container {
+        display: flex;
+        gap: 4px;
+        height: 4px;
+      }
+
+      .strength-bar {
+        flex-grow: 1;
+        border-radius: 9999px;
+        background-color: #e2e8f0;
+        transition: background-color 0.3s ease;
+      }
+    </style>
+  </head>
+  <body class="antialiased text-gray-900">
+    <div class="min-h-screen flex md:grid md:grid-cols-2">
+      <div class="w-full flex items-center justify-center p-6 sm:p-12">
+        <div class="w-full max-w-md" id="after-registration-form">
+          <div>
+            <svg
+              class="h-10 w-auto text-cyan-700"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M12.312 2.969c.943 0 1.844.297 2.61.859l-1.032 1.031a2.999 2.999 0 10-4.242 4.243L8.617 8.07A4.482 4.482 0 0112.312 6.5c.995 0 1.93.324 2.688.875l-1.047 1.047a1.5 1.5 0 102.121 2.121l1.047-1.047c.55 1.054.55 2.296 0 3.35l-1.047 1.047a1.5 1.5 0 102.121 2.121l1.047-1.047c.55.758.875 1.693.875 2.688a4.482 4.482 0 01-1.57 3.695l-1.031-1.032a2.999 2.999 0 10-4.243-4.242l1.032-1.031a4.482 4.482 0 01-3.695 1.57c-.995 0-1.93-.324-2.688-.875l1.047-1.047a1.5 1.5 0 10-2.121-2.121L6.72 15.15c-.55-1.054-.55-2.296 0-3.35l1.047-1.047a1.5 1.5 0 10-2.121-2.121L4.695 9.68A4.482 4.482 0 016.266 6c0-1.23.492-2.35 1.305-3.164L6.54 1.805A6.002 6.002 0 00.75 6.266c-1 2.387.104 5.234 2.227 7.357a1.5 1.5 0 002.121 0l1.016-1.016c.33-.33.33-.865 0-1.195l-1.047-1.047a2.983 2.983 0 010-4.218l1.047-1.047a1.5 1.5 0 000-2.121L5.11 2.227A6.024 6.024 0 006.266.75c2.515-1.104 5.362-.001 7.357 2.122l-1.31 1.31a4.48 4.48 0 01-2.61-.858z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            <p
+              class="mt-6 text-xs font-semibold uppercase tracking-wide text-slate-500"
+            >
+              Step 2 of 2
+            </p>
+            <h1 class="mt-2 text-3xl font-bold text-slate-900">
+              Create your login details
+            </h1>
+            <p class="mt-2 text-sm text-slate-600">
+              Choose a username and password. You’ll use them each time you sign
+              in.
+            </p>
+          </div>
+
+          <div
+            id="after-feedback"
+            class="mt-6 hidden rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            role="alert"
+          ></div>
+
+          <form id="afterForm" class="mt-6 space-y-6">
+            <div>
+              <label
+                for="after-email"
+                class="text-sm font-medium text-slate-700"
+                >Email</label
+              >
+              <input
+                id="after-email"
+                name="email"
+                type="email"
+                class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-500"
+                readonly
+              />
+              <p class="mt-1 text-xs text-slate-500">
+                We’ve locked your email to keep your receipt and account in
+                sync.
+              </p>
+            </div>
+
+            <div>
+              <label
+                for="after-username"
+                class="text-sm font-medium text-slate-700"
+                >Username</label
+              >
+              <input
+                id="after-username"
+                name="username"
+                type="text"
+                autocomplete="username"
+                required
+                class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
+                placeholder="Choose a unique username"
+              />
+            </div>
+
+            <div>
+              <label
+                for="after-password"
+                class="text-sm font-medium text-slate-700"
+                >New password</label
+              >
+              <input
+                id="after-password"
+                name="password"
+                type="password"
+                autocomplete="new-password"
+                required
+                class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
+                placeholder="Create a strong password"
+              />
+              <div
+                class="strength-bar-container mt-2"
+                data-role="strength-bars"
+              >
+                <span class="strength-bar"></span>
+                <span class="strength-bar"></span>
+                <span class="strength-bar"></span>
+                <span class="strength-bar"></span>
+              </div>
+            </div>
+
+            <div>
+              <label
+                for="after-confirm-password"
+                class="text-sm font-medium text-slate-700"
+                >Confirm password</label
+              >
+              <input
+                id="after-confirm-password"
+                name="confirm-password"
+                type="password"
+                autocomplete="new-password"
+                required
+                class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
+                placeholder="Re-enter your password"
+              />
+              <p
+                id="after-password-error"
+                class="mt-1 hidden text-xs text-red-600"
+              >
+                Passwords do not match.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              class="btn-primary flex w-full items-center justify-center rounded-md px-4 py-3 text-sm font-semibold"
+              data-role="submit"
+            >
+              <span data-role="submit-text">Save and continue</span>
+            </button>
+          </form>
+        </div>
+
+        <div id="after-success" class="hidden w-full max-w-md text-center">
+          <div
+            class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100"
+          >
+            <svg
+              class="h-12 w-12 text-green-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+          <h2 class="mt-6 text-2xl font-extrabold text-slate-900">
+            You’re all set!
+          </h2>
+          <p class="mt-2 text-sm text-slate-600">
+            Use your new username and password to sign in and access your
+            dashboard.
+          </p>
+          <div class="mt-6 grid gap-3">
+            <a
+              href="login.html"
+              class="btn-primary block rounded-md px-4 py-3 text-sm font-semibold"
+              >Continue to sign in</a
+            >
+            <button
+              type="button"
+              id="after-go-dashboard"
+              class="rounded-md border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-slate-400"
+            >
+              Jump to dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="decorative-panel-bg relative hidden overflow-hidden p-12 text-center text-white md:flex md:flex-col md:items-center md:justify-center"
+      >
+        <div class="z-10 max-w-md">
+          <h2 class="text-3xl font-bold tracking-tight">
+            Welcome to the Nightingale study studio
+          </h2>
+          <p class="mt-4 text-lg opacity-90">
+            Your personalised daily drills and progress analytics unlock the
+            moment you sign in.
+          </p>
+          <div class="mt-8 grid gap-4 text-left text-sm">
+            <div class="rounded-2xl bg-white/10 p-4 backdrop-blur">
+              <h3 class="font-semibold text-white">Daily adaptive practice</h3>
+              <p class="mt-1 opacity-80">
+                We’ll send tailored question sets to your inbox every morning.
+              </p>
+            </div>
+            <div class="rounded-2xl bg-white/10 p-4 backdrop-blur">
+              <h3 class="font-semibold text-white">
+                Instant progress tracking
+              </h3>
+              <p class="mt-1 opacity-80">
+                See where you’re strongest and where to focus next.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      window.__SUPABASE_CONFIG__ = window.__SUPABASE_CONFIG__ || {
+        url: 'https://ghnhfagydcynhkgbazbj.supabase.co',
+        anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobmhmYWd5ZGN5bmhrZ2JhemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwMDM2MjQsImV4cCI6MjA3NDU3OTYyNH0.KHgZ_ESTneR0CqWBGfu-JOmI3eBBLCZr1XG-g2vpclw',
+      };
+    </script>
+    <script type="module" src="./src/registration-after.js"></script>
+  </body>
+</html>

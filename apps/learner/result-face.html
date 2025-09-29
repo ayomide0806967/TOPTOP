@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quiz Results</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      :root {
+        --teal: #157a6e;
+        --teal-ink: #0f5a52;
+        --ink: #111827;
+        --muted: #6b7280;
+        --line: #e5e7eb;
+        --soft: #f8fafc;
+        --ok-bg: #e7f6f2;
+        --ok-border: #1a8a7d;
+        --bad-bg: #fce8e6;
+        --bad-border: #d93025;
+        --user-selected-bg: #fce8e6;
+        --user-selected-border: #d93025;
+        --correct-selected-bg: #e8f5e9;
+        --correct-selected-border: #388e3c;
+      }
+      body {
+        background: #fafafa;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+      .wrap {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 20px 16px;
+      }
+      .page-title {
+        font-size: 22px;
+        line-height: 1.25;
+        font-weight: 800;
+        color: var(--ink);
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
+      }
+      .page-meta {
+        margin-top: 6px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin: 16px 0 22px;
+      }
+      .stat {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+        background: #fff;
+      }
+      .stat .value {
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--teal-ink);
+      }
+      .stat .label {
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      @media (min-width: 720px) {
+        .stats {
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+        }
+      }
+      .q-list {
+        margin-top: 22px;
+      }
+      .q-block {
+        padding: 18px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .q-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .q-num {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .q-scorepill {
+        font-size: 12px;
+        font-weight: 600;
+        color: #4b5563;
+        background: #f3f4f6;
+        padding: 3px 8px;
+        border-radius: 999px;
+      }
+      .q-text {
+        font-size: 16px;
+        line-height: 1.55;
+        color: var(--ink);
+      }
+      .options {
+        margin-top: 10px;
+        display: grid;
+        gap: 8px;
+      }
+      .opt {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        font-size: 16px;
+        color: var(--ink);
+        border-radius: 8px;
+        padding: 8px 12px;
+        border: 2px solid transparent;
+        transition: all 0.2s ease;
+      }
+      .opt input {
+        margin-top: 3px;
+        width: 16px;
+        height: 16px;
+        accent-color: var(--teal);
+      }
+      .opt span {
+        line-height: 1.5;
+        flex: 1;
+      }
+      .opt.user-selected-correct {
+        background: var(--correct-selected-bg);
+        border-color: var(--correct-selected-border);
+      }
+      .opt.user-selected-incorrect {
+        background: var(--user-selected-bg);
+        border-color: var(--user-selected-border);
+      }
+      .opt.correct-answer {
+        background: var(--ok-bg);
+        border-color: var(--ok-border);
+      }
+      .answer-box {
+        margin-top: 12px;
+        padding: 12px 14px;
+        background: var(--ok-bg);
+        border-left: 4px solid var(--ok-border);
+        border-radius: 6px;
+      }
+      .answer-box .lbl {
+        display: block;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        margin-bottom: 4px;
+        color: var(--teal-ink);
+      }
+      .answer-box .val {
+        font-size: 15px;
+        color: var(--ink);
+      }
+      .user-text {
+        margin-top: 10px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .user-chip {
+        display: inline-block;
+        padding: 6px 8px;
+        border-radius: 6px;
+        font-size: 14px;
+        margin-top: 6px;
+      }
+      .user-chip.ok {
+        background: var(--ok-bg);
+        border: 1px solid var(--ok-border);
+      }
+      .user-chip.bad {
+        background: var(--bad-bg);
+        border: 1px solid var(--bad-border);
+      }
+      .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-left: 8px;
+        padding: 2px 8px;
+        border-radius: 12px;
+      }
+      .status-indicator.correct {
+        background: var(--ok-bg);
+        color: var(--ok-border);
+      }
+      .status-indicator.incorrect {
+        background: var(--bad-bg);
+        color: var(--bad-border);
+      }
+      .status-indicator.skipped {
+        background: #f3f4f6;
+        color: #6b7280;
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin: 22px 0 8px;
+      }
+      .btn {
+        appearance: none;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: #1a73e8;
+        padding: 10px 18px;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        font-size: 14px;
+        transition: all 0.2s ease;
+      }
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+      .btn.primary {
+        background: var(--teal);
+        color: #fff;
+        border-color: var(--teal);
+      }
+      @media (max-width: 480px) {
+        .wrap {
+          padding: 16px 12px;
+        }
+        .page-title {
+          font-size: 18px;
+        }
+        .stats {
+          grid-template-columns: 1fr 1fr;
+        }
+        .stat .value {
+          font-size: 20px;
+        }
+        .q-text {
+          font-size: 15px;
+        }
+        .opt {
+          font-size: 14px;
+          padding: 6px 10px;
+        }
+        .btn {
+          font-size: 13px;
+          padding: 8px 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1 id="quiz-title" class="page-title">Quiz Results</h1>
+      <p id="quiz-meta" class="page-meta"></p>
+
+      <section class="stats" aria-label="Summary statistics">
+        <div class="stat">
+          <div id="stat-score" class="value">--/--</div>
+          <div class="label">Score</div>
+        </div>
+        <div class="stat">
+          <div id="stat-percentage" class="value">--%</div>
+          <div class="label">Percentage</div>
+        </div>
+        <div class="stat">
+          <div id="stat-time-used" class="value">--</div>
+          <div class="label">Time Used</div>
+        </div>
+        <div class="stat">
+          <div id="stat-total-time" class="value">--</div>
+          <div class="label">Total Time</div>
+        </div>
+        <div class="stat">
+          <div id="stat-correct" class="value">--</div>
+          <div class="label">Correct</div>
+        </div>
+        <div class="stat">
+          <div id="stat-wrong" class="value">--</div>
+          <div class="label">Wrong/Skipped</div>
+        </div>
+      </section>
+
+      <section
+        id="questions-list"
+        class="q-list"
+        aria-label="Your answers"
+      ></section>
+
+      <div class="actions">
+        <a id="retake-btn" class="btn" href="#">Retake Quiz</a>
+        <a class="btn primary" href="teacher_dashboard.html"
+          >Back to Dashboard</a
+        >
+      </div>
+    </div>
+
+    <script>
+      if (false) {
+        // Disable legacy mock implementation
+        // --- MOCK DATA ---
+        const MOCK_RESULTS = {
+          quizTitle: 'Sample Biology Quiz',
+          completedDate: '2025-09-26T10:30:00Z',
+          score: 1,
+          totalQuestions: 3,
+          percentage: 33.3,
+          timeUsed: 125, // seconds
+          timeLimit: 300, // seconds
+          responses: [
+            {
+              question: {
+                text: 'What is the powerhouse of the cell?',
+                question_type: 'multiple-choice',
+                options: [
+                  { text: 'Nucleus', is_correct: false },
+                  { text: 'Mitochondrion', is_correct: true },
+                  { text: 'Ribosome', is_correct: false },
+                  { text: 'Cell Wall', is_correct: false },
+                ],
+                explanation:
+                  "The mitochondrion is responsible for generating most of the cell's supply of adenosine triphosphate (ATP), used as a source of chemical energy.",
+              },
+              selected_option_indices: [0], // User selected "Nucleus"
+              is_correct: false,
+              short_answer: null,
+            },
+            {
+              question: {
+                text: 'What gas do plants absorb from the atmosphere?',
+                question_type: 'multiple-choice',
+                options: [
+                  { text: 'Oxygen', is_correct: false },
+                  { text: 'Nitrogen', is_correct: false },
+                  { text: 'Carbon Dioxide', is_correct: true },
+                  { text: 'Hydrogen', is_correct: false },
+                ],
+                explanation: null,
+              },
+              selected_option_indices: [2], // User selected "Carbon Dioxide"
+              is_correct: true,
+              short_answer: null,
+            },
+            {
+              question: {
+                text: 'What is the largest organ in the human body?',
+                question_type: 'short-answer',
+                options: [{ text: 'Skin', is_correct: true }], // Correct answer for text questions
+                explanation:
+                  "The skin is the body's largest organ, providing a protective barrier against pathogens and injuries from the environment.",
+              },
+              selected_option_indices: [],
+              is_correct: false,
+              short_answer: 'The heart', // User's incorrect text answer
+            },
+          ],
+        };
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+          const data = MOCK_RESULTS;
+
+          // --- Populate Header & Stats ---
+          document.getElementById('quiz-title').textContent = data.quizTitle;
+          const completedDate = new Date(data.completedDate);
+          document.getElementById('quiz-meta').textContent =
+            `${data.quizTitle} • Completed on ${completedDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })} at ${completedDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+
+          document.getElementById('stat-score').textContent =
+            `${data.score}/${data.totalQuestions}`;
+          document.getElementById('stat-percentage').textContent =
+            `${data.percentage.toFixed(1)}%`;
+          document.getElementById('stat-time-used').textContent = formatTime(
+            data.timeUsed
+          );
+          document.getElementById('stat-total-time').textContent =
+            data.timeLimit ? formatTime(data.timeLimit) : 'No limit';
+
+          // --- Render Question Responses ---
+          const questionsList = document.getElementById('questions-list');
+          questionsList.innerHTML = ''; // Clear any placeholders
+          let correctCount = 0;
+
+          data.responses.forEach((response, index) => {
+            const questionBlock = document.createElement('article');
+            const isSkipped =
+              !response.short_answer &&
+              response.selected_option_indices.length === 0;
+
+            questionBlock.className = 'q-block';
+            if (response.is_correct) correctCount++;
+
+            let statusIndicator = '';
+            if (response.is_correct) {
+              statusIndicator = `<span class="status-indicator correct">✓ Correct</span>`;
+            } else if (isSkipped) {
+              statusIndicator = `<span class="status-indicator skipped">○ Skipped</span>`;
+            } else {
+              statusIndicator = `<span class="status-indicator incorrect">✗ Incorrect</span>`;
+            }
+
+            let questionBody = '';
+            const q = response.question;
+
+            if (q.question_type === 'multiple-choice') {
+              const optionsHtml = q.options
+                .map((option, optIndex) => {
+                  const wasSelected =
+                    response.selected_option_indices.includes(optIndex);
+                  let optClass = 'opt';
+                  if (wasSelected) {
+                    optClass += option.is_correct
+                      ? ' user-selected-correct'
+                      : ' user-selected-incorrect';
+                  } else if (option.is_correct && !response.is_correct) {
+                    optClass += ' correct-answer';
+                  }
+
+                  return `
+                    <label class="${optClass}">
+                        <input type="radio" disabled ${wasSelected ? 'checked' : ''}>
+                        <span>${option.text}</span>
+                    </label>
+                `;
+                })
+                .join('');
+
+              questionBody += `<div class="options">${optionsHtml}</div>`;
+            } else if (q.question_type === 'short-answer') {
+              questionBody += `
+                <div class="user-text">Your answer</div>
+                <div class="user-chip ${response.is_correct ? 'ok' : 'bad'}">
+                    ${response.short_answer || 'No answer provided'}
+                </div>
+             `;
+            }
+
+            if (!response.is_correct && !isSkipped) {
+              const correctAnswers = q.options
+                .filter((o) => o.is_correct)
+                .map((o) => o.text)
+                .join(', ');
+              questionBody += `
+                <div class="answer-box" aria-live="polite">
+                    <strong class="lbl">CORRECT ANSWER</strong>
+                    <div class="val">${correctAnswers}</div>
+                </div>
+            `;
+            }
+
+            if (q.explanation) {
+              questionBody += `
+                <details class="exp" style="margin-top:10px;">
+                    <summary style="cursor:pointer; font-size:14px; color:var(--muted);">Explanation</summary>
+                    <div style="margin-top:8px; font-size:14px; color:var(--muted); line-height:1.55;">${q.explanation}</div>
+                </details>
+            `;
+            }
+
+            questionBlock.innerHTML = `
+            <div class="q-head">
+                <div class="q-num">Question ${index + 1}</div>
+                <div class="q-scorepill">
+                    ${response.is_correct ? '1/1' : '0/1'}
+                    ${statusIndicator}
+                </div>
+            </div>
+            <div class="q-text">${q.text}</div>
+            ${questionBody}
+        `;
+            questionsList.appendChild(questionBlock);
+          });
+
+          // Final stat counts
+          document.getElementById('stat-correct').textContent = correctCount;
+          document.getElementById('stat-wrong').textContent =
+            data.totalQuestions - correctCount;
+
+          // Set retake link
+          const urlParams = new URLSearchParams(window.location.search);
+          const quizId = urlParams.get('quiz_id') || 'default-quiz-id';
+          document.getElementById('retake-btn').href =
+            `simple_quiz_template.html?quiz_id=${quizId}`;
+        });
+
+        function formatTime(totalSeconds) {
+          if (totalSeconds === null || totalSeconds === undefined) return '--';
+          const hours = Math.floor(totalSeconds / 3600);
+          const minutes = Math.floor((totalSeconds % 3600) / 60);
+          const seconds = totalSeconds % 60;
+
+          if (hours > 0) return `${hours}h ${minutes}m`;
+          if (minutes > 0) return `${minutes}m ${seconds}s`;
+          return `${seconds}s`;
+        }
+      }
+    </script>
+    <script>
+      window.__SUPABASE_CONFIG__ = window.__SUPABASE_CONFIG__ || {
+        url: 'https://ghnhfagydcynhkgbazbj.supabase.co',
+        anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobmhmYWd5ZGN5bmhrZ2JhemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwMDM2MjQsImV4cCI6MjA3NDU3OTYyNH0.KHgZ_ESTneR0CqWBGfu-JOmI3eBBLCZr1XG-g2vpclw',
+      };
+    </script>
+    <script type="module" src="./src/result-face.js"></script>
+  </body>
+</html>

@@ -1,0 +1,44 @@
+node_modules/
+.env
+.DS_Store
+*.log
+dist/
+build/
+coverage/
+.nyc_output/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment specific files
+.env*.local
+.env*.backup
+.env.local
+.env.production.local
+.env.testing.local
+
+# Next.js
+.next/
+out/
+
+# Nuxt.js
+.nuxt/
+.output/
+dist/
+
+# Supabase
+supabase/.temp/
+supabase/migrations/
+
+# Database
+*.db
+*.db-journal
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Icon?
+.appleDouble
+.Trashes

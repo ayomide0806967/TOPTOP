@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Academic Nightingale | Home</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: 'Segoe UI', 'Tahoma', 'Geneva', 'Verdana', sans-serif;
+        background-color: #f8fafc;
+        color: #1a202c;
+      }
+
+      /* --- Animations --- */
+      .fade-in-section {
+        opacity: 0;
+        transform: translateY(20px);
+        transition:
+          opacity 0.6s ease-out,
+          transform 0.6s ease-out;
+      }
+      .fade-in-section.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* --- Header --- */
+      .header-sticky {
+        transition: all 0.3s ease-in-out;
+      }
+
+      /* --- Hero Section (New Design) --- */
+      .hero-bg {
+        background-color: #f5f1e9;
+      }
+      .hero-headline {
+        font-size: clamp(2.5rem, 6vw, 4.5rem);
+        line-height: 1.1;
+        font-weight: 800;
+        color: #1a202c;
+      }
+      .hero-headline span {
+        text-decoration: underline;
+        text-decoration-thickness: 3px;
+        text-decoration-color: #d1c9bc;
+      }
+
+      /* --- Trust Bar (Marquee Slider) --- */
+      .marquee {
+        overflow: hidden;
+        position: relative;
+        width: 100%;
+      }
+      .marquee-track {
+        display: flex;
+        animation: marquee 30s linear infinite;
+        white-space: nowrap;
+      }
+      .marquee-item {
+        flex-shrink: 0;
+        padding: 0 2rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: #4a5568;
+      }
+      @keyframes marquee {
+        0% {
+          transform: translateX(0);
+        }
+        100% {
+          transform: translateX(-50%);
+        }
+      }
+
+      /* --- New Feature Card Styling --- */
+      .feature-card {
+        border-radius: 1.5rem;
+        transition: all 0.3s ease;
+        text-align: center;
+      }
+      .feature-card:hover {
+        transform: translateY(-8px);
+        box-shadow:
+          0 20px 25px -5px rgba(0, 0, 0, 0.05),
+          0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      }
+      .feature-card-beige {
+        background-color: #f5f1e9;
+      }
+      .feature-card-green {
+        background-color: #e9f5f1;
+      }
+      .feature-card-purple {
+        background-color: #f1e9f5;
+      }
+
+      /* --- Testimonial Slider (Robust Version) --- */
+      .testimonial-container {
+        position: relative;
+        text-align: center;
+      }
+      .testimonial {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        opacity: 0;
+        transition: opacity 1s ease-in-out;
+      }
+      .testimonial.active {
+        opacity: 1;
+        position: relative;
+      }
+
+      /* --- Button Styles --- */
+      .btn-primary {
+        background: linear-gradient(135deg, #0e7490, #088ea5, #0ca5b5);
+        color: #ffffff;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(14, 116, 144, 0.3);
+      }
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(14, 116, 144, 0.4);
+      }
+      .btn-secondary {
+        background-color: #fff;
+        color: #0e7490;
+        border: 1px solid #e2e8f0;
+      }
+    </style>
+  </head>
+  <body class="antialiased">
+    <!-- Sticky Header -->
+    <header
+      id="sticky-header"
+      class="header-sticky fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-lg border-b border-gray-200/50 shadow-sm opacity-0 -translate-y-full"
+    >
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <div class="flex items-center space-x-3">
+            <svg
+              class="h-8 w-auto text-cyan-700"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M12.312 2.969c.943 0 1.844.297 2.61.859l-1.032 1.031a2.999 2.999 0 10-4.242 4.243L8.617 8.07A4.482 4.482 0 0112.312 6.5c.995 0 1.93.324 2.688.875l-1.047 1.047a1.5 1.5 0 102.121 2.121l1.047-1.047c.55 1.054.55 2.296 0 3.35l-1.047 1.047a1.5 1.5 0 102.121 2.121l1.047-1.047c.55.758.875 1.693.875 2.688a4.482 4.482 0 01-1.57 3.695l-1.031-1.032a2.999 2.999 0 10-4.243-4.242l1.032-1.031a4.482 4.482 0 01-3.695 1.57c-.995 0-1.93-.324-2.688-.875l1.047-1.047a1.5 1.5 0 10-2.121-2.121L6.72 15.15c-.55-1.054-.55-2.296 0-3.35l1.047-1.047a1.5 1.5 0 10-2.121-2.121L4.695 9.68A4.482 4.482 0 016.266 6c0-1.23.492-2.35 1.305-3.164L6.54 1.805A6.002 6.002 0 00.75 6.266c-1 2.387.104 5.234 2.227 7.357a1.5 1.5 0 002.121 0l1.016-1.016c.33-.33.33-.865 0-1.195l-1.047-1.047a2.983 2.983 0 010-4.218l1.047-1.047a1.5 1.5 0 000-2.121L5.11 2.227A6.024 6.024 0 006.266.75c2.515-1.104 5.362-.001 7.357 2.122l-1.31 1.31a4.48 4.48 0 01-2.61-.858z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            <span class="font-bold text-lg text-gray-800"
+              >Academic Nightingale</span
+            >
+          </div>
+          <div class="hidden md:flex items-center space-x-8">
+            <a
+              href="#features"
+              class="text-gray-600 hover:text-cyan-700 font-medium"
+              >Features</a
+            >
+            <a
+              href="subscription-plans.html"
+              class="text-gray-600 hover:text-cyan-700 font-medium"
+              >Pricing</a
+            >
+            <a
+              href="#footer"
+              class="text-gray-600 hover:text-cyan-700 font-medium"
+              >About</a
+            >
+          </div>
+          <div class="flex items-center space-x-2">
+            <a
+              href="login.html"
+              class="btn-secondary px-4 py-2 rounded-lg text-sm font-semibold"
+              >Log In</a
+            >
+            <a
+              href="subscription-plans.html"
+              class="btn-primary px-4 py-2 rounded-lg text-sm font-semibold"
+              >Sign Up</a
+            >
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- Hero Section -->
+      <section class="hero-bg pt-24 pb-20 sm:pt-32 sm:pb-28">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="grid md:grid-cols-2 gap-12 items-center">
+            <div class="text-center md:text-left">
+              <h1 class="hero-headline">
+                Learn, Take <span>Mock Exams</span>, Build Quizzes, Host
+                <span>Realtime Exams</span>
+              </h1>
+              <p class="mt-6 max-w-xl mx-auto md:mx-0 text-lg text-gray-600">
+                Master your exams with daily questions, detailed analytics, and
+                realistic mock tests tailored to your department. Your journey
+                to excellence starts here.
+              </p>
+              <div class="mt-10 flex justify-center md:justify-start gap-x-4">
+                <a
+                  href="subscription-plans.html"
+                  class="btn-primary inline-block px-8 py-3 rounded-lg text-base font-semibold shadow-lg"
+                >
+                  Get Started for Free
+                </a>
+              </div>
+            </div>
+            <div class="hidden md:block">
+              <!-- Medical/Educational Illustration -->
+              <svg
+                class="w-full h-auto text-gray-700"
+                viewBox="0 0 200 150"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M60 130C40 120 30 90 45 70C60 50 80 55 90 75"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M90 75C100 95 120 100 140 90C160 80 165 50 150 30C135 10 110 15 100 35"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M100 35C95 55 90 75 90 75"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <circle cx="45" cy="70" r="4" fill="#0ca5b5" />
+                <circle cx="90" cy="75" r="5" fill="#0e7490" />
+                <circle cx="150" cy="30" r="4" fill="#0ca5b5" />
+                <circle cx="100" cy="35" r="3" fill="#088ea5" />
+                <circle cx="140" cy="90" r="3" fill="#088ea5" />
+                <path
+                  d="M10 140 L190 140"
+                  stroke="#d1c9bc"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Trust Bar Section -->
+      <section class="py-12 bg-white">
+        <div class="marquee">
+          <div class="marquee-track">
+            <!-- Items are duplicated for a seamless loop -->
+            <div class="marquee-item">
+              <img
+                src="https://placehold.co/40x40/0e7490/FFFFFF?text=N"
+                alt="NCLEX Logo"
+                class="h-8"
+              />
+              <span class="font-semibold">NCLEX-RN & NCLEX-PN Formats</span>
+            </div>
+            <div class="marquee-item">
+              <img
+                src="https://placehold.co/40x40/15803d/FFFFFF?text=N"
+                alt="NMCN Logo"
+                class="h-8"
+              />
+              <span class="font-semibold">NMCN-Standard Questions</span>
+            </div>
+            <div class="marquee-item">
+              <img
+                src="https://placehold.co/40x40/be123c/FFFFFF?text=C"
+                alt="CBT Logo"
+                class="h-8"
+              />
+              <span class="font-semibold">International CBT Structure</span>
+            </div>
+            <div class="marquee-item">
+              <img
+                src="https://placehold.co/40x40/0e7490/FFFFFF?text=N"
+                alt="NCLEX Logo"
+                class="h-8"
+              />
+              <span class="font-semibold">NCLEX-RN & NCLEX-PN Formats</span>
+            </div>
+            <div class="marquee-item">
+              <img
+                src="https://placehold.co/40x40/15803d/FFFFFF?text=N"
+                alt="NMCN Logo"
+                class="h-8"
+              />
+              <span class="font-semibold">NMCN-Standard Questions</span>
+            </div>
+            <div class="marquee-item">
+              <img
+                src="https://placehold.co/40x40/be123c/FFFFFF?text=C"
+                alt="CBT Logo"
+                class="h-8"
+              />
+              <span class="font-semibold">International CBT Structure</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Mission Section -->
+      <section class="py-20 sm:py-24 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="border-t border-gray-200 pt-16">
+            <div
+              class="grid md:grid-cols-2 gap-8 md:gap-16 items-start fade-in-section"
+            >
+              <!-- Left Column: Bold Heading -->
+              <div>
+                <h2
+                  class="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight leading-snug"
+                >
+                  At Academic Nightingale, we build tools to serve the long-term
+                  well-being of healthcare professionals.
+                </h2>
+              </div>
+              <!-- Right Column: Descriptive Text -->
+              <div>
+                <p class="text-lg text-gray-600">
+                  While no one can foresee every challenge in a medical career,
+                  we know that designing powerful educational technologies
+                  requires both bold steps forward and intentional pauses to
+                  consider the effects on learning and practice.
+                </p>
+                <p class="mt-4 text-lg text-gray-600">
+                  That’s why we focus on building tools with human benefit at
+                  their foundation. Through our daily research, collaboration
+                  with educators, and thoughtful product design, we aim to show
+                  what responsible educational development looks like in
+                  practice.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Features Section -->
+      <section id="features" class="py-20 sm:py-24">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center fade-in-section">
+            <h2 class="text-3xl font-extrabold text-gray-900">
+              A Smarter Way to Study
+            </h2>
+            <p class="mt-4 text-lg text-gray-600">
+              Everything you need to succeed, all in one platform.
+            </p>
+          </div>
+          <div class="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="feature-card feature-card-beige p-8 fade-in-section">
+              <svg
+                class="h-20 w-20 mx-auto text-gray-700"
+                fill="none"
+                viewBox="0 0 80 80"
+                stroke-width="1.5"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M25.5 12.5l-4 4m8-4l4 4m-4-4v10m-14 4.5a7.5 7.5 0 01-7.5-7.5V17a7.5 7.5 0 017.5-7.5h35a7.5 7.5 0 017.5 7.5v2a7.5 7.5 0 01-7.5 7.5H27.5m-2 0H15.5a7.5 7.5 0 00-7.5 7.5v20a7.5 7.5 0 007.5 7.5h35a7.5 7.5 0 007.5-7.5V47a7.5 7.5 0 00-7.5-7.5H27.5m-2 0v20m0-20H42.5m-17-20v20"
+                />
+              </svg>
+              <h3 class="mt-6 text-xl font-bold text-gray-800">
+                Daily Questions
+              </h3>
+              <p class="mt-2 text-gray-600">
+                Stay sharp with a fresh set of questions delivered every day,
+                tailored to your specific department.
+              </p>
+            </div>
+            <div
+              class="feature-card feature-card-green p-8 fade-in-section"
+              style="transition-delay: 150ms"
+            >
+              <svg
+                class="h-20 w-20 mx-auto text-gray-700"
+                fill="none"
+                viewBox="0 0 80 80"
+                stroke-width="1.5"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M22.5 42.5v15m10-15v15m10-15v15m10-15v15m-45-15h60"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12.5 22.5h55v45h-55z"
+                />
+              </svg>
+              <h3 class="mt-6 text-xl font-bold">Performance Analytics</h3>
+              <p class="mt-2 text-gray-600">
+                Identify your strengths and weaknesses to focus your study
+                efforts effectively with detailed insights.
+              </p>
+            </div>
+            <div
+              class="feature-card feature-card-purple p-8 fade-in-section"
+              style="transition-delay: 300ms"
+            >
+              <svg
+                class="h-20 w-20 mx-auto text-gray-700"
+                fill="none"
+                viewBox="0 0 80 80"
+                stroke-width="1.5"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M47.5 22.5h-15v-5h15z"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12.5 32.5h55v35h-55z"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M22.5 67.5V22.5h35v45"
+                />
+              </svg>
+              <h3 class="mt-6 text-xl font-bold">Mock Exams</h3>
+              <p class="mt-2 text-gray-600">
+                Simulate the real exam experience with timed mock tests. Build
+                confidence and improve time management.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Testimonials Section -->
+      <section class="bg-white py-20 sm:py-24">
+        <div
+          class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 fade-in-section text-center"
+        >
+          <div class="testimonial-container min-h-[160px] sm:min-h-[120px]">
+            <div class="testimonial active">
+              <p
+                class="text-2xl md:text-3xl font-semibold text-gray-800 tracking-tight"
+              >
+                "This platform was a game-changer for my board exams. The daily
+                questions and analytics helped me focus on my weak areas."
+              </p>
+              <footer class="mt-6">
+                <div class="font-semibold text-gray-900">Aisha Bello</div>
+                <div class="text-gray-600">Registered Nurse, Lagos</div>
+              </footer>
+            </div>
+            <div class="testimonial">
+              <p
+                class="text-2xl md:text-3xl font-semibold text-gray-800 tracking-tight"
+              >
+                "The midwifery question bank is spot on. It felt like I was
+                taking the actual exam every day."
+              </p>
+              <footer class="mt-6">
+                <div class="font-semibold text-gray-900">Chidinma Okoro</div>
+                <div class="text-gray-600">Registered Midwife, Abuja</div>
+              </footer>
+            </div>
+            <div class="testimonial">
+              <p
+                class="text-2xl md:text-3xl font-semibold text-gray-800 tracking-tight"
+              >
+                "Academic Nightingale's platform helped me understand complex
+                public health scenarios. The structured questions were
+                invaluable."
+              </p>
+              <footer class="mt-6">
+                <div class="font-semibold text-gray-900">Tunde Adebayo</div>
+                <div class="text-gray-600">Public Health Officer, Ibadan</div>
+              </footer>
+            </div>
+            <div class="testimonial">
+              <p
+                class="text-2xl md:text-3xl font-semibold text-gray-800 tracking-tight"
+              >
+                "I passed on my first try! The daily practice and mock exams
+                made all the difference. I recommend it to everyone."
+              </p>
+              <footer class="mt-6">
+                <div class="font-semibold text-gray-900">Fatima Sani</div>
+                <div class="text-gray-600">Nursing Student, Kano</div>
+              </footer>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Final CTA Section -->
+      <section class="py-20 sm:py-24">
+        <div
+          class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center fade-in-section"
+        >
+          <h2
+            class="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight"
+          >
+            Ready to Ace Your Exams?
+          </h2>
+          <p class="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
+            Choose a plan that fits your needs and start your journey to success
+            today.
+          </p>
+          <div class="mt-8">
+            <a
+              href="subscription-plans.html"
+              class="btn-primary inline-block px-8 py-3 rounded-lg text-base font-semibold shadow-lg"
+            >
+              View Subscription Plans
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer id="footer" class="bg-gray-900 text-gray-300">
+      <div class="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
+          <div class="col-span-2 md:col-span-4 lg:col-span-1">
+            <h3 class="font-bold text-lg text-white">Academic Nightingale</h3>
+            <p class="text-sm mt-2">Your partner in medical exam success.</p>
+          </div>
+          <div>
+            <h4 class="font-semibold text-white">Departments</h4>
+            <ul class="mt-4 space-y-2 text-sm">
+              <li>
+                <a href="subscription-plans.html" class="hover:text-white"
+                  >Nursing</a
+                >
+              </li>
+              <li>
+                <a href="subscription-plans.html" class="hover:text-white"
+                  >Midwifery</a
+                >
+              </li>
+              <li>
+                <a href="subscription-plans.html" class="hover:text-white"
+                  >Public Health</a
+                >
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-semibold text-white">Resources</h4>
+            <ul class="mt-4 space-y-2 text-sm">
+              <li><a href="#" class="hover:text-white">Blog</a></li>
+              <li><a href="#" class="hover:text-white">Events</a></li>
+              <li><a href="#" class="hover:text-white">Help Center</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-semibold text-white">Company</h4>
+            <ul class="mt-4 space-y-2 text-sm">
+              <li><a href="#" class="hover:text-white">About Us</a></li>
+              <li><a href="#" class="hover:text-white">Careers</a></li>
+              <li><a href="#" class="hover:text-white">Contact</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-semibold text-white">Legal</h4>
+            <ul class="mt-4 space-y-2 text-sm">
+              <li><a href="#" class="hover:text-white">Privacy Policy</a></li>
+              <li><a href="#" class="hover:text-white">Terms of Service</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="mt-12 border-t border-gray-700 pt-8 text-center text-sm">
+          <p>&copy; 2025 Academic Nightingale Inc. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        // Sticky Header Logic
+        const stickyHeader = document.getElementById('sticky-header');
+        const handleScroll = () => {
+          window.scrollY > 100
+            ? stickyHeader.classList.remove('opacity-0', '-translate-y-full')
+            : stickyHeader.classList.add('opacity-0', '-translate-y-full');
+        };
+        window.addEventListener('scroll', handleScroll);
+
+        // Fade-in Section Logic
+        const sections = document.querySelectorAll('.fade-in-section');
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting)
+                entry.target.classList.add('is-visible');
+            });
+          },
+          { threshold: 0.1 }
+        );
+        sections.forEach((section) => observer.observe(section));
+
+        // Testimonial Slider Logic (Robust Fade Transition)
+        const testimonials = document.querySelectorAll('.testimonial');
+        let testimonialIndex = 0;
+
+        function showNextTestimonial() {
+          testimonials[testimonialIndex].classList.remove('active');
+          testimonialIndex = (testimonialIndex + 1) % testimonials.length;
+          testimonials[testimonialIndex].classList.add('active');
+        }
+        setInterval(showNextTestimonial, 20000); // 20 seconds
+      });
+    </script>
+  </body>
+</html>
