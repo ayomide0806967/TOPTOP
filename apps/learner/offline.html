@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Academic Nightingale • Offline</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(180deg, #cdeee6 0%, #e8f7ff 45%, #ffffff 100%);
+        color: #0f172a;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+      .card {
+        max-width: 520px;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 24px;
+        padding: 48px 36px;
+        box-shadow: 0 32px 60px -24px rgba(15, 118, 110, 0.35);
+        text-align: center;
+        border: 1px solid rgba(14, 165, 233, 0.25);
+      }
+      h1 {
+        margin: 0 0 16px;
+        font-size: clamp(1.75rem, 4vw, 2.4rem);
+        font-weight: 800;
+        color: #0f766e;
+      }
+      p {
+        margin: 0 0 18px;
+        color: #334155;
+        line-height: 1.5;
+      }
+      .actions {
+        margin-top: 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      a,
+      button {
+        appearance: none;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 15px;
+      }
+      .primary {
+        background: linear-gradient(135deg, #0ea5e9, #14b8a6);
+        color: #ffffff;
+      }
+      .secondary {
+        background: rgba(14, 165, 233, 0.12);
+        color: #0f4c75;
+      }
+      .meta {
+        margin-top: 18px;
+        font-size: 13px;
+        color: #6b7280;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>You are offline</h1>
+      <p>
+        Academic Nightingale needs a connection to sync quizzes and fresh content.
+        Your progress is saved locally and will resume once you are back online.
+      </p>
+      <div class="actions">
+        <button type="button" class="primary" onclick="window.location.reload()">
+          Retry Connection
+        </button>
+        <a href="index.html" class="secondary">Go to Home</a>
+      </div>
+      <p class="meta">Tip: keep the app installed for quick access even without stable internet.</p>
+    </main>
+    <script type="module" src="src/pwa-bootstrap.js"></script>
+</body>
+</html>

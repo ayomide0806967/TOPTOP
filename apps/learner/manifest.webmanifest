@@ -1,0 +1,23 @@
+{
+  "name": "Academic Nightingale Learner",
+  "short_name": "AN Learner",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f766e",
+  "description": "Prepare for NMCN exams with daily quizzes, mocks, and analytics from Academic Nightingale.",
+  "icons": [
+    {
+      "src": "../assets/academicnightingale-logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "../assets/academicnightingale-logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
