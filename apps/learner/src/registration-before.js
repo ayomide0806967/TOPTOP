@@ -17,6 +17,7 @@ const firstNameInput = document.getElementById('first-name');
 const lastNameInput = document.getElementById('last-name');
 const emailInput = document.getElementById('email-address');
 const phoneInput = document.getElementById('phone-number');
+const emailAvailabilityEl = document.getElementById('email-availability-feedback');
 
 const planIdInput = document.getElementById('plan-id');
 const planNameEl = document.querySelector('[data-role="plan-name"]');
@@ -29,32 +30,79 @@ const planTimerEl = document.querySelector('[data-role="plan-timer"]');
 
 let supabasePromise = null;
 let activeReference = null;
+let lastEmailAvailability = { value: '', result: null };
 
-function showFeedback(message, type = 'error') {
-  if (!feedbackEl) return;
-  feedbackEl.textContent = message;
-  feedbackEl.classList.remove('hidden');
-  feedbackEl.classList.remove(
-    'bg-green-50',
-    'border-green-200',
-    'text-green-700'
-  );
-  feedbackEl.classList.remove('bg-red-50', 'border-red-200', 'text-red-700');
-  if (type === 'success') {
-    feedbackEl.classList.add(
-      'bg-green-50',
-      'border-green-200',
-      'text-green-700'
-    );
+const FIELD_STATUS_CLASSES = ['text-red-600', 'text-green-600', 'text-slate-600'];
+
+function renderFieldStatus(target, message, type = 'info') {
+  if (!target) return;
+
+  target.textContent = message;
+  target.classList.remove('hidden', ...FIELD_STATUS_CLASSES);
+
+  if (type === 'error') {
+    target.classList.add('text-red-600');
+  } else if (type === 'success') {
+    target.classList.add('text-green-600');
   } else {
-    feedbackEl.classList.add('bg-red-50', 'border-red-200', 'text-red-700');
+    target.classList.add('text-slate-600');
   }
 }
 
+function clearFieldStatus(target) {
+  if (!target) return;
+  target.textContent = '';
+  target.classList.add('hidden');
+  target.classList.remove(...FIELD_STATUS_CLASSES);
+}
+
+/**
+ * Show feedback message to user
+ * @param {string} message - Message to display (can include HTML)
+ * @param {string} type - Type of message: 'error', 'success', or 'info'
+ */
+function showFeedback(message, type = 'error') {
+  if (!feedbackEl) return;
+  
+  console.log('[Registration] Showing feedback:', { message, type });
+  
+  // Use innerHTML to support links in error messages
+  feedbackEl.innerHTML = message;
+  feedbackEl.classList.remove('hidden');
+  
+  // Remove all color classes
+  feedbackEl.classList.remove(
+    'bg-green-50',
+    'border-green-200',
+    'text-green-700',
+    'bg-red-50',
+    'border-red-200',
+    'text-red-700',
+    'bg-blue-50',
+    'border-blue-200',
+    'text-blue-700'
+  );
+  
+  // Apply appropriate color classes
+  if (type === 'success') {
+    feedbackEl.classList.add('bg-green-50', 'border-green-200', 'text-green-700');
+  } else if (type === 'info') {
+    feedbackEl.classList.add('bg-blue-50', 'border-blue-200', 'text-blue-700');
+  } else {
+    feedbackEl.classList.add('bg-red-50', 'border-red-200', 'text-red-700');
+  }
+  
+  // Scroll feedback into view for better visibility
+  feedbackEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/**
+ * Clear feedback message
+ */
 function clearFeedback() {
   if (!feedbackEl) return;
   feedbackEl.classList.add('hidden');
-  feedbackEl.textContent = '';
+  feedbackEl.innerHTML = '';  // Use innerHTML to match showFeedback
 }
 
 function setLoading(isLoading) {
@@ -71,6 +119,30 @@ function ensureSupabaseClient() {
     supabasePromise = getSupabaseClient();
   }
   return supabasePromise;
+}
+
+async function extractEdgeFunctionError(error, fallbackMessage) {
+  if (error?.context instanceof Response) {
+    try {
+      const cloned = error.context.clone();
+      const contentType = cloned.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const json = await cloned.json();
+        if (json?.error) return json.error;
+        if (json?.message) return json.message;
+      }
+      const text = await cloned.text();
+      if (text) return text;
+    } catch (parseError) {
+      console.warn('[Registration] Failed to parse edge error response', parseError);
+    }
+  }
+
+  if (error?.message && error.message !== 'Edge Function returned a non-2xx status code') {
+    return error.message;
+  }
+
+  return fallbackMessage;
 }
 
 function formatCurrency(value, currency = 'NGN') {
@@ -154,15 +226,11 @@ async function fetchPlanFromSupabase(planId) {
   }
 }
 
-function generateTemporaryPassword() {
-  const random =
-    typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID().replace(/-/g, '')
-      : Math.random().toString(36).slice(2) + Date.now().toString(36);
-  const base = random.slice(0, 12);
-  return `${base}Aa1!`;
-}
-
+/**
+ * Prepare contact payload from form inputs
+ * @param {string} planId - Selected plan ID
+ * @returns {Object} Contact information
+ */
 function prepareContactPayload(planId) {
   const firstName = firstNameInput?.value.trim();
   const lastName = lastNameInput?.value.trim();
@@ -182,149 +250,296 @@ function prepareContactPayload(planId) {
   };
 }
 
-async function ensureUserSession(contact) {
-  const supabase = await ensureSupabaseClient();
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (session?.user) {
-    const emailMatches = session.user.email?.toLowerCase() === contact.email;
-    if (!emailMatches) {
-      throw new Error(
-        'You are signed in with a different account. Please sign out first.'
-      );
+/**
+ * Check if email is already registered
+ * @param {string} email - Email to check
+ * @returns {Promise<{available: boolean, status?: string, error?: string, message?: string}>}
+ */
+async function checkEmailAvailability(email) {
+  try {
+    const supabase = await ensureSupabaseClient();
+    
+    console.log('[Registration] Checking email availability:', email);
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('subscription_status')
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
+    
+    if (error && error.code !== 'PGRST116') {
+      console.error('[Registration] Error checking email:', error);
+      return { 
+        available: false, 
+        error: 'Unable to verify email. Please try again.' 
+      };
     }
-    return session;
-  }
-
-  const tempPassword = generateTemporaryPassword();
-  const { data, error } = await supabase.auth.signUp({
-    email: contact.email,
-    password: tempPassword,
-    options: {
-      data: {
-        first_name: contact.firstName,
-        last_name: contact.lastName,
-        phone: contact.phone,
-        prepay_plan: contact.planId,
-      },
-    },
-  });
-
-  if (error) {
-    if (
-      error.message &&
-      error.message.toLowerCase().includes('already registered')
-    ) {
-      throw new Error(
-        'This email is already registered. Please sign in to continue with your purchase.'
-      );
+    
+    if (!data) {
+      console.log('[Registration] Email is available');
+      return { available: true };
     }
-    throw error;
+    
+    console.log('[Registration] Email exists with status:', data.subscription_status);
+    
+    // Email exists - check subscription status
+    if (data.subscription_status === 'active' || data.subscription_status === 'trialing') {
+      return { 
+        available: false, 
+        status: 'active',
+        error: 'This email already has an active subscription. Please <a href="login.html" class="font-semibold underline">login here</a> or use a different email address.'
+      };
+    }
+    
+    // Email exists but pending - allow reuse
+    return { 
+      available: true, 
+      status: 'pending',
+      message: 'We found your previous registration. Continuing where you left off...'
+    };
+    
+  } catch (error) {
+    console.error('[Registration] Email check failed:', error);
+    return { 
+      available: false, 
+      error: 'Unable to verify email. Please check your connection and try again.' 
+    };
   }
-
-  if (!data.session) {
-    throw new Error(
-      'Check your inbox for a confirmation email, then try again.'
-    );
-  }
-
-  return data.session;
 }
 
-async function upsertProfile(contact, userId) {
-  const supabase = await ensureSupabaseClient();
-  const payload = {
-    id: userId,
-    full_name: `${contact.firstName} ${contact.lastName}`.trim(),
-    first_name: contact.firstName,
-    last_name: contact.lastName,
-    phone: contact.phone,
-    email: contact.email,
-  };
-
-  const { error } = await supabase
-    .from('profiles')
-    .upsert(payload, { onConflict: 'id' });
-
-  if (error) {
-    console.error('[Registration] Failed to save profile', error);
-    throw new Error('We could not save your details. Please try again.');
+async function validateEmailField({ forceCheck = false } = {}) {
+  if (!emailInput) {
+    return { valid: true, result: null };
   }
 
-  await supabase.auth.updateUser({
-    data: {
+  const rawEmail = emailInput.value.trim();
+
+  if (!rawEmail) {
+    clearFieldStatus(emailAvailabilityEl);
+    lastEmailAvailability = { value: '', result: null };
+    return { valid: false, reason: 'empty' };
+  }
+
+  if (!emailInput.checkValidity()) {
+    renderFieldStatus(
+      emailAvailabilityEl,
+      'Enter a valid email address before continuing.',
+      'error'
+    );
+    return { valid: false, reason: 'invalid_format' };
+  }
+
+  const email = rawEmail.toLowerCase();
+
+  if (!forceCheck && lastEmailAvailability.value === email) {
+    const cached = lastEmailAvailability.result;
+    if (!cached) {
+      return { valid: true, result: null };
+    }
+
+    if (!cached.available) {
+      renderFieldStatus(
+        emailAvailabilityEl,
+        cached.error || 'This email already has an active subscription. Please sign in instead.',
+        'error'
+      );
+      return { valid: false, result: cached };
+    }
+
+    if (cached.status === 'pending' && cached.message) {
+      renderFieldStatus(emailAvailabilityEl, cached.message, 'info');
+    } else {
+      renderFieldStatus(emailAvailabilityEl, 'Email looks good!', 'success');
+    }
+
+    return { valid: true, result: cached };
+  }
+
+  renderFieldStatus(emailAvailabilityEl, 'Checking availability…', 'info');
+
+  const result = await checkEmailAvailability(email);
+  lastEmailAvailability = { value: email, result };
+
+  if (!result.available) {
+    renderFieldStatus(
+      emailAvailabilityEl,
+      result.error || 'This email already has an active subscription. Please sign in instead.',
+      'error'
+    );
+    return { valid: false, result };
+  }
+
+  if (result.status === 'pending' && result.message) {
+    renderFieldStatus(emailAvailabilityEl, result.message, 'info');
+  } else {
+    renderFieldStatus(emailAvailabilityEl, 'Email looks good!', 'success');
+  }
+
+  return { valid: true, result };
+}
+
+/**
+ * Check if phone number is already registered
+ * @param {string} phone - Phone number to check
+ * @returns {Promise<{available: boolean, error?: string}>}
+ */
+async function checkPhoneAvailability(phone) {
+  try {
+    const supabase = await ensureSupabaseClient();
+    
+    console.log('[Registration] Checking phone availability:', phone);
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, subscription_status')
+      .eq('phone', phone)
+      .maybeSingle();
+    
+    if (error && error.code !== 'PGRST116') {
+      console.error('[Registration] Error checking phone:', error);
+      return { 
+        available: false, 
+        error: 'Unable to verify phone number. Please try again.' 
+      };
+    }
+    
+    if (!data) {
+      console.log('[Registration] Phone is available');
+      return { available: true };
+    }
+    
+    console.log('[Registration] Phone exists with status:', data.subscription_status);
+    
+    // Phone exists - check if it's an active subscription
+    if (data.subscription_status === 'active' || data.subscription_status === 'trialing') {
+      return { 
+        available: false, 
+        error: 'This phone number is already registered with an active subscription. Please use a different number.'
+      };
+    }
+    
+    // Phone exists but pending - allow reuse (same user might be retrying)
+    console.log('[Registration] Phone exists but allowing reuse (pending status)');
+    return { available: true };
+    
+  } catch (error) {
+    console.error('[Registration] Phone check failed:', error);
+    return { 
+      available: false, 
+      error: 'Unable to verify phone number. Please try again.' 
+    };
+  }
+}
+
+async function createPendingUser(contact) {
+  const supabase = await ensureSupabaseClient();
+  
+  console.log('[Registration] Sending to create-pending-user:', contact);
+  
+  const { data, error } = await supabase.functions.invoke('create-pending-user', {
+    body: contact,
+  });
+
+  console.log('[Registration] Response from create-pending-user:', { data, error });
+
+  if (error) {
+    console.error('Detailed error from create-pending-user function:', error);
+    console.error('Error context:', error.context);
+    console.error('Error message:', error.message);
+
+    const userMessage = await extractEdgeFunctionError(
+      error,
+      'We could not create your profile. Please try again.'
+    );
+
+    throw new Error(userMessage);
+  }
+
+  if (data?.error) {
+    console.error('Business logic error from create-pending-user:', data.error);
+    console.error('Full error details:', data.details);
+    console.error('Stack trace:', data.stack);
+    throw new Error(data.error);
+  }
+
+  if (!data?.userId) {
+    console.error('[Registration] No userId in response. Full data:', data);
+    throw new Error('Failed to get a user ID from the server.');
+  }
+
+  return data.userId;
+}
+
+async function invokeCheckout(contact, userId) {
+  const supabase = await ensureSupabaseClient();
+  
+  console.log('[Registration] Invoking paystack-initiate with:', {
+    planId: contact.planId,
+    userId,
+    registration: {
       first_name: contact.firstName,
       last_name: contact.lastName,
       phone: contact.phone,
     },
   });
-}
-
-async function invokeCheckout(contact) {
-  const supabase = await ensureSupabaseClient();
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData?.session?.access_token;
+  
   const { data, error } = await supabase.functions.invoke('paystack-initiate', {
     body: {
       planId: contact.planId,
+      userId: userId,
       registration: {
         first_name: contact.firstName,
         last_name: contact.lastName,
         phone: contact.phone,
       },
     },
-    headers: accessToken
-      ? { Authorization: `Bearer ${accessToken}` }
-      : undefined,
   });
 
+  console.log('[Registration] Response from paystack-initiate:', { data, error });
+
   if (error) {
-    throw new Error(error.message || 'Unable to initialise checkout.');
+    console.error('[Registration] Error from paystack-initiate:', error);
+    console.error('Error context:', error.context);
+    console.error('Error message:', error.message);
+
+    const userMessage = await extractEdgeFunctionError(
+      error,
+      'Unable to initialise checkout.'
+    );
+
+    throw new Error(userMessage);
+  }
+
+  if (data?.error) {
+    console.error('[Registration] Business error from paystack-initiate:', data.error);
+    console.error('Error details:', data.details);
+    throw new Error(data.error);
   }
 
   if (!data || !data.reference) {
+    console.error('[Registration] No reference in response. Full data:', data);
     throw new Error('Paystack did not return a checkout reference.');
   }
 
+  console.log('[Registration] Paystack data to be used for checkout:', data);
   return data;
 }
 
-async function verifyTransaction(reference) {
-  const supabase = await ensureSupabaseClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const accessToken = session?.access_token;
-
-  if (!accessToken) {
-    throw new Error('Authentication token is missing. Please sign in again.');
-  }
-
-  const { data, error } = await supabase.functions.invoke('paystack-verify', {
-    body: { reference },
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  if (error) {
-    throw new Error(error.message || 'Payment verification failed.');
-  }
-
-  return data;
-}
-
-function proceedToAfterRegistration(reference, contact) {
-  const payload = {
+function proceedToAfterRegistration(reference, contact, userId) {
+  console.log('[Registration] Payment successful! Reference:', reference);
+  
+  // Store the payment reference and contact info for the next step
+  window.localStorage.setItem(STORAGE_POSTPAY, JSON.stringify({
     reference,
-    planId: contact.planId,
+    email: contact.email,
     firstName: contact.firstName,
     lastName: contact.lastName,
-    email: contact.email,
     phone: contact.phone,
-  };
-  window.localStorage.setItem(STORAGE_POSTPAY, JSON.stringify(payload));
+    userId: userId,
+    planId: contact.planId,
+  }));
+
+  // Redirect to the after-payment registration page
   const currentPath = window.location.pathname;
   const newPath = currentPath.replace(
     'registration-before-payment.html',
@@ -333,7 +548,7 @@ function proceedToAfterRegistration(reference, contact) {
   window.location.href = newPath + '?reference=' + reference;
 }
 
-function openPaystackCheckout(paystackData, contact) {
+function openPaystackCheckout(paystackData, contact, userId) {
   if (!window.PaystackPop) {
     throw new Error(
       'Paystack library failed to load. Please refresh the page and try again.'
@@ -342,7 +557,7 @@ function openPaystackCheckout(paystackData, contact) {
 
   activeReference = paystackData.reference;
 
-  const handler = window.PaystackPop.setup({
+  const checkoutConfig = {
     key: paystackData.publicKey || paystackConfig.publicKey,
     email: contact.email,
     amount: paystackData.amount,
@@ -351,25 +566,7 @@ function openPaystackCheckout(paystackData, contact) {
     metadata: paystackData.metadata || {},
     callback: (response) => {
       const reference = response.reference || paystackData.reference;
-      verifyTransaction(reference)
-        .then(() => {
-          proceedToAfterRegistration(reference, contact);
-        })
-        .catch((error) => {
-          console.error('[Registration] Verification failed', error);
-          showFeedback(
-            error.message ||
-              'We could not confirm your payment. Contact support with your reference.'
-          );
-          if (successContainer && registrationContainer) {
-            successContainer.classList.add('hidden');
-            registrationContainer.classList.remove('hidden');
-          }
-          setLoading(false);
-        })
-        .finally(() => {
-          activeReference = null;
-        });
+      proceedToAfterRegistration(reference, contact, userId);
     },
     onClose: () => {
       activeReference = null;
@@ -381,15 +578,21 @@ function openPaystackCheckout(paystackData, contact) {
         registrationContainer.classList.remove('hidden');
       }
     },
-  });
+  };
 
+  console.log('[Registration] Paystack checkout config:', checkoutConfig);
+
+  const handler = window.PaystackPop.setup(checkoutConfig);
   handler.openIframe();
 }
 
+/**
+ * Handle form submission with validation
+ * @param {Event} event - Form submit event
+ */
 async function handleFormSubmit(event) {
   event.preventDefault();
   clearFeedback();
-  setLoading(true);
 
   try {
     const planId = planIdInput?.value;
@@ -401,17 +604,58 @@ async function handleFormSubmit(event) {
 
     const contact = prepareContactPayload(planId);
 
-    const session = await ensureUserSession(contact);
-    await upsertProfile(contact, session.user.id);
+    // Step 1: Validate email availability
+    showFeedback('Verifying email address...', 'info');
+    setLoading(true);
 
-    window.localStorage.setItem(STORAGE_CONTACT, JSON.stringify(contact));
+    const emailValidation = await validateEmailField({ forceCheck: true });
+    const emailCheck = emailValidation.result;
 
-    const paystackData = await invokeCheckout(contact);
+    if (!emailValidation.valid) {
+      const message =
+        emailCheck?.error ||
+        (emailValidation.reason === 'invalid_format'
+          ? 'Enter a valid email address before continuing.'
+          : 'This email already has an active subscription. Please sign in instead.');
+      showFeedback(message, 'error');
+      emailInput?.focus();
+      setLoading(false);
+      return;
+    }
+
+    if (emailCheck?.status === 'pending' && emailCheck.message) {
+      showFeedback(emailCheck.message, 'success');
+    }
+
+    // Step 2: Validate phone availability
+    console.log('[Registration] Checking phone availability...');
+    const phoneCheck = await checkPhoneAvailability(contact.phone);
+    
+    if (!phoneCheck.available) {
+      showFeedback(phoneCheck.error || 'This phone number is already registered.', 'error');
+      setLoading(false);
+      return;
+    }
+
+    // Step 3: Create pending user
+    // Only clear feedback if we're proceeding (no errors)
+    showFeedback('Creating your account...', 'info');
+    
+    const userId = await createPendingUser(contact);
+    console.log('[Registration] User created/updated:', userId);
+
+    window.localStorage.setItem(STORAGE_CONTACT, JSON.stringify({ ...contact, userId }));
+
+    // Step 4: Initialize payment
+    showFeedback('Preparing payment checkout...', 'info');
+    
+    const paystackData = await invokeCheckout(contact, userId);
     const publicKey =
       paystackData.paystack_public_key || paystackConfig.publicKey;
 
     if (!publicKey) {
-      showFeedback('Missing Paystack configuration. Contact support.');
+      showFeedback('Missing Paystack configuration. Contact support.', 'error');
+      setLoading(false);
       return;
     }
 
@@ -429,20 +673,39 @@ async function handleFormSubmit(event) {
       },
     };
 
+    clearFeedback();
     openPaystackCheckout(
       {
         ...paystackData,
         publicKey,
         metadata,
       },
-      contact
+      contact,
+      userId
     );
   } catch (error) {
     console.error('[Registration] Checkout initialisation failed', error);
     showFeedback(
-      error.message || 'Unexpected error occurred. Please try again.'
+      error.message || 'Unexpected error occurred. Please try again.',
+      'error'
     );
+
+    if (typeof error.message === 'string') {
+      const lowered = error.message.toLowerCase();
+      if (lowered.includes('email')) {
+        renderFieldStatus(emailAvailabilityEl, error.message, 'error');
+        if (emailInput?.value) {
+          lastEmailAvailability = {
+            value: emailInput.value.trim().toLowerCase(),
+            result: { available: false, error: error.message },
+          };
+        }
+        emailInput?.focus();
+      }
+    }
   } finally {
+    // Only disable loading if we're not opening Paystack
+    // (activeReference is set when Paystack opens)
     if (!activeReference) {
       setLoading(false);
     }
@@ -492,6 +755,19 @@ async function initialise() {
     } catch (error) {
       console.warn('[Registration] Failed to load stored contact info', error);
     }
+  }
+
+  if (emailInput) {
+    emailInput.addEventListener('input', () => {
+      clearFieldStatus(emailAvailabilityEl);
+      lastEmailAvailability = { value: '', result: null };
+    });
+
+    emailInput.addEventListener('blur', () => {
+      validateEmailField().catch((error) => {
+        console.error('[Registration] Email validation failed', error);
+      });
+    });
   }
 
   formEl.addEventListener('submit', handleFormSubmit);

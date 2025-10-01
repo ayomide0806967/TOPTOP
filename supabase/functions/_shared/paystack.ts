@@ -54,21 +54,7 @@ export function getUserClient(authHeader: string | null): SupabaseClient {
   });
 }
 
-export async function getAuthenticatedUser(authHeader: string | null) {
-  if (!authHeader) {
-    return { user: null, error: new Error('Missing Authorization header') };
-  }
-  try {
-    const userClient = getUserClient(authHeader);
-    const { data, error } = await userClient.auth.getUser();
-    if (error) {
-      return { user: null, error };
-    }
-    return { user: data.user, error: null };
-  } catch (error) {
-    return { user: null, error };
-  }
-}
+
 
 function computeExpiryDate(
   durationDays: number | null | undefined,

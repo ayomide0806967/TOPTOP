@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contact Us | Academic Nightingale</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: 'Segoe UI', 'Tahoma', 'Geneva', 'Verdana', sans-serif;
+        background-color: #f8fafc;
+        color: #1a202c;
+      }
+
+      /* --- Animations --- */
+      .fade-in-section {
+        opacity: 0;
+        transform: translateY(20px);
+        transition:
+          opacity 0.6s ease-out,
+          transform 0.6s ease-out;
+      }
+      .fade-in-section.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* --- Header --- */
+      .header-sticky {
+        transition: all 0.3s ease-in-out;
+      }
+
+      /* --- Button Style --- */
+      .btn-primary {
+        background: linear-gradient(135deg, #0e7490, #088ea5, #0ca5b5);
+        color: #ffffff;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(14, 116, 144, 0.3);
+      }
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(14, 116, 144, 0.4);
+      }
+
+      /* --- Contact Card --- */
+      .contact-card {
+        transition: all 0.3s ease;
+      }
+      .contact-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      }
+    </style>
+  </head>
+  <body class="antialiased text-gray-900">
+    <!-- Header Navigation -->
+    <header class="bg-white shadow-sm fixed top-0 w-full z-50">
+      <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <div class="flex items-center">
+            <a href="index.html" class="text-xl font-bold text-gray-900">
+              Academic Nightingale
+            </a>
+          </div>
+          <div class="hidden md:flex items-center space-x-8">
+            <a href="index.html" class="text-gray-600 hover:text-gray-900">Home</a>
+            <a href="careers.html" class="text-gray-600 hover:text-gray-900">Careers</a>
+            <a href="subscription-plans.html" class="text-gray-600 hover:text-gray-900">Plans</a>
+            <a href="login.html" class="btn-primary px-4 py-2 rounded-lg text-sm">Login</a>
+          </div>
+          <div class="md:hidden">
+            <button id="mobile-menu-button" class="text-gray-600">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="pt-16">
+      <!-- Hero Section -->
+      <section class="py-20 sm:py-24 bg-gradient-to-br from-cyan-50 to-blue-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center fade-in-section">
+            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 tracking-tight">
+              Get in <span class="text-cyan-700">Touch</span>
+            </h1>
+            <p class="mt-6 text-xl text-gray-600 max-w-3xl mx-auto">
+              We're here to support your NMCN exam preparation journey. Reach out with any questions or concerns.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Contact Information Section -->
+      <section class="py-16 sm:py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
+            <!-- Email Contact -->
+            <div class="bg-gray-50 p-8 rounded-2xl contact-card fade-in-section">
+              <div class="w-12 h-12 bg-cyan-100 rounded-full flex items-center justify-center mb-6">
+                <svg class="w-6 h-6 text-cyan-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+              <h3 class="text-xl font-bold text-gray-900 mb-3">Email Us</h3>
+              <p class="text-gray-600 mb-4">
+                Send us an email and we'll respond within 24 hours.
+              </p>
+              <a href="mailto:nightingaleacademic@gmail.com" class="text-cyan-700 font-medium hover:text-cyan-800">
+                nightingaleacademic@gmail.com
+              </a>
+            </div>
+
+            <!-- WhatsApp Contact -->
+            <div class="bg-gray-50 p-8 rounded-2xl contact-card fade-in-section">
+              <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-6">
+                <svg class="w-6 h-6 text-green-700" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.149-.67.149-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414-.074-.123-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                </svg>
+              </div>
+              <h3 class="text-xl font-bold text-gray-900 mb-3">Phone Support</h3>
+              <p class="text-gray-600 mb-4">
+                Call us for immediate assistance during business hours.
+              </p>
+              <a href="tel:+2349077103590" target="_blank" class="text-cyan-700 font-medium hover:text-cyan-800">
+                +234 907 710 3590
+              </a>
+            </div>
+
+            <!-- Office Hours -->
+            <div class="bg-gray-50 p-8 rounded-2xl contact-card fade-in-section">
+              <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-6">
+                <svg class="w-6 h-6 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+              <h3 class="text-xl font-bold text-gray-900 mb-3">Office Hours</h3>
+              <p class="text-gray-600 mb-2">
+                Monday - Friday: 8:00 AM - 6:00 PM
+              </p>
+              <p class="text-gray-600 mb-2">
+                Saturday: 9:00 AM - 4:00 PM
+              </p>
+              <p class="text-gray-600">
+                Sunday: 12:00 PM - 4:00 PM
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Contact Form Section -->
+      <section class="py-16 sm:py-20 bg-gray-50">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center mb-12">
+            <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Send us a Message</h2>
+            <p class="text-xl text-gray-600">
+              Fill out the form below and we'll get back to you as soon as possible.
+            </p>
+          </div>
+
+          <form class="bg-white rounded-2xl shadow-sm p-8 fade-in-section">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <label for="firstName" class="block text-sm font-medium text-gray-700 mb-2">
+                  First Name *
+                </label>
+                <input
+                  type="text"
+                  id="firstName"
+                  name="firstName"
+                  required
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition-colors"
+                  placeholder="Enter your first name"
+                >
+              </div>
+              <div>
+                <label for="lastName" class="block text-sm font-medium text-gray-700 mb-2">
+                  Last Name *
+                </label>
+                <input
+                  type="text"
+                  id="lastName"
+                  name="lastName"
+                  required
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition-colors"
+                  placeholder="Enter your last name"
+                >
+              </div>
+            </div>
+
+            <div class="mb-6">
+              <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                Email Address *
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                required
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition-colors"
+                placeholder="your.email@example.com"
+              >
+            </div>
+
+            <div class="mb-6">
+              <label for="phone" class="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                id="phone"
+                name="phone"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition-colors"
+                placeholder="+234 800 000 0000"
+              >
+            </div>
+
+            <div class="mb-6">
+              <label for="subject" class="block text-sm font-medium text-gray-700 mb-2">
+                Subject *
+              </label>
+              <select
+                id="subject"
+                name="subject"
+                required
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition-colors"
+              >
+                <option value="">Select a subject</option>
+                <option value="support">Technical Support</option>
+                <option value="billing">Billing & Payment</option>
+                <option value="account">Account Issues</option>
+                <option value="feedback">Feedback & Suggestions</option>
+                <option value="partnership">Partnership Opportunities</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div class="mb-6">
+              <label for="message" class="block text-sm font-medium text-gray-700 mb-2">
+                Message *
+              </label>
+              <textarea
+                id="message"
+                name="message"
+                rows="6"
+                required
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition-colors resize-none"
+                placeholder="Tell us how we can help you..."
+              ></textarea>
+            </div>
+
+            <div class="mb-6">
+              <label class="flex items-center">
+                <input
+                  type="checkbox"
+                  name="newsletter"
+                  class="w-4 h-4 text-cyan-700 border-gray-300 rounded focus:ring-cyan-500"
+                >
+                <span class="ml-2 text-sm text-gray-600">
+                  I'd like to receive updates and tips for NMCN exam preparation
+                </span>
+              </label>
+            </div>
+
+            <button type="submit" class="w-full btn-primary px-6 py-3 rounded-lg text-sm font-medium">
+              Send Message
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- FAQ Section -->
+      <section class="py-16 sm:py-20 bg-white">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center mb-12">
+            <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h2>
+            <p class="text-xl text-gray-600">
+              Quick answers to common questions about our platform and services.
+            </p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="bg-gray-50 rounded-2xl p-6 fade-in-section">
+              <button class="w-full text-left flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-900">How quickly do you respond to support requests?</h3>
+                <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </button>
+              <p class="mt-4 text-gray-600">
+                We typically respond to email inquiries within 24 hours. For urgent matters, our WhatsApp support is available during office hours with instant responses.
+              </p>
+            </div>
+
+            <div class="bg-gray-50 rounded-2xl p-6 fade-in-section">
+              <button class="w-full text-left flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-900">Can I get a refund if I'm not satisfied?</h3>
+                <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </button>
+              <p class="mt-4 text-gray-600">
+                All sales are final as per our terms of service. However, if you encounter technical issues, we'll work diligently to resolve them and ensure you have full access to all platform features.
+              </p>
+            </div>
+
+            <div class="bg-gray-50 rounded-2xl p-6 fade-in-section">
+              <button class="w-full text-left flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-900">Do you offer institutional partnerships?</h3>
+                <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </button>
+              <p class="mt-4 text-gray-600">
+                Yes! We partner with nursing schools and institutions across Nigeria. Please contact us through the partnership inquiry option in the contact form for more information.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div>
+            <h3 class="text-lg font-bold mb-4">Academic Nightingale</h3>
+            <p class="text-gray-400 text-sm">
+              Nigeria's leading NMCN exam preparation platform, dedicated to your success.
+            </p>
+          </div>
+          <div>
+            <h4 class="text-lg font-semibold mb-4">Quick Links</h4>
+            <ul class="space-y-2 text-gray-400">
+              <li><a href="about-us.html" class="hover:text-white">About Us</a></li>
+              <li><a href="blog.html" class="hover:text-white">Blog</a></li>
+              <li><a href="contact.html" class="hover:text-white">Contact</a></li>
+              <li><a href="careers.html" class="hover:text-white">Careers</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="text-lg font-semibold mb-4">Support</h4>
+            <ul class="space-y-2 text-gray-400">
+              <li><a href="help-center.html" class="hover:text-white">Help Center</a></li>
+              <li><a href="privacy-policy.html" class="hover:text-white">Privacy Policy</a></li>
+              <li><a href="terms-of-service.html" class="hover:text-white">Terms of Service</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="text-lg font-semibold mb-4">Follow Us</h4>
+            <div class="flex space-x-4">
+              <a href="https://whatsapp.com/channel/0029VaW2i4qJuyAIGj7CRb0W" target="_blank" class="text-gray-400 hover:text-green-400">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.149-.67.149-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414-.074-.123-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                </svg>
+              </a>
+              <a href="https://t.me/AcademicNightingale" target="_blank" class="text-gray-400 hover:text-blue-400">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M11.944 0A12 12 0 1 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 1 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                </svg>
+              </a>
+              <a href="https://x.com/Academicnight?t=sFUWnz_yqvc8bgNIj0A_Wg&s=09" target="_blank" class="text-gray-400 hover:text-gray-100">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+          <p>&copy; 2024 Academic Nightingale. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      // Fade-in animation
+      const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+      };
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+          }
+        });
+      }, observerOptions);
+
+      document.querySelectorAll('.fade-in-section').forEach(el => {
+        observer.observe(el);
+      });
+
+      // Mobile menu
+      const mobileMenuButton = document.getElementById('mobile-menu-button');
+      const mobileMenu = document.getElementById('mobile-menu');
+
+      if (mobileMenuButton && mobileMenu) {
+        mobileMenuButton.addEventListener('click', () => {
+          mobileMenu.classList.toggle('hidden');
+        });
+      }
+
+      // Header scroll effect
+      window.addEventListener('scroll', () => {
+        const header = document.querySelector('header');
+        if (window.scrollY > 100) {
+          header.classList.add('shadow-lg');
+        } else {
+          header.classList.remove('shadow-lg');
+        }
+      });
+
+      // FAQ accordion
+      document.querySelectorAll('.bg-gray-50 button').forEach(button => {
+        button.addEventListener('click', () => {
+          const content = button.nextElementSibling;
+          const icon = button.querySelector('svg');
+
+          if (content.style.display === 'none' || !content.style.display) {
+            content.style.display = 'block';
+            icon.style.transform = 'rotate(180deg)';
+          } else {
+            content.style.display = 'none';
+            icon.style.transform = 'rotate(0deg)';
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

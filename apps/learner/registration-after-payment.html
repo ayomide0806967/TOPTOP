@@ -130,9 +130,21 @@
                 type="text"
                 autocomplete="username"
                 required
+                minlength="3"
+                pattern="[a-zA-Z0-9_-]+"
                 class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
                 placeholder="Choose a unique username"
+                title="Username must be at least 3 characters and contain only letters, numbers, hyphens, and underscores"
               />
+              <p class="mt-1 text-xs text-slate-500">
+                Use letters, numbers, hyphens, and underscores only. Minimum 3 characters.
+              </p>
+              <p
+                id="username-availability-feedback"
+                class="mt-1 hidden text-xs"
+                role="status"
+                aria-live="polite"
+              ></p>
             </div>
 
             <div>
@@ -147,8 +159,10 @@
                 type="password"
                 autocomplete="new-password"
                 required
+                minlength="8"
                 class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
                 placeholder="Create a strong password"
+                title="Password must be at least 8 characters"
               />
               <div
                 class="strength-bar-container mt-2"
@@ -173,8 +187,10 @@
                 type="password"
                 autocomplete="new-password"
                 required
+                minlength="8"
                 class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
                 placeholder="Re-enter your password"
+                title="Password must be at least 8 characters"
               />
               <p
                 id="after-password-error"

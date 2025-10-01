@@ -14,6 +14,17 @@ updated functions:
 | `APP_SUPABASE_ANON_KEY`            | Required to resolve the authenticated user context.                                                                                     |
 | `APP_SUPABASE_URL`                 | Supabase project URL.                                                                                                                   |
 
+For production deployments, set the live keys outside of version control (replace the angle-bracket placeholders with your real values):
+
+```bash
+supabase secrets set \
+  PAYSTACK_SECRET_KEY=<your-paystack-secret-key> \
+  PAYSTACK_PUBLIC_KEY=<your-paystack-public-key> \
+  PAYSTACK_FORWARD_URL=https://processpaystackwebhook-2juaft5ieq-uc.a.run.app
+```
+
+> Keep the actual keys in your secret manager only—never commit them to Git.
+
 ### Supabase Edge Functions
 
 Deploy the new functions after setting the environment variables:

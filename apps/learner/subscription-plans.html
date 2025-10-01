@@ -234,18 +234,11 @@
         class="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8"
       >
         <div class="flex items-center gap-3">
-          <svg
-            class="h-9 w-9 text-cyan-700"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M12.312 2.969c.943 0 1.844.297 2.61.859l-1.032 1.031a2.999 2.999 0 10-4.242 4.243L8.617 8.07A4.482 4.482 0 0112.312 6.5c.995 0 1.93.324 2.688.875l-1.047 1.047a1.5 1.5 0 102.121 2.121l1.047-1.047c.55 1.054.55 2.296 0 3.35l-1.047 1.047a1.5 1.5 0 102.121 2.121l1.047-1.047c.55.758.875 1.693.875 2.688a4.482 4.482 0 01-1.57 3.695l-1.031-1.032a2.999 2.999 0 10-4.243-4.242l1.032-1.031a4.482 4.482 0 01-3.695 1.57c-.995 0-1.93-.324-2.688-.875l1.047-1.047a1.5 1.5 0 10-2.121-2.121L4.695 9.68A4.482 4.482 0 016.266 6c0-1.23.492-2.35 1.305-3.164L6.54 1.805A6.002 6.002 0 00.75 6.266c-1 2.387.104 5.234 2.227 7.357a1.5 1.5 0 002.121 0l1.016-1.016c.33-.33.33-.865 0-1.195l-1.047-1.047a2.983 2.983 0 010-4.218l1.047-1.047a1.5 1.5 0 000-2.121L5.11 2.227A6.024 6.024 0 006.266.75c2.515-1.104 5.362-.001 7.357 2.122l-1.31 1.31a4.48 4.48 0 01-2.61-.858z"
-              clip-rule="evenodd"
-            ></path>
-          </svg>
+          <img
+            src="../assets/academicnightingale-logo.jpg"
+            alt="Academic Nightingale logo"
+            class="h-10 w-10 rounded-full object-cover border border-cyan-700 shadow-sm"
+          />
           <span class="text-lg font-semibold text-slate-800"
             >Academic Nightingale</span
           >
@@ -254,6 +247,7 @@
           class="hidden items-center gap-6 text-sm font-medium text-slate-600 sm:flex"
         >
           <a href="index.html" class="hover:text-cyan-700">Home</a>
+          <a href="about-us.html" class="hover:text-cyan-700">About</a>
           <a href="subscription-plans.html" class="text-cyan-700">Pricing</a>
           <a href="login.html" class="hover:text-cyan-700">Learner Login</a>
         </nav>
@@ -353,8 +347,10 @@
 
     <script src="https://js.paystack.co/v1/inline.js"></script>
     <script>
+      window.__PAYSTACK_PUBLIC_KEY__ =
+        'pk_live_f3ee8a87f3c9355367009f94fce2ed197c906ef8';
       window.__PAYSTACK_CONFIG__ = window.__PAYSTACK_CONFIG__ || {
-        publicKey: 'pk_test_943cfcdf1016a38545eeeefed3a0735df0e2caf4',
+        publicKey: window.__PAYSTACK_PUBLIC_KEY__,
       };
     </script>
     <script>
@@ -378,7 +374,16 @@
           We’ll personalise pricing and daily question bundles for your track.
         </p>
         <div
-          class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2"
+          class="mt-8 flex justify-center"
+          data-role="department-loading"
+        >
+          <span
+            class="inline-flex h-12 w-12 animate-spin items-center justify-center rounded-full border-4 border-cyan-200 border-t-cyan-600"
+            aria-hidden="true"
+          ></span>
+        </div>
+        <div
+          class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 hidden"
           data-role="department-options"
         ></div>
         <button
@@ -390,5 +395,42 @@
         </button>
       </div>
     </div>
+    <!-- Full Page Loading Spinner -->
+    <div id="page-loader" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
+      <div class="text-center">
+        <div class="inline-flex h-16 w-16 animate-spin items-center justify-center rounded-full border-4 border-cyan-200 border-t-cyan-600 mb-4" aria-hidden="true"></div>
+        <p class="text-lg font-medium text-gray-900 mb-2">Loading Pricing Plans</p>
+        <p class="text-sm text-gray-600">Please wait while we prepare your options...</p>
+      </div>
+    </div>
+
+    <script>
+      // Hide the page loader when the department modal is ready to show
+      document.addEventListener('DOMContentLoaded', function() {
+        // Hide loader after a minimum of 1.5 seconds to ensure users see it
+        setTimeout(() => {
+          const pageLoader = document.getElementById('page-loader');
+          if (pageLoader) {
+            pageLoader.style.opacity = '0';
+            pageLoader.style.transition = 'opacity 0.3s ease-out';
+            setTimeout(() => {
+              pageLoader.style.display = 'none';
+            }, 300);
+          }
+        }, 1500);
+      });
+
+      // Fallback: Hide loader if it takes more than 5 seconds
+      setTimeout(() => {
+        const pageLoader = document.getElementById('page-loader');
+        if (pageLoader && pageLoader.style.display !== 'none') {
+          pageLoader.style.opacity = '0';
+          pageLoader.style.transition = 'opacity 0.3s ease-out';
+          setTimeout(() => {
+            pageLoader.style.display = 'none';
+          }, 300);
+        }
+      }, 5000);
+    </script>
   </body>
 </html>

@@ -103,9 +103,9 @@
               Sign in to your account
             </h2>
             <p class="mt-2 text-sm text-gray-600">
-              Or
-              <a href="#" class="font-medium text-cyan-600 hover:text-cyan-500"
-                >start your 14-day free trial</a
+              Don't have an account?
+              <a href="registration-before-payment.html" class="font-medium text-cyan-600 hover:text-cyan-500"
+                >Register here</a
               >
             </p>
           </div>
@@ -120,17 +120,20 @@
           <form id="loginForm" class="mt-6 space-y-6">
             <div class="rounded-md shadow-sm -space-y-px">
               <div>
-                <label for="email-address" class="sr-only"
-                  >Email or username</label
+                <label for="username" class="sr-only"
+                  >Username</label
                 >
                 <input
-                  id="email-address"
-                  name="email"
+                  id="username"
+                  name="username"
                   type="text"
                   autocomplete="username"
                   required
+                  minlength="3"
+                  pattern="[a-zA-Z0-9_-]+"
                   class="form-input appearance-none rounded-none relative block w-full px-3 py-3 border placeholder-gray-500 text-gray-900 rounded-t-md focus:z-10 sm:text-sm"
-                  placeholder="Email or username"
+                  placeholder="Username"
+                  title="Username must be at least 3 characters and contain only letters, numbers, hyphens, and underscores"
                 />
               </div>
               <div class="relative">
@@ -141,8 +144,10 @@
                   type="password"
                   autocomplete="current-password"
                   required
+                  minlength="6"
                   class="form-input appearance-none rounded-none relative block w-full px-3 py-3 border placeholder-gray-500 text-gray-900 rounded-b-md focus:z-10 sm:text-sm"
                   placeholder="Password"
+                  title="Password must be at least 6 characters"
                 />
                 <button
                   type="button"
@@ -212,7 +217,7 @@
 
               <div class="text-sm">
                 <a
-                  href="#"
+                  href="forgot-password.html"
                   class="font-medium text-cyan-600 hover:text-cyan-500"
                 >
                   Forgot your password?
@@ -229,9 +234,13 @@
                 <span data-role="submit-text">Sign in</span>
               </button>
             </div>
-          </form>
-        </div>
-      </div>
+                        <div class="mt-4 text-center text-sm">
+                          <a href="resume-registration.html" class="font-medium text-sky-600 hover:text-sky-500">
+                            Continue previous registration
+                          </a>
+                        </div>
+                      </form>
+                    </div>      </div>
 
       <!-- Decorative Side Panel (Hidden on mobile) -->
       <div
@@ -271,22 +280,6 @@
           eyeOffIcon.classList.toggle('hidden');
         });
 
-        // Handle form submission
-        loginForm.addEventListener('submit', (e) => {
-          e.preventDefault();
-          const email = document.getElementById('email-address').value;
-          console.log(`Attempting login for email: ${email}`);
-
-          // Here you would add your Supabase authentication logic
-          // For now, it just logs to the console.
-
-          alert(
-            'Login functionality is for demonstration. Check the console for details.'
-          );
-
-          // Example of redirecting after a successful login
-          // window.location.href = 'teacher_dashboard.html';
-        });
       });
     </script>
     <script>

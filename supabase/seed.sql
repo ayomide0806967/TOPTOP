@@ -2,14 +2,28 @@
 -- Includes admin profile, catalog scaffolding, study cycles, questions, and subscription offerings
 
 -- Ensure the requested admin profile exists with elevated permissions
-insert into public.profiles (id, full_name, role, last_seen_at)
+insert into public.profiles (id, full_name, role, last_seen_at, subscription_status)
 values
-  ('230348b8-0bf5-44a9-861e-4373289efdfc', 'CBT Operations Admin', 'admin', timezone('utc', now()))
+  ('230348b8-0bf5-44a9-861e-4373289efdfc', 'CBT Operations Admin', 'admin', timezone('utc', now()), 'active')
 on conflict (id) do update set
   full_name = excluded.full_name,
   role = excluded.role,
   last_seen_at = excluded.last_seen_at,
+  subscription_status = excluded.subscription_status,
   updated_at = timezone('utc', now());
+
+-- Add a sample pending user for testing the registration flow
+-- This user has paid but has not yet created a password.
+-- Corresponding auth user ID: 9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d (example)
+insert into public.profiles (id, email, first_name, last_name, phone, subscription_status)
+values
+  ('9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d', 'pending.user@example.com', 'Pending', 'User', '1234567890', 'pending_payment')
+on conflict (id) do nothing;
+
+insert into public.payments (user_id, reference, status, amount, currency, paid_at)
+values
+  ('9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d', 'seed_pending_user_payment', 'success', 499000, 'NGN', timezone('utc', now()))
+on conflict do nothing;
 
 -- Departments ----------------------------------------------------------------
 insert into public.departments (id, name, slug, color_theme)

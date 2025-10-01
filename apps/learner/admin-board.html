@@ -269,19 +269,30 @@
           </div>
         </section>
 
-        <section class="mt-10 card px-6 py-6">
-          <div class="flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-slate-900">
-              Recent Daily Quizzes
-            </h3>
-            <p
-              class="text-xs uppercase tracking-wide text-slate-500"
-              data-role="history-summary"
-            >
-              —
-            </p>
+        <section class="mt-10 card px-4 py-5 sm:px-6 sm:py-6">
+          <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-5">
+            <div>
+              <h3 class="text-lg font-semibold text-slate-900">
+                Recent Daily Quizzes
+              </h3>
+              <p
+                class="mt-1 text-xs text-slate-500"
+                data-role="history-summary"
+              >
+                —
+              </p>
+            </div>
           </div>
-          <div class="mt-4 overflow-x-auto">
+          
+          <!-- Mobile Cards View -->
+          <div class="block sm:hidden space-y-3" data-role="history-cards">
+            <div class="text-center py-8 text-slate-500 text-sm">
+              Loading history…
+            </div>
+          </div>
+          
+          <!-- Desktop Table View -->
+          <div class="hidden sm:block overflow-x-auto">
             <table class="min-w-full divide-y divide-slate-200 text-sm">
               <thead
                 class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"
@@ -290,7 +301,7 @@
                   <th class="px-4 py-3 text-left">Date</th>
                   <th class="px-4 py-3 text-left">Status</th>
                   <th class="px-4 py-3 text-left">Score</th>
-                  <th class="px-4 py-3 text-left">Completed</th>
+                  <th class="px-4 py-3 text-left">Action</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100" data-role="history-body">

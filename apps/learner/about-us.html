@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>About Us | Academic Nightingale</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: 'Segoe UI', 'Tahoma', 'Geneva', 'Verdana', sans-serif;
+        background-color: #f8fafc;
+        color: #1a202c;
+      }
+
+      /* --- Animations --- */
+      .fade-in-section {
+        opacity: 0;
+        transform: translateY(20px);
+        transition:
+          opacity 0.6s ease-out,
+          transform 0.6s ease-out;
+      }
+      .fade-in-section.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* --- Header --- */
+      .header-sticky {
+        transition: all 0.3s ease-in-out;
+      }
+
+      /* --- Button Style --- */
+      .btn-primary {
+        background: linear-gradient(135deg, #0e7490, #088ea5, #0ca5b5);
+        color: #ffffff;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(14, 116, 144, 0.3);
+      }
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(14, 116, 144, 0.4);
+      }
+
+      /* --- Team Card --- */
+      .team-card {
+        transition: all 0.3s ease;
+      }
+      .team-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      }
+
+      /* --- Timeline --- */
+      .timeline-line {
+        background: linear-gradient(180deg, #0e7490 0%, #0ca5b5 100%);
+      }
+      .timeline-dot {
+        background: #0e7490;
+        border: 4px solid #ffffff;
+        box-shadow: 0 0 0 4px rgba(14, 116, 144, 0.1);
+      }
+    </style>
+  </head>
+  <body class="antialiased text-gray-900">
+    <!-- Header Navigation -->
+    <header class="bg-white shadow-sm fixed top-0 w-full z-50">
+      <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <div class="flex items-center gap-3">
+            <a href="index.html" class="flex items-center gap-3">
+              <img
+                src="../assets/academicnightingale-logo.jpg"
+                alt="Academic Nightingale logo"
+                class="h-10 w-10 rounded-full object-cover border border-cyan-700 shadow-sm"
+              />
+              <span class="text-xl font-bold text-gray-900"
+                >Academic Nightingale</span
+              >
+            </a>
+          </div>
+          <div class="hidden md:flex items-center space-x-8">
+            <a href="index.html" class="text-gray-600 hover:text-gray-900">Home</a>
+            <a href="about-us.html" class="text-cyan-700 font-semibold">About</a>
+            <a href="subscription-plans.html" class="text-gray-600 hover:text-gray-900">Plans</a>
+            <a href="login.html" class="btn-primary px-4 py-2 rounded-lg text-sm">Login</a>
+          </div>
+          <div class="md:hidden">
+            <button id="mobile-menu-button" class="text-gray-600">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <!-- Mobile Navigation Drawer -->
+    <div
+      id="mobile-menu"
+      class="fixed inset-0 z-40 hidden md:hidden"
+      aria-hidden="true"
+    >
+      <button
+        type="button"
+        data-role="mobile-overlay"
+        class="absolute inset-0 bg-slate-900/60"
+        tabindex="-1"
+        aria-label="Close menu"
+      ></button>
+      <div
+        class="relative ml-auto flex h-full w-full max-w-xs flex-col bg-white shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="about-mobile-menu-heading"
+      >
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+          <div class="flex items-center gap-2">
+            <img
+              src="../assets/academicnightingale-logo.jpg"
+              alt="Academic Nightingale logo"
+              class="h-9 w-9 rounded-full object-cover border border-cyan-700 shadow-sm"
+            />
+            <span
+              id="about-mobile-menu-heading"
+              class="text-base font-semibold text-slate-800"
+              >Academic Nightingale</span
+            >
+          </div>
+          <button
+            type="button"
+            data-role="close-mobile-menu"
+            class="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            aria-label="Close navigation"
+          >
+            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fill-rule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 011.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+        <nav class="flex-1 overflow-y-auto px-5 py-6">
+          <ul class="space-y-2 text-base font-medium text-slate-700">
+            <li>
+              <a href="index.html" class="block rounded-lg px-3 py-2 hover:bg-slate-100"
+                >Home</a
+              >
+            </li>
+            <li>
+              <a href="subscription-plans.html" class="block rounded-lg px-3 py-2 hover:bg-slate-100"
+                >Pricing</a
+              >
+            </li>
+            <li>
+              <a href="about-us.html" class="block rounded-lg px-3 py-2 bg-cyan-600 text-white"
+                >About</a
+              >
+            </li>
+            <li>
+              <a href="login.html" class="block rounded-lg px-3 py-2 hover:bg-slate-100"
+                >Log In</a
+              >
+            </li>
+          </ul>
+
+          <div class="mt-8 space-y-3 border-t border-slate-200 pt-6">
+            <p class="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Connect with us
+            </p>
+            <div class="flex flex-col gap-2 text-sm font-medium text-cyan-700">
+              <a
+                href="https://instagram.com/academicnightingale"
+                target="_blank"
+                rel="noreferrer"
+                class="rounded-lg px-3 py-2 hover:bg-cyan-50"
+                >Instagram</a
+              >
+              <a
+                href="https://twitter.com/AcadNightingale"
+                target="_blank"
+                rel="noreferrer"
+                class="rounded-lg px-3 py-2 hover:bg-cyan-50"
+                >X (Twitter)</a
+              >
+              <a
+                href="https://www.linkedin.com/company/academicnightingale"
+                target="_blank"
+                rel="noreferrer"
+                class="rounded-lg px-3 py-2 hover:bg-cyan-50"
+                >LinkedIn</a
+              >
+            </div>
+          </div>
+        </nav>
+      </div>
+    </div>
+
+    <main class="pt-16">
+      <!-- Hero Section -->
+      <section class="py-20 sm:py-24 bg-gradient-to-br from-cyan-50 to-blue-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center fade-in-section">
+            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 tracking-tight">
+              About <span class="text-cyan-700">Academic Nightingale</span>
+            </h1>
+            <p class="mt-6 text-xl text-gray-600 max-w-3xl mx-auto">
+              Nigeria's leading NMCN exam preparation platform, dedicated to eradicating failure rates through innovative educational technology since 2024
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Mission Section -->
+      <section class="py-20 sm:py-24">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div class="fade-in-section">
+              <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">Our Mission</h2>
+              <p class="text-lg text-gray-600 mb-6">
+                In response to alarming failure rates in NMCN examinations, Academic Nightingale was founded with a clear mission:
+                to eradicate exam preparation challenges by providing Nigerian nursing and midwifery students with comprehensive
+                tools needed for complete NMCN success.
+              </p>
+              <p class="text-lg text-gray-600 mb-6">
+                We deliver tailored NMCN mock exams that simulate real testing conditions, daily tutorials covering the entire curriculum,
+                and question banks exceeding 2.3 million practice items. Our platform is specifically designed to transform struggling students
+                into confident professionals ready to excel in their careers.
+              </p>
+              <p class="text-lg text-gray-600">
+                Through innovative educational technology and a deep understanding of the NMCN examination landscape,
+                we empower the next generation of healthcare professionals to achieve their certification goals and serve their communities with excellence.
+              </p>
+            </div>
+            <div class="fade-in-section">
+              <figure class="relative overflow-hidden rounded-2xl shadow-xl">
+                <img
+                  src="../assets/partnership.png"
+                  alt="Academic Nightingale team shaking hands in partnership"
+                  class="h-full w-full object-cover"
+                />
+                <figcaption class="absolute inset-x-0 bottom-0 bg-black/60 px-6 py-4 text-center text-white text-lg font-semibold">
+                  Technology. Innovation. Partnerships.
+                </figcaption>
+              </figure>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Story Section -->
+      <section class="py-20 sm:py-24 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center fade-in-section mb-16">
+            <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">Our Story</h2>
+            <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+              From a small idea to a platform serving thousands of healthcare professionals
+            </p>
+          </div>
+
+          <div class="relative">
+            <!-- Timeline -->
+            <div class="absolute left-1/2 transform -translate-x-1/2 w-1 h-full timeline-line hidden lg:block"></div>
+
+            <div class="space-y-12">
+              <div class="flex flex-col lg:flex-row items-center gap-8 fade-in-section">
+                <div class="w-full lg:w-1/2 lg:text-right lg:pr-8">
+                  <h3 class="text-2xl font-bold text-gray-900 mb-2">2024 - The Beginning</h3>
+                  <p class="text-gray-600">
+                    Founded to address the alarming NMCN exam failure rates across Nigeria.
+                    Started with 1,000 carefully curated questions and a vision to transform nursing education.
+                  </p>
+                </div>
+                <div class="hidden lg:block w-4 h-4 rounded-full timeline-dot"></div>
+                <div class="w-full lg:w-1/2 lg:pl-8">
+                  <div class="bg-cyan-50 p-6 rounded-xl">
+                    <div class="text-3xl font-bold text-cyan-700 mb-2">1K</div>
+                    <div class="text-gray-600">Initial Questions</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex flex-col lg:flex-row items-center gap-8 fade-in-section">
+                <div class="w-full lg:w-1/2 lg:pr-8 order-2 lg:order-1">
+                  <div class="bg-blue-50 p-6 rounded-xl">
+                    <div class="text-3xl font-bold text-blue-700 mb-2">36</div>
+                    <div class="text-gray-600">States Reached</div>
+                  </div>
+                </div>
+                <div class="hidden lg:block w-4 h-4 rounded-full timeline-dot order-2"></div>
+                <div class="w-full lg:w-1/2 lg:pl-8 lg:text-left order-3">
+                  <h3 class="text-2xl font-bold text-gray-900 mb-2">2024 - Nationwide Impact</h3>
+                  <p class="text-gray-600">
+                    Expanded to serve almost all universities and nursing schools across Nigeria's 36 states,
+                    including Foreign Trained Nurses (FTN) from various countries seeking NMCN certification.
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex flex-col lg:flex-row items-center gap-8 fade-in-section">
+                <div class="w-full lg:w-1/2 lg:text-right lg:pr-8">
+                  <h3 class="text-2xl font-bold text-gray-900 mb-2">2025 - Excellence in Education</h3>
+                  <p class="text-gray-600">
+                    Achieved comprehensive NMCN curriculum coverage with 2.3 million+ questions.
+                    Established ourselves as Nigeria's leading NMCN exam preparation platform with daily tutorials and mock exams.
+                  </p>
+                </div>
+                <div class="hidden lg:block w-4 h-4 rounded-full timeline-dot"></div>
+                <div class="w-full lg:w-1/2 lg:pl-8">
+                  <div class="bg-green-50 p-6 rounded-xl">
+                    <div class="text-3xl font-bold text-green-700 mb-2">2.3M+</div>
+                    <div class="text-gray-600">Questions Bank</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Values Section -->
+      <section class="py-20 sm:py-24">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center fade-in-section mb-16">
+            <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">Our Values</h2>
+            <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+              The principles that guide everything we do
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div class="bg-white p-8 rounded-2xl shadow-sm fade-in-section">
+              <div class="w-16 h-16 bg-cyan-100 rounded-full flex items-center justify-center mb-6">
+                <svg class="w-8 h-8 text-cyan-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+              <h3 class="text-xl font-bold text-gray-900 mb-4">Excellence</h3>
+              <p class="text-gray-600">
+                We strive for the highest standards in content quality, user experience, and educational outcomes.
+              </p>
+            </div>
+
+            <div class="bg-white p-8 rounded-2xl shadow-sm fade-in-section">
+              <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-6">
+                <svg class="w-8 h-8 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+              </div>
+              <h3 class="text-xl font-bold text-gray-900 mb-4">Education</h3>
+              <p class="text-gray-600">
+                We are committed to advancing healthcare education through innovative learning methods and comprehensive resources.
+              </p>
+            </div>
+
+            <div class="bg-white p-8 rounded-2xl shadow-sm fade-in-section">
+              <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6">
+                <svg class="w-8 h-8 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                </svg>
+              </div>
+              <h3 class="text-xl font-bold text-gray-900 mb-4">Care</h3>
+              <p class="text-gray-600">
+                We genuinely care about our students' success and the impact they have on healthcare in their communities.
+              </p>
+            </div>
+
+            <div class="bg-white p-8 rounded-2xl shadow-sm fade-in-section">
+              <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-6">
+                <svg class="w-8 h-8 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+              </div>
+              <h3 class="text-xl font-bold text-gray-900 mb-4">Innovation</h3>
+              <p class="text-gray-600">
+                We continuously evolve our platform with cutting-edge technology and modern educational approaches.
+              </p>
+            </div>
+
+            <div class="bg-white p-8 rounded-2xl shadow-sm fade-in-section">
+              <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-6">
+                <svg class="w-8 h-8 text-yellow-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+              </div>
+              <h3 class="text-xl font-bold text-gray-900 mb-4">Community</h3>
+              <p class="text-gray-600">
+                We build a supportive community where healthcare professionals can learn and grow together.
+              </p>
+            </div>
+
+            <div class="bg-white p-8 rounded-2xl shadow-sm fade-in-section">
+              <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-6">
+                <svg class="w-8 h-8 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                </svg>
+              </div>
+              <h3 class="text-xl font-bold text-gray-900 mb-4">Integrity</h3>
+              <p class="text-gray-600">
+                We operate with transparency, honesty, and ethical practices in all aspects of our business.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Impact Section -->
+      <section class="py-20 sm:py-24 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center fade-in-section mb-16">
+            <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">Our Impact</h2>
+            <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+              Making a difference in healthcare education across Africa
+            </p>
+          </div>
+
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-8">
+            <div class="text-center fade-in-section">
+              <div class="text-4xl lg:text-5xl font-bold text-cyan-700 mb-2">50K+</div>
+              <div class="text-gray-600 font-medium">Questions in Bank</div>
+            </div>
+            <div class="text-center fade-in-section">
+              <div class="text-4xl lg:text-5xl font-bold text-cyan-700 mb-2">10K+</div>
+              <div class="text-gray-600 font-medium">Successful Students</div>
+            </div>
+            <div class="text-center fade-in-section">
+              <div class="text-4xl lg:text-5xl font-bold text-cyan-700 mb-2">95%</div>
+              <div class="text-gray-600 font-medium">Pass Rate</div>
+            </div>
+            <div class="text-center fade-in-section">
+              <div class="text-4xl lg:text-5xl font-bold text-cyan-700 mb-2">15+</div>
+              <div class="text-gray-600 font-medium">Countries Served</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Team Section -->
+      <section class="py-20 sm:py-24">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center fade-in-section mb-16">
+            <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">Our Leadership Team</h2>
+            <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+              Meet the dedicated professionals behind Academic Nightingale
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <!-- CTO/Co-founder -->
+            <div class="team-card bg-white rounded-xl shadow-lg overflow-hidden fade-in-section hover:shadow-xl transition-all duration-300 border border-gray-100">
+              <div class="relative">
+                <div class="h-56 bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+                  <img
+                    src="../assets/adebayo-tolu.png"
+                    alt="Adebayo Tolu, Chief Technology Officer"
+                    class="w-36 h-36 rounded-lg object-cover border-4 border-white shadow-lg"
+                  />
+                </div>
+                <div class="absolute top-4 right-4">
+                  <span class="bg-blue-600 text-white text-xs font-semibold px-3 py-1 rounded-full">CTO</span>
+                </div>
+              </div>
+              <div class="p-8 text-center">
+                <h3 class="text-2xl font-bold text-gray-900 mb-2">Adebayo Tolu</h3>
+                <p class="text-cyan-700 font-semibold text-lg mb-4">Co-founder & Chief Technology Officer</p>
+                <p class="text-gray-600 leading-relaxed mb-6">
+                  Technology architect driving innovation in educational platforms. Expert in building scalable solutions that empower the next generation of healthcare professionals.
+                </p>
+                <div class="flex items-center justify-center space-x-4">
+                  <a href="https://x.com/ProfAdebay?t=qk9RLdhEHrGxY0qRK1-1Qg&s=09" target="_blank" class="text-gray-400 hover:text-cyan-600 transition-colors">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                    </svg>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <!-- CFO/Co-founder -->
+            <div class="team-card bg-white rounded-xl shadow-lg overflow-hidden fade-in-section hover:shadow-xl transition-all duration-300 border border-gray-100">
+              <div class="relative">
+                <div class="h-56 bg-gradient-to-br from-emerald-50 to-teal-100 flex items-center justify-center">
+                  <img
+                    src="../assets/sadiya-salisu-kebbeh.png"
+                    alt="Mal. Sadiya Salisu Kebbeh"
+                    class="w-36 h-36 rounded-lg object-cover border-4 border-white shadow-lg"
+                  />
+                </div>
+                <div class="absolute top-4 right-4">
+                  <span class="bg-emerald-600 text-white text-xs font-semibold px-3 py-1 rounded-full">CFO</span>
+                </div>
+              </div>
+              <div class="p-8 text-center">
+                <h3 class="text-2xl font-bold text-gray-900 mb-2">Mal. Sadiya Salisu Kebbeh</h3>
+                <p class="text-cyan-700 font-semibold text-lg mb-4">Co-founder & Chief Financial Officer</p>
+                <p class="text-gray-600 leading-relaxed mb-6">
+                  Registered Nurse & Midwife (RN, RM) with expertise in healthcare management and financial strategy. Ensuring sustainable growth while maintaining educational excellence.
+                </p>
+                <div class="flex items-center justify-center">
+                  <span class="bg-emerald-100 text-emerald-700 text-sm font-medium px-3 py-1 rounded-full">RN, RM Certified</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CMO (Second Row) -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto mt-8">
+            <!-- CMO -->
+            <div class="team-card bg-white rounded-xl shadow-lg overflow-hidden fade-in-section hover:shadow-xl transition-all duration-300 border border-gray-100">
+              <div class="relative">
+                <div class="h-56 bg-gradient-to-br from-purple-50 to-pink-100 flex items-center justify-center">
+                  <img
+                    src="../assets/abdullahi-tukur.png"
+                    alt="Nurs. Abdullahi Tukur"
+                    class="w-36 h-36 rounded-lg object-cover border-4 border-white shadow-lg"
+                  />
+                </div>
+                <div class="absolute top-4 right-4">
+                  <span class="bg-purple-600 text-white text-xs font-semibold px-3 py-1 rounded-full">CMO</span>
+                </div>
+              </div>
+              <div class="p-8 text-center">
+                <h3 class="text-2xl font-bold text-gray-900 mb-2">Nurs. Abdullahi Tukur</h3>
+                <p class="text-cyan-700 font-semibold text-lg mb-4">Chief Marketing Officer</p>
+                <p class="text-gray-600 leading-relaxed mb-6">
+                  Strategic marketing leader driving growth and community engagement. Connecting thousands of students to their career dreams through innovative outreach strategies.
+                </p>
+                <div class="flex items-center justify-center">
+                  <span class="bg-purple-100 text-purple-700 text-sm font-medium px-3 py-1 rounded-full">Marketing Strategist</span>
+                </div>
+              </div>
+            </div>
+
+            </div>
+        </div>
+      </section>
+
+      <!-- Impact Section -->
+      <section class="py-20 sm:py-24 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center fade-in-section mb-16">
+            <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">Our Impact</h2>
+            <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+              Transforming NMCN exam preparation across Nigeria with proven results
+            </p>
+          </div>
+
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-8">
+            <div class="bg-white p-8 rounded-2xl shadow-sm text-center fade-in-section">
+              <div class="text-4xl lg:text-5xl font-bold text-cyan-700 mb-4">36+</div>
+              <h3 class="text-lg font-semibold text-gray-900">States Covered</h3>
+              <p class="text-gray-600 text-sm mt-2">
+                Serving nursing schools across all Nigerian states
+              </p>
+            </div>
+
+            <div class="bg-white p-8 rounded-2xl shadow-sm text-center fade-in-section">
+              <div class="text-4xl lg:text-5xl font-bold text-cyan-700 mb-4">200+</div>
+              <h3 class="text-lg font-semibold text-gray-900">Institutions</h3>
+              <p class="text-gray-600 text-sm mt-2">
+                Universities and nursing schools nationwide
+              </p>
+            </div>
+
+            <div class="bg-white p-8 rounded-2xl shadow-sm text-center fade-in-section">
+              <div class="text-4xl lg:text-5xl font-bold text-cyan-700 mb-4">2.3M+</div>
+              <h3 class="text-lg font-semibold text-gray-900">Questions Bank</h3>
+              <p class="text-gray-600 text-sm mt-2">
+                Complete NMCN curriculum coverage
+              </p>
+            </div>
+
+            <div class="bg-white p-8 rounded-2xl shadow-sm text-center fade-in-section">
+              <div class="text-4xl lg:text-5xl font-bold text-cyan-700 mb-4">23K+</div>
+              <h3 class="text-lg font-semibold text-gray-900">Active Students</h3>
+              <p class="text-gray-600 text-sm mt-2">
+                Including Foreign Trained Nurses
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CTA Section -->
+      <section class="py-20 sm:py-24 bg-gradient-to-br from-cyan-50 to-blue-50">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center fade-in-section">
+          <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight mb-6">
+            Join Our Community
+          </h2>
+          <p class="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            Connect with 23,000+ students across Nigeria. Join our free daily NMCN tutorials and access mock tests.
+          </p>
+          <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <a href="subscription-plans.html" class="btn-primary px-8 py-3 rounded-lg text-base font-semibold">
+              Get Started Today
+            </a>
+            <a href="index.html" class="bg-white text-cyan-700 border-2 border-cyan-700 px-8 py-3 rounded-lg text-base font-semibold hover:bg-cyan-50 transition-colors">
+              Back to Home
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-300">
+      <div class="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
+          <div class="col-span-2 md:col-span-4 lg:col-span-1">
+            <h3 class="font-bold text-lg text-white">Academic Nightingale</h3>
+            <p class="text-sm mt-2">Your partner in medical exam success.</p>
+          </div>
+
+          <div>
+            <h4 class="font-semibold text-white">Departments</h4>
+            <ul class="mt-4 space-y-2 text-sm">
+              <li>
+                <a href="subscription-plans.html" class="hover:text-white"
+                  >Nursing</a
+                >
+              </li>
+              <li>
+                <a href="subscription-plans.html" class="hover:text-white"
+                  >Midwifery</a
+                >
+              </li>
+              <li>
+                <a href="subscription-plans.html" class="hover:text-white"
+                  >Public Health</a
+                >
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-semibold text-white">Resources</h4>
+            <ul class="mt-4 space-y-2 text-sm">
+              <li><a href="blog.html" class="hover:text-white">Blog</a></li>
+              <li><a href="help-center.html" class="hover:text-white">Help Center</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-semibold text-white">Company</h4>
+            <ul class="mt-4 space-y-2 text-sm">
+              <li><a href="about-us.html" class="hover:text-white">About Us</a></li>
+              <li><a href="careers.html" class="hover:text-white">Careers</a></li>
+              <li><a href="contact.html" class="hover:text-white">Contact</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-semibold text-white">Legal</h4>
+            <ul class="mt-4 space-y-2 text-sm">
+              <li><a href="privacy-policy.html" class="hover:text-white">Privacy Policy</a></li>
+              <li><a href="terms-of-service.html" class="hover:text-white">Terms of Service</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Social Media Section -->
+        <div class="mt-12 border-t border-gray-700 pt-8">
+          <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="text-sm text-gray-400">
+              Connect with our community of 23,000+ students
+            </div>
+            <div class="flex items-center gap-6">
+              <a href="https://whatsapp.com/channel/0029VaW2i4qJuyAIGj7CRb0W" target="_blank" class="flex items-center gap-2 text-gray-400 hover:text-green-400 transition-colors">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.149-.67.149-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414-.074-.123-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                </svg>
+                <span class="text-sm">WhatsApp</span>
+              </a>
+              <a href="https://t.me/AcademicNightingale" target="_blank" class="flex items-center gap-2 text-gray-400 hover:text-blue-400 transition-colors">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M11.944 0A12 12 0 1 0 0 12a12 12 0 1 0 12 12 12 12 0 1 0 12-12A12 12 0 1 0 12 0a12 12 0 1 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 1 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                </svg>
+                <span class="text-sm">Telegram</span>
+              </a>
+              <a href="https://x.com/Academicnight?t=sFUWnz_yqvc8bgNIj0A_Wg&s=09" target="_blank" class="flex items-center gap-2 text-gray-400 hover:text-gray-100 transition-colors">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+                <span class="text-sm">X (Twitter)</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-8 pt-8 text-center text-sm">
+          <p>&copy; 2025 Academic Nightingale. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        // Fade-in Section Logic
+        const sections = document.querySelectorAll('.fade-in-section');
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting)
+                entry.target.classList.add('is-visible');
+            });
+          },
+          { threshold: 0.1 }
+        );
+        sections.forEach((section) => observer.observe(section));
+
+        // Mobile navigation
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const mobileOverlay = mobileMenu?.querySelector('[data-role="mobile-overlay"]');
+        const closeMobileMenuBtn = mobileMenu?.querySelector('[data-role="close-mobile-menu"]');
+
+        const focusableSelector =
+          'a[href], button:not([tabindex="-1"]):not([disabled])';
+        let previouslyFocused = null;
+
+        function trapKeydown(event) {
+          if (!mobileMenu || mobileMenu.classList.contains('hidden')) return;
+
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            closeMobileMenu();
+            return;
+          }
+
+          if (event.key !== 'Tab') return;
+          const focusable = Array.from(
+            mobileMenu.querySelectorAll(focusableSelector)
+          );
+          if (!focusable.length) return;
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+
+          if (event.shiftKey) {
+            if (document.activeElement === first) {
+              event.preventDefault();
+              last.focus();
+            }
+          } else if (document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        }
+
+        function closeMobileMenu() {
+          if (!mobileMenu) return;
+          mobileMenu.classList.add('hidden');
+          mobileMenu.setAttribute('aria-hidden', 'true');
+          mobileMenuButton?.setAttribute('aria-expanded', 'false');
+          document.body.classList.remove('overflow-hidden');
+          document.removeEventListener('keydown', trapKeydown);
+          if (previouslyFocused instanceof HTMLElement) {
+            previouslyFocused.focus();
+          }
+        }
+
+        function openMobileMenu() {
+          if (!mobileMenu) return;
+          previouslyFocused = document.activeElement;
+          mobileMenu.classList.remove('hidden');
+          mobileMenu.setAttribute('aria-hidden', 'false');
+          mobileMenuButton?.setAttribute('aria-expanded', 'true');
+          document.body.classList.add('overflow-hidden');
+          const focusable = mobileMenu.querySelectorAll(focusableSelector);
+          if (focusable.length) {
+            focusable[0].focus();
+          }
+          document.addEventListener('keydown', trapKeydown);
+        }
+
+        mobileMenuButton?.setAttribute('aria-haspopup', 'dialog');
+        mobileMenuButton?.setAttribute('aria-expanded', 'false');
+        mobileMenuButton?.addEventListener('click', () => {
+          const isOpen = mobileMenuButton.getAttribute('aria-expanded') === 'true';
+          if (isOpen) {
+            closeMobileMenu();
+          } else {
+            openMobileMenu();
+          }
+        });
+
+        mobileOverlay?.addEventListener('click', closeMobileMenu);
+        closeMobileMenuBtn?.addEventListener('click', closeMobileMenu);
+        mobileMenu
+          ?.querySelectorAll('a')
+          .forEach((link) => link.addEventListener('click', closeMobileMenu));
+      });
+    </script>
+  </body>
+</html>

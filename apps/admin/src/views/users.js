@@ -1,385 +1,798 @@
 import { dataService } from '../services/dataService.js';
 import { showToast } from '../components/toast.js';
-import { openModal } from '../components/modal.js';
 import { authService } from '../services/authService.js';
 
-function openUserEditor(profile, departments, actions) {
-  openModal({
-    title: 'Edit User',
-    render: ({ body, footer, close }) => {
-      body.innerHTML = `
-        <form id="edit-user-form" class="space-y-4">
-          <label class="block text-sm font-medium text-gray-700">
-            <span>Full Name</span>
-            <input type="text" name="full_name" class="mt-1 w-full border border-gray-300 rounded-md p-2" value="${profile.full_name}" required>
-          </label>
-          <label class="block text-sm font-medium text-gray-700">
-            <span>Department</span>
-            <select name="department_id" class="mt-1 w-full border border-gray-300 rounded-md p-2">
-              <option value="">No Department</option>
-              ${departments.map(dept => `<option value="${dept.id}" ${profile.department_id === dept.id ? 'selected' : ''}>${dept.name}</option>`).join('')}
-            </select>
-          </label>
-          <div>
-            <button type="button" id="change-plan" class="text-sm text-cyan-700 hover:underline">Change Subscription Plan</button>
-          </div>
-        </form>
-      `;
-      footer.innerHTML = `
-        <button type="button" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-md" data-role="cancel">Cancel</button>
-        <button type="submit" form="edit-user-form" class="bg-cyan-700 text-white px-4 py-2 rounded-md">Save Changes</button>
-      `;
-      footer.querySelector('[data-role="cancel"]').addEventListener('click', close);
-      const form = body.querySelector('#edit-user-form');
+const EMPTY_STATE_COPY = `Invite learners or generate credentials in bulk to kick-start a cohort.`;
 
-      body.querySelector('#change-plan').addEventListener('click', async () => {
-        const products = await dataService.listSubscriptionProductsDetailed();
-        openPlanSelector(profile, products, actions);
-      });
+function escapeHtml(value) {
+  if (value === undefined || value === null) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
-      form?.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const formData = new FormData(form);
-        try {
-          await dataService.updateUserProfile(profile.id, {
-            full_name: formData.get('full_name').trim(),
-            department_id: formData.get('department_id'),
-          });
-          showToast('User updated.', { type: 'success' });
-          close();
-          actions.refresh();
-        } catch (error) {
-          console.error(error);
-          showToast(error.message || 'Unable to update user.', { type: 'error' });
-        }
-      });
-    },
+function formatDate(isoString) {
+  if (!isoString) return '—';
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
   });
 }
 
-function openPlanSelector(profile, products, actions) {
-  openModal({
-    title: `Change Plan for ${profile.full_name}`,
-    render: ({ body, footer, close }) => {
-      body.innerHTML = `
-        <div class="space-y-4">
-          ${products.map(product => `
-            <div>
-              <h3 class="text-lg font-semibold">${product.name}</h3>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                ${product.plans.map(plan => `
-                  <button data-plan-id="${plan.id}" class="text-left p-4 border rounded-lg hover:bg-gray-50">
-                    <h4 class="font-semibold">${plan.name}</h4>
-                    <p class="text-sm text-gray-500">${plan.price} ${plan.currency}</p>
-                  </button>
-                `).join('')}
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      `;
-      body.querySelectorAll('button[data-plan-id]').forEach(button => {
-        button.addEventListener('click', async () => {
-          const planId = button.dataset.planId;
-          try {
-            await dataService.updateUserSubscription(profile.id, planId);
-            showToast('Subscription updated.', { type: 'success' });
-            close();
-            actions.refresh();
-          } catch (error) {
-            showToast(error.message, { type: 'error' });
-          }
+function renderStatusBadge(status) {
+  const normalized = (status || 'inactive').toLowerCase();
+  const palette = {
+    active: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+    canceled: 'bg-amber-50 text-amber-700 border border-amber-200',
+    cancelled: 'bg-amber-50 text-amber-700 border border-amber-200',
+    suspended: 'bg-rose-50 text-rose-700 border border-rose-200',
+    expired: 'bg-slate-100 text-slate-500 border border-slate-200',
+  };
+  const label = normalized.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const classes = palette[normalized] || 'bg-slate-100 text-slate-600 border border-slate-200';
+  return `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${classes}">${escapeHtml(label)}</span>`;
+}
+
+function buildPlanOptions(products) {
+  const options = [];
+  products.forEach((product) => {
+    const departmentName = product.department_name || null;
+    const departmentId = product.department_id || null;
+    if (Array.isArray(product.plans)) {
+      product.plans.forEach((plan) => {
+        options.push({
+          id: plan.id,
+          name: plan.name,
+          price: plan.price,
+          currency: plan.currency,
+          durationDays: plan.duration_days,
+          departmentId,
+          departmentName,
         });
       });
     }
   });
+  options.sort((a, b) => a.name.localeCompare(b.name));
+  return options;
 }
 
-const ROLE_LABELS = {
-  admin: 'Administrator',
-  instructor: 'Instructor',
-  learner: 'Learner',
-};
+export async function usersView() {
+  const [profiles, departments, products] = await Promise.all([
+    dataService.listProfiles(),
+    dataService.listDepartments(),
+    dataService.listSubscriptionProductsDetailed(),
+  ]);
 
-function roleSelect(profile) {
-  return `
-    <select data-role="role-select" data-id="${profile.id}" class="border border-gray-300 rounded-md p-2 text-sm">
-      ${Object.entries(ROLE_LABELS)
-        .map(
-          ([value, label]) =>
-            `<option value="${value}" ${profile.role === value ? 'selected' : ''}>${label}</option>`
-        )
-        .join('')}
-    </select>
+  const planOptions = buildPlanOptions(products || []);
+
+  const rowsHtml = (profiles || [])
+    .map((profile) => {
+      const searchTerms = [
+        profile.full_name,
+        profile.username ? `@${profile.username}` : '',
+        profile.email,
+        profile.plan_name,
+        profile.department_name,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      const profilePayload = encodeURIComponent(JSON.stringify(profile));
+
+      return `
+        <tr
+          class="border-b border-slate-100 last:border-0"
+          data-role="user-row"
+          data-profile="${profilePayload}"
+          data-search="${escapeHtml(searchTerms)}"
+        >
+          <td class="px-4 py-4 align-top">
+            <div class="font-semibold text-slate-900">${escapeHtml(profile.full_name || '—')}</div>
+            <div class="mt-1 text-xs text-slate-500">
+              ${profile.username ? `@${escapeHtml(profile.username)}` : 'No username yet'}
+            </div>
+          </td>
+          <td class="px-4 py-4 align-top">
+            <div class="text-sm text-slate-700">${escapeHtml(profile.email || '—')}</div>
+            <div class="mt-1 text-xs text-slate-400">${escapeHtml(profile.department_name || '—')}</div>
+          </td>
+          <td class="px-4 py-4 align-top">
+            <div class="font-medium text-slate-900">${escapeHtml(profile.plan_name || 'No active plan')}</div>
+            <div class="mt-1 text-xs text-slate-400">
+              ${profile.plan_expires_at ? `Expires ${formatDate(profile.plan_expires_at)}` : 'No expiry set'}
+            </div>
+          </td>
+          <td class="px-4 py-4 align-top">
+            ${renderStatusBadge(profile.status || profile.subscription_status)}
+          </td>
+          <td class="px-4 py-4 text-right align-top">
+            <button
+              type="button"
+              class="inline-flex items-center rounded-full border border-cyan-200 px-3 py-1 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-50"
+              data-role="manage-user"
+              data-user-id="${escapeHtml(profile.id)}"
+            >
+              Manage
+            </button>
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  const tableBody =
+    rowsHtml ||
+    `<tr><td colspan="5" class="px-4 py-12 text-center text-slate-500">${escapeHtml(
+      EMPTY_STATE_COPY,
+    )}</td></tr>`;
+
+  const departmentOptionsHtml = `
+    <option value="">Select department</option>
+    ${departments
+      .map(
+        (dept) =>
+          `<option value="${escapeHtml(dept.id)}">${escapeHtml(dept.name)}</option>`
+      )
+      .join('')}
   `;
-}
 
-function profileRow(profile, index) {
-  return `
-    <tr class="border-t border-gray-200" data-profile-id="${profile.id}">
-      <td class="px-4 py-3 text-sm text-gray-500">${index + 1}</td>
-      <td class="px-4 py-3"><input type="checkbox" class="user-checkbox" data-id="${profile.id}"></td>
-      <td class="px-4 py-3">
-        <div class="font-medium text-gray-900">${profile.full_name || 'Unknown user'}</div>
-        <div class="text-xs text-gray-500">${profile.id}</div>
-      </td>
-      <td class="px-4 py-3">${roleSelect(profile)}</td>
-      <td class="px-4 py-3 text-sm text-gray-500">${profile.status}</td>
-      <td class="px-4 py-3 text-sm text-gray-500">${profile.plan_name}</td>
-      <td class="px-4 py-3 text-sm text-gray-500">${profile.department_name}</td>
-      <td class="px-4 py-3 text-sm text-gray-500">${profile.last_seen_at ? new Date(profile.last_seen_at).toLocaleString() : '—'}</td>
-      <td class="px-4 py-3 text-sm text-gray-500">${profile.created_at ? new Date(profile.created_at).toLocaleDateString() : '—'}</td>
-      <td class="px-4 py-3 text-sm text-gray-500">
-        <button data-role="reset-password" data-id="${profile.id}" class="text-cyan-700 hover:underline">Reset Pass</button>
-        <button data-role="edit-user" data-id="${profile.id}" class="text-cyan-700 hover:underline ml-2">Edit</button>
-        <button data-role="suspend-user" data-id="${profile.id}" data-status="${profile.status}" class="text-amber-600 hover:underline ml-2">${profile.status === 'suspended' ? 'Unsuspend' : 'Suspend'}</button>
-        <button data-role="impersonate-user" data-id="${profile.id}" class="text-cyan-700 hover:underline ml-2">Impersonate</button>
-        <button data-role="delete-user" data-id="${profile.id}" class="text-red-600 hover:underline ml-2">Delete</button>
-      </td>
-    </tr>
-  `;
-}
-
-export async function usersView(state, actions) {
-  const profiles = await dataService.listProfiles();
+  const planOptionsHtml = planOptions
+    .map((plan) => {
+      const label = `${plan.name}${plan.departmentName ? ` • ${plan.departmentName}` : ''}`;
+      return `<option value="${escapeHtml(plan.id)}" data-department="${escapeHtml(
+        plan.departmentId || '',
+      )}">${escapeHtml(label)}</option>`;
+    })
+    .join('');
 
   return {
     html: `
-      <section class="space-y-6">
-        <header class="flex flex-col gap-1">
-          <h1 class="text-2xl font-semibold text-gray-900">Users</h1>
-          <p class="text-gray-500">Promote admins, grant instructor access, and sync learner profiles with Supabase Auth.</p>
+      <section class="space-y-8">
+        <header class="flex flex-col gap-6 rounded-3xl bg-white p-8 shadow-sm shadow-slate-200/60 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <span class="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-cyan-700">
+              <span class="h-1.5 w-1.5 rounded-full bg-cyan-500"></span>
+              User Management
+            </span>
+            <h1 class="mt-4 text-3xl font-bold text-slate-900">Control learner access</h1>
+            <p class="mt-2 max-w-2xl text-sm text-slate-600">
+              Invite, onboard, or suspend learners. Generate ready-to-use credentials for classrooms and manage plans without leaving the dashboard.
+            </p>
+          </div>
+          <div class="flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-400 hover:text-slate-800"
+              data-role="refresh-users"
+            >
+              Refresh list
+            </button>
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-full bg-cyan-600 px-5 py-2 text-sm font-semibold text-white shadow-sm shadow-cyan-600/30 transition hover:bg-cyan-700"
+              data-role="open-bulk-modal"
+            >
+              Generate credentials
+            </button>
+          </div>
         </header>
-        <section class="bg-white p-6 rounded-lg shadow">
-          <h2 class="text-lg font-semibold text-gray-800">Link Supabase User</h2>
-          <form id="profile-upsert-form" class="mt-4 grid gap-4 md:grid-cols-4">
-            <label class="md:col-span-2 text-sm font-medium text-gray-700">
-              <span>Auth User ID</span>
-              <input type="text" name="id" class="mt-1 w-full border border-gray-300 rounded-md p-2" placeholder="UUID from Supabase Auth" required>
-            </label>
-            <label class="md:col-span-1 text-sm font-medium text-gray-700">
-              <span>Full Name</span>
-              <input type="text" name="full_name" class="mt-1 w-full border border-gray-300 rounded-md p-2" placeholder="Display name">
-            </label>
-            <label class="md:col-span-1 text-sm font-medium text-gray-700">
-              <span>Role</span>
-              <select name="role" class="mt-1 w-full border border-gray-300 rounded-md p-2">
-                ${Object.entries(ROLE_LABELS)
-                  .map(
-                    ([value, label]) =>
-                      `<option value="${value}" ${value === 'learner' ? 'selected' : ''}>${label}</option>`
-                  )
-                  .join('')}
-              </select>
-            </label>
-            <div class="md:col-span-4 flex justify-end">
-              <button type="submit" class="bg-cyan-700 text-white px-4 py-2 rounded-lg hover:bg-cyan-800">Upsert Profile</button>
+
+        <div class="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-200/50">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div class="relative w-full sm:w-80">
+              <input
+                type="search"
+                data-role="user-search"
+                placeholder="Search by name, username, or email"
+                class="w-full rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:border-cyan-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-100"
+              />
+              <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M5 11a6 6 0 1012 0 6 6 0 00-12 0z" />
+                </svg>
+              </span>
             </div>
-          </form>
-        </section>
-        <section class="bg-white rounded-lg shadow overflow-hidden">
-          <header class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <h2 class="text-lg font-semibold text-gray-800">Directory</h2>
-            <div class="relative">
-              <button id="bulk-actions-button" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md" disabled>Bulk Actions</button>
-              <div id="bulk-actions-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 hidden">
-                <a href="#" data-action="suspend" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Suspend</a>
-                <a href="#" data-action="unsuspend" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Unsuspend</a>
-                <a href="#" data-action="delete" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">Delete</a>
-              </div>
-            </div>
-          </header>
-          <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+            <p class="text-xs text-slate-400 sm:ml-auto">
+              Showing ${profiles.length} ${profiles.length === 1 ? 'learner' : 'learners'}
+            </p>
+          </div>
+
+          <div class="mt-6 overflow-hidden rounded-2xl border border-slate-100">
+            <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
+              <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th class="px-4 py-3 text-left">#</th>
-                  <th class="px-4 py-3 text-left"><input type="checkbox" id="select-all-users"></th>
-                  <th class="px-4 py-3 text-left">User</th>
-                  <th class="px-4 py-3 text-left">Role</th>
-                  <th class="px-4 py-3 text-left">Status</th>
-                  <th class="px-4 py-3 text-left">Plan</th>
-                  <th class="px-4 py-3 text-left">Department</th>
-                  <th class="px-4 py-3 text-left">Last Seen</th>
-                  <th class="px-4 py-3 text-left">Created</th>
-                  <th class="px-4 py-3 text-left">Actions</th>
+                  <th class="px-4 py-3">Learner</th>
+                  <th class="px-4 py-3">Contact</th>
+                  <th class="px-4 py-3">Plan</th>
+                  <th class="px-4 py-3">Status</th>
+                  <th class="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody class="bg-white divide-y divide-gray-100 text-sm">
-                ${profiles.length ? profiles.map(profileRow).join('') : '<tr><td colspan="9" class="px-4 py-6 text-center text-gray-500">No profiles found. Link a Supabase user to get started.</td></tr>'}
+              <tbody data-role="user-table-body" class="divide-y divide-slate-100 bg-white">
+                ${tableBody}
               </tbody>
             </table>
           </div>
-        </section>
+        </div>
       </section>
+
+      <!-- Bulk credentials modal -->
+      <div
+        class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/60 px-4"
+        data-role="bulk-modal"
+      >
+        <div class="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl">
+          <div class="flex items-start justify-between">
+            <div>
+              <h2 class="text-2xl font-semibold text-slate-900">Generate bulk credentials</h2>
+              <p class="mt-2 text-sm text-slate-600">
+                Create pre-activated accounts and download them for classroom distribution. Learners can change their password after first login.
+              </p>
+            </div>
+            <button type="button" data-role="close-bulk-modal" class="rounded-full bg-slate-100 p-2 text-slate-500 hover:text-slate-700" aria-label="Close">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+
+          <form class="mt-6 space-y-5" data-role="bulk-form">
+            <div class="grid gap-4 sm:grid-cols-2">
+              <label class="text-sm font-medium text-slate-700">
+                Department
+                <select
+                  name="departmentId"
+                  data-role="bulk-department"
+                  class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                  required
+                >
+                  ${departmentOptionsHtml}
+                </select>
+              </label>
+              <label class="text-sm font-medium text-slate-700">
+                Plan
+                <select
+                  name="planId"
+                  data-role="bulk-plan"
+                  class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                  required
+                >
+                  <option value="">Select plan</option>
+                  ${planOptionsHtml}
+                </select>
+              </label>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+              <label class="text-sm font-medium text-slate-700">
+                Number of accounts
+                <input
+                  type="number"
+                  name="quantity"
+                  min="1"
+                  max="500"
+                  value="10"
+                  class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                  required
+                />
+              </label>
+              <label class="text-sm font-medium text-slate-700">
+                Expiry date (optional)
+                <input
+                  type="date"
+                  name="expiresAt"
+                  class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                />
+              </label>
+            </div>
+
+            <label class="text-sm font-medium text-slate-700">
+              Username prefix (optional)
+              <input
+                type="text"
+                name="usernamePrefix"
+                maxlength="12"
+                placeholder="e.g. nursing-cohort"
+                class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+              />
+            </label>
+
+            <div class="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                data-role="close-bulk-modal"
+                class="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                data-role="bulk-submit"
+                class="inline-flex items-center justify-center rounded-full bg-cyan-600 px-5 py-2 text-sm font-semibold text-white shadow-sm shadow-cyan-600/30 transition hover:bg-cyan-700"
+              >
+                Generate
+              </button>
+            </div>
+          </form>
+
+          <div class="mt-6 hidden" data-role="bulk-results">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-slate-900">Generated accounts</h3>
+              <a
+                href="#"
+                download="bulk-credentials.csv"
+                class="inline-flex items-center rounded-full border border-cyan-200 px-3 py-1 text-xs font-semibold text-cyan-700 hover:bg-cyan-50"
+                data-role="bulk-download"
+              >
+                Download CSV
+              </a>
+            </div>
+            <div class="mt-3 max-h-56 overflow-auto rounded-xl border border-slate-100">
+              <table class="min-w-full divide-y divide-slate-100 text-left text-xs">
+                <thead class="bg-slate-50 text-slate-500">
+                  <tr>
+                    <th class="px-3 py-2">Username</th>
+                    <th class="px-3 py-2">Password</th>
+                    <th class="px-3 py-2">Email</th>
+                    <th class="px-3 py-2">Expires</th>
+                  </tr>
+                </thead>
+                <tbody data-role="bulk-results-body" class="divide-y divide-slate-100 bg-white"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manage user modal -->
+      <div
+        class="fixed inset-0 z-40 hidden items-start justify-center overflow-y-auto bg-slate-900/60 px-4 py-8"
+        data-role="user-modal"
+      >
+        <div class="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-2xl">
+          <div class="flex items-start justify-between">
+            <div>
+              <h2 class="text-2xl font-semibold text-slate-900">Update learner account</h2>
+              <p class="mt-2 text-sm text-slate-600">
+                Change credentials, move the learner to another plan, or trigger account-level actions.
+              </p>
+            </div>
+            <button type="button" data-role="close-user-modal" class="rounded-full bg-slate-100 p-2 text-slate-500 hover:text-slate-700" aria-label="Close">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+
+          <form class="mt-6 space-y-5" data-role="user-form">
+            <input type="hidden" name="userId" />
+            <div class="grid gap-4 sm:grid-cols-2">
+              <label class="text-sm font-medium text-slate-700">
+                Full name
+                <input
+                  type="text"
+                  name="fullName"
+                  class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                />
+              </label>
+              <label class="text-sm font-medium text-slate-700">
+                Email
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                />
+              </label>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+              <label class="text-sm font-medium text-slate-700">
+                Username
+                <input
+                  type="text"
+                  name="username"
+                  minlength="3"
+                  class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                />
+              </label>
+              <label class="text-sm font-medium text-slate-700">
+                New password
+                <input
+                  type="text"
+                  name="password"
+                  placeholder="Leave blank to keep current password"
+                  class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                />
+              </label>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+              <label class="text-sm font-medium text-slate-700">
+                Department
+                <select
+                  name="departmentId"
+                  class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                >
+                  <option value="">No department</option>
+                  ${departments
+                    .map(
+                      (dept) =>
+                        `<option value="${escapeHtml(dept.id)}">${escapeHtml(dept.name)}</option>`
+                    )
+                    .join('')}
+                </select>
+              </label>
+              <label class="text-sm font-medium text-slate-700">
+                Plan
+                <select
+                  name="planId"
+                  class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                >
+                  <option value="">Keep current plan</option>
+                  ${planOptionsHtml}
+                </select>
+              </label>
+            </div>
+
+            <label class="text-sm font-medium text-slate-700">
+              Plan expiry override (optional)
+              <input
+                type="date"
+                name="planExpiresAt"
+                class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+              />
+            </label>
+
+            <div
+              class="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-xs text-slate-600"
+              data-role="user-plan-meta"
+            ></div>
+
+            <div class="flex flex-col gap-3 border-t border-slate-100 pt-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex flex-wrap gap-2" data-role="user-secondary-actions">
+                <button type="button" data-role="send-reset" class="inline-flex items-center rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300">Send reset email</button>
+                <button type="button" data-role="impersonate" class="inline-flex items-center rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300">Impersonate</button>
+                <button type="button" data-role="suspend" class="inline-flex items-center rounded-full border border-amber-200 px-3 py-1 text-xs font-semibold text-amber-700 hover:border-amber-300">Suspend</button>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <button type="button" data-role="delete-user" class="inline-flex items-center rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-700 hover:border-rose-300">Delete user</button>
+                <button type="button" data-role="close-user-modal" class="inline-flex items-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300">Cancel</button>
+                <button type="submit" data-role="user-save" class="inline-flex items-center rounded-full bg-cyan-600 px-5 py-2 text-sm font-semibold text-white shadow-sm shadow-cyan-600/30 transition hover:bg-cyan-700">Save changes</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
     `,
     onMount(container, actions) {
-      // Handle profile upsert form
-      const profileUpsertForm = container.querySelector('#profile-upsert-form');
-      profileUpsertForm?.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const formData = new FormData(profileUpsertForm);
-        try {
-          await dataService.upsertProfile({
-            id: formData.get('id').trim(),
-            full_name: formData.get('full_name')?.trim() || null,
-            role: formData.get('role'),
-          });
-          showToast('Profile upserted.', { type: 'success' });
-          profileUpsertForm.reset();
-          actions.refresh();
-        } catch (error) {
-          console.error(error);
-          showToast(error.message || 'Unable to upsert profile.', { type: 'error' });
-        }
-      });
+      const rows = Array.from(container.querySelectorAll('[data-role="user-row"]'));
+      const searchInput = container.querySelector('[data-role="user-search"]');
+      const bulkModal = container.querySelector('[data-role="bulk-modal"]');
+      const userModal = container.querySelector('[data-role="user-modal"]');
+      const bulkForm = container.querySelector('[data-role="bulk-form"]');
+      const bulkResults = container.querySelector('[data-role="bulk-results"]');
+      const bulkResultsBody = container.querySelector('[data-role="bulk-results-body"]');
+      const bulkDownload = container.querySelector('[data-role="bulk-download"]');
+      const bulkSubmit = container.querySelector('[data-role="bulk-submit"]');
+      const bulkDepartmentSelect = container.querySelector('[data-role="bulk-department"]');
+      const bulkPlanSelect = container.querySelector('[data-role="bulk-plan"]');
+      const userForm = container.querySelector('[data-role="user-form"]');
+      const userPlanMeta = container.querySelector('[data-role="user-plan-meta"]');
+      const suspendBtn = container.querySelector('[data-role="suspend"]');
+      const impersonateBtn = container.querySelector('[data-role="impersonate"]');
+      const resetBtn = container.querySelector('[data-role="send-reset"]');
+      const deleteBtn = container.querySelector('[data-role="delete-user"]');
+      let bulkDownloadUrl = null;
+      let activeProfile = null;
 
-      // Handle role changes
-      container.querySelectorAll('[data-role="role-select"]').forEach(select => {
-        select.addEventListener('change', async (event) => {
-          const { id } = event.target.dataset;
-          const role = event.target.value;
-          try {
-            await dataService.updateUserRole(id, role);
-            showToast('Role updated.', { type: 'success' });
-            actions.refresh();
-          } catch (error) {
-            console.error(error);
-            showToast(error.message || 'Unable to update role.', { type: 'error' });
-            event.target.value = profiles.find(p => p.id === id)?.role || 'learner';
+      const filterPlansForDepartment = (departmentId) => {
+        const options = Array.from(bulkPlanSelect.options);
+        options.forEach((option) => {
+          if (!option.value) return; // skip placeholder
+          const optionDept = option.getAttribute('data-department') || '';
+          const shouldShow = !departmentId || optionDept === departmentId;
+          option.hidden = !shouldShow;
+          if (!shouldShow && option.selected) {
+            option.selected = false;
           }
         });
-      });
-
-      // Handle user actions
-      container.querySelectorAll('[data-role="reset-password"]').forEach(button => {
-        button.addEventListener('click', async () => {
-          const userId = button.dataset.id;
-          if (!confirm('Send password reset email?')) return;
-          try {
-            await authService.resetPassword(userId);
-            showToast('Password reset email sent.', { type: 'success' });
-          } catch (error) {
-            console.error(error);
-            showToast(error.message || 'Unable to reset password.', { type: 'error' });
-          }
-        });
-      });
-
-      container.querySelectorAll('[data-role="edit-user"]').forEach(button => {
-        button.addEventListener('click', async () => {
-          const profile = profiles.find(p => p.id === button.dataset.id);
-          if (!profile) return;
-          const departments = await dataService.listDepartments();
-          openUserEditor(profile, departments, actions);
-        });
-      });
-
-      container.querySelectorAll('[data-role="suspend-user"]').forEach(button => {
-        button.addEventListener('click', async () => {
-          const userId = button.dataset.id;
-          const currentStatus = button.dataset.status;
-          const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended';
-          try {
-            await dataService.updateUserProfileStatus(userId, newStatus);
-            showToast(`User ${newStatus}.`, { type: 'success' });
-            actions.refresh();
-          } catch (error) {
-            console.error(error);
-            showToast(error.message || 'Unable to update status.', { type: 'error' });
-          }
-        });
-      });
-
-      container.querySelectorAll('[data-role="impersonate-user"]').forEach(button => {
-        button.addEventListener('click', async () => {
-          const userId = button.dataset.id;
-          if (!confirm('Impersonate this user?')) return;
-          try {
-            await authService.impersonateUser(userId);
-            window.location.href = '/apps/learner/';
-          } catch (error) {
-            console.error(error);
-            showToast(error.message || 'Unable to impersonate user.', { type: 'error' });
-          }
-        });
-      });
-
-      container.querySelectorAll('[data-role="delete-user"]').forEach(button => {
-        button.addEventListener('click', async () => {
-          const userId = button.dataset.id;
-          if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
-          try {
-            await dataService.deleteUserProfile(userId);
-            await authService.deleteUser(userId);
-            showToast('User deleted.', { type: 'success' });
-            actions.refresh();
-          } catch (error) {
-            console.error(error);
-            showToast(error.message || 'Unable to delete user.', { type: 'error' });
-          }
-        });
-      });
-
-      // Handle bulk actions
-      const selectAllCheckbox = container.querySelector('#select-all-users');
-      const userCheckboxes = container.querySelectorAll('.user-checkbox');
-      const bulkActionsButton = container.querySelector('#bulk-actions-button');
-      const bulkActionsDropdown = container.querySelector('#bulk-actions-dropdown');
-
-      const updateBulkActionsButton = () => {
-        const selectedUsers = Array.from(userCheckboxes).filter(cb => cb.checked);
-        if (selectedUsers.length > 0) {
-          bulkActionsButton.disabled = false;
-          bulkActionsButton.textContent = `Bulk Actions (${selectedUsers.length})`;
-        } else {
-          bulkActionsButton.disabled = true;
-          bulkActionsButton.textContent = 'Bulk Actions';
+        if (!bulkPlanSelect.value) {
+          bulkPlanSelect.selectedIndex = 0;
         }
       };
 
-      selectAllCheckbox.addEventListener('change', (e) => {
-        userCheckboxes.forEach(checkbox => {
-          checkbox.checked = e.target.checked;
-        });
-        updateBulkActionsButton();
+      bulkDepartmentSelect?.addEventListener('change', (event) => {
+        const value = event.target.value || '';
+        filterPlansForDepartment(value);
       });
 
-      userCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', () => {
-          updateBulkActionsButton();
-        });
-      });
+      const openModal = (modalEl) => {
+        modalEl?.classList.remove('hidden');
+        modalEl?.classList.add('flex');
+      };
 
-      bulkActionsButton.addEventListener('click', () => {
-        bulkActionsDropdown.classList.toggle('hidden');
-      });
+      const closeModal = (modalEl) => {
+        modalEl?.classList.add('hidden');
+        modalEl?.classList.remove('flex');
+      };
 
-      bulkActionsDropdown.addEventListener('click', async (e) => {
-        e.preventDefault();
-        const action = e.target.dataset.action;
-        const selectedUsers = Array.from(userCheckboxes).filter(cb => cb.checked).map(cb => cb.dataset.id);
-
-        if (selectedUsers.length === 0) {
-          showToast('Please select at least one user.', { type: 'warning' });
-          return;
-        }
-
-        if (action === 'delete') {
-          if (confirm(`Are you sure you want to delete ${selectedUsers.length} users?`)) {
-            await dataService.deleteUserProfilesBulk(selectedUsers);
-            await authService.deleteUsersBulk(selectedUsers);
-            showToast('Users deleted.', { type: 'success' });
-            actions.refresh();
+      container.querySelectorAll('[data-role="open-bulk-modal"]').forEach((button) => {
+        button.addEventListener('click', () => {
+          bulkForm?.reset();
+          bulkResults?.classList.add('hidden');
+          if (bulkDownloadUrl) {
+            URL.revokeObjectURL(bulkDownloadUrl);
+            bulkDownloadUrl = null;
           }
-        } else if (action === 'suspend' || action === 'unsuspend') {
-          const newStatus = action === 'suspend' ? 'suspended' : 'active';
-          await dataService.updateUserProfileStatusBulk(selectedUsers, newStatus);
-          showToast(`Users ${newStatus}.`, { type: 'success' });
-          actions.refresh();
+          filterPlansForDepartment(bulkDepartmentSelect.value || '');
+          openModal(bulkModal);
+        });
+      });
+
+      container.querySelectorAll('[data-role="close-bulk-modal"]').forEach((button) => {
+        button.addEventListener('click', () => {
+          closeModal(bulkModal);
+          if (bulkDownloadUrl) {
+            URL.revokeObjectURL(bulkDownloadUrl);
+            bulkDownloadUrl = null;
+          }
+        });
+      });
+
+      container.querySelectorAll('[data-role="close-user-modal"]').forEach((button) => {
+        button.addEventListener('click', () => closeModal(userModal));
+      });
+
+      bulkModal?.addEventListener('click', (event) => {
+        if (event.target === bulkModal) {
+          closeModal(bulkModal);
+          if (bulkDownloadUrl) {
+            URL.revokeObjectURL(bulkDownloadUrl);
+            bulkDownloadUrl = null;
+          }
+        }
+      });
+
+      userModal?.addEventListener('click', (event) => {
+        if (event.target === userModal) {
+          closeModal(userModal);
+        }
+      });
+
+      container.querySelector('[data-role="refresh-users"]')?.addEventListener('click', () => {
+        actions.refresh();
+      });
+
+      searchInput?.addEventListener('input', (event) => {
+        const query = event.target.value.trim().toLowerCase();
+        rows.forEach((row) => {
+          const haystack = row.dataset.search || '';
+          row.classList.toggle('hidden', query && !haystack.includes(query));
+        });
+      });
+
+      bulkForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!bulkSubmit) return;
+        bulkSubmit.disabled = true;
+        bulkSubmit.classList.add('opacity-60');
+        bulkSubmit.textContent = 'Generating…';
+
+        try {
+          const formData = new FormData(bulkForm);
+          const payload = {
+            planId: formData.get('planId'),
+            departmentId: formData.get('departmentId'),
+            quantity: Number(formData.get('quantity') || 0),
+            expiresAt: formData.get('expiresAt') || undefined,
+            usernamePrefix: formData.get('usernamePrefix') || undefined,
+          };
+
+          const accounts = await dataService.generateBulkCredentials(payload);
+          showToast(`Generated ${accounts.length} account${accounts.length === 1 ? '' : 's'}.`, {
+            type: 'success',
+          });
+
+          bulkResults?.classList.remove('hidden');
+          bulkResultsBody.innerHTML = accounts
+            .map(
+              (account) => `
+                <tr class="divide-x divide-slate-100">
+                  <td class="px-3 py-2 font-semibold text-slate-800">${escapeHtml(account.username)}</td>
+                  <td class="px-3 py-2 text-slate-600">${escapeHtml(account.password)}</td>
+                  <td class="px-3 py-2 text-slate-600">${escapeHtml(account.email)}</td>
+                  <td class="px-3 py-2 text-slate-400">${account.expiresAt ? formatDate(account.expiresAt) : '—'}</td>
+                </tr>
+              `,
+            )
+            .join('');
+
+          const csvHeader = 'username,password,email,expires_at\n';
+          const csvRows = accounts
+            .map((account) => {
+              const expires = account.expiresAt ? account.expiresAt : '';
+              return `${account.username},${account.password},${account.email},${expires}`;
+            })
+            .join('\n');
+
+          const blob = new Blob([csvHeader + csvRows], { type: 'text/csv' });
+          if (bulkDownloadUrl) {
+            URL.revokeObjectURL(bulkDownloadUrl);
+          }
+          bulkDownloadUrl = URL.createObjectURL(blob);
+          if (bulkDownload) {
+            bulkDownload.href = bulkDownloadUrl;
+          }
+        } catch (error) {
+          console.error('[Users] Bulk generation failed', error);
+          showToast(error.message || 'Failed to generate credentials.', {
+            type: 'error',
+          });
+        } finally {
+          bulkSubmit.disabled = false;
+          bulkSubmit.classList.remove('opacity-60');
+          bulkSubmit.textContent = 'Generate';
+        }
+      });
+
+      const populateUserModal = (profile) => {
+        if (!userForm) return;
+        activeProfile = profile;
+        userForm.reset();
+        userForm.querySelector('[name="userId"]').value = profile.id;
+        userForm.querySelector('[name="fullName"]').value = profile.full_name || '';
+        userForm.querySelector('[name="email"]').value = profile.email || '';
+        userForm.querySelector('[name="username"]').value = profile.username || '';
+        userForm.querySelector('[name="departmentId"]').value = profile.department_id || '';
+        userForm.querySelector('[name="planId"]').value = profile.plan_id || '';
+        const planDateInput = userForm.querySelector('[name="planExpiresAt"]');
+        if (planDateInput) {
+          planDateInput.value = profile.plan_expires_at
+            ? new Date(profile.plan_expires_at).toISOString().slice(0, 10)
+            : '';
         }
 
-        bulkActionsDropdown.classList.add('hidden');
+        const metaLines = [];
+        metaLines.push(
+          `<div><span class="font-semibold text-slate-700">Plan:</span> ${escapeHtml(
+            profile.plan_name || 'No active plan',
+          )}</div>`,
+        );
+        metaLines.push(
+          `<div><span class="font-semibold text-slate-700">Status:</span> ${escapeHtml(
+            profile.status || profile.subscription_status || 'inactive',
+          )}</div>`,
+        );
+        if (profile.plan_started_at) {
+          metaLines.push(
+            `<div><span class="font-semibold text-slate-700">Started:</span> ${formatDate(
+              profile.plan_started_at,
+            )}</div>`,
+          );
+        }
+        if (profile.plan_expires_at) {
+          metaLines.push(
+            `<div><span class="font-semibold text-slate-700">Expires:</span> ${formatDate(
+              profile.plan_expires_at,
+            )}</div>`,
+          );
+        }
+        userPlanMeta.innerHTML = metaLines.join('');
+
+        suspendBtn.textContent =
+          (profile.subscription_status || '').toLowerCase() === 'suspended'
+            ? 'Unsuspend'
+            : 'Suspend';
+
+        openModal(userModal);
+      };
+
+      container.querySelectorAll('[data-role="manage-user"]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const row = button.closest('[data-role="user-row"]');
+          if (!row) return;
+          const payload = JSON.parse(decodeURIComponent(row.dataset.profile));
+          populateUserModal(payload);
+        });
+      });
+
+      userForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!activeProfile) return;
+        const submitBtn = userForm.querySelector('[data-role="user-save"]');
+        submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-60');
+        submitBtn.textContent = 'Saving…';
+
+        try {
+          const formData = new FormData(userForm);
+          const payload = {
+            userId: formData.get('userId'),
+            email: (formData.get('email') || '').toString().trim() || undefined,
+            username: (formData.get('username') || '').toString().trim() || undefined,
+            password: (formData.get('password') || '').toString().trim() || undefined,
+            departmentId: formData.get('departmentId') || undefined,
+            planId: formData.get('planId') || undefined,
+            planExpiresAt: formData.get('planExpiresAt') || undefined,
+            fullName: (formData.get('fullName') || '').toString().trim() || undefined,
+          };
+
+          if (!payload.password) delete payload.password;
+          if (!payload.username) delete payload.username;
+          if (!payload.planId) delete payload.planId;
+          if (!payload.departmentId) delete payload.departmentId;
+          if (!payload.planExpiresAt) delete payload.planExpiresAt;
+          if (!payload.fullName) delete payload.fullName;
+
+          await dataService.adminUpdateUser(payload);
+          showToast('Account updated successfully.', { type: 'success' });
+          closeModal(userModal);
+          actions.refresh();
+        } catch (error) {
+          console.error('[Users] Failed to update user', error);
+          showToast(error.message || 'Failed to update account.', { type: 'error' });
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.classList.remove('opacity-60');
+          submitBtn.textContent = 'Save changes';
+        }
+      });
+
+      suspendBtn?.addEventListener('click', async () => {
+        if (!activeProfile) return;
+        const current = (activeProfile.subscription_status || '').toLowerCase();
+        const nextStatus = current === 'suspended' ? 'active' : 'suspended';
+        try {
+          await dataService.updateUserProfileStatus(activeProfile.id, nextStatus);
+          showToast(`User marked as ${nextStatus}.`, { type: 'success' });
+          closeModal(userModal);
+          actions.refresh();
+        } catch (error) {
+          console.error('[Users] Failed to update status', error);
+          showToast(error.message || 'Unable to update status.', { type: 'error' });
+        }
+      });
+
+      impersonateBtn?.addEventListener('click', async () => {
+        if (!activeProfile) return;
+        if (!confirm('Impersonate this user in the learner app?')) return;
+        try {
+          await authService.impersonateUser(activeProfile.id);
+          window.location.href = '/apps/learner/';
+        } catch (error) {
+          console.error('[Users] Failed to impersonate', error);
+          showToast(error.message || 'Unable to impersonate user.', { type: 'error' });
+        }
+      });
+
+      resetBtn?.addEventListener('click', async () => {
+        if (!activeProfile) return;
+        try {
+          await authService.resetPasswordForUser(activeProfile.email);
+          showToast('Password reset email sent.', { type: 'success' });
+        } catch (error) {
+          console.error('[Users] Failed to send reset email', error);
+          showToast(error.message || 'Unable to send reset email.', { type: 'error' });
+        }
+      });
+
+      deleteBtn?.addEventListener('click', async () => {
+        if (!activeProfile) return;
+        if (!confirm('Delete this user account permanently? This cannot be undone.')) return;
+        try {
+          await dataService.deleteUserProfile(activeProfile.id);
+          await authService.deleteUser(activeProfile.id);
+          showToast('User deleted.', { type: 'success' });
+          closeModal(userModal);
+          actions.refresh();
+        } catch (error) {
+          console.error('[Users] Failed to delete user', error);
+          showToast(error.message || 'Unable to delete user.', { type: 'error' });
+        }
       });
     },
   };

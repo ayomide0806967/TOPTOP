@@ -15,6 +15,8 @@ const DAILY_QUESTION_TARGET = 250;
 const SUBSLOT_QUESTION_CAP = SUBSLOT_DAY_SPAN * DAILY_QUESTION_TARGET; // 1750
 const SLOT_QUESTION_CAP = SUBSLOT_COUNT * SUBSLOT_QUESTION_CAP; // 7000
 
+const FREE_QUIZ_IMAGE_BUCKET = 'question-images';
+
 export class DataServiceError extends Error {
   constructor(message, options = {}) {
     super(message);
@@ -489,14 +491,74 @@ function buildProfileRow(row) {
     id: row.id,
     full_name: row.full_name,
     email: row.email,
+    username: row.username,
     role: row.role,
     last_seen_at: row.last_seen_at,
     created_at: row.created_at,
     updated_at: row.updated_at,
     status: subscription?.status || 'inactive',
+    subscription_status: row.subscription_status || null,
     plan_name: plan?.name || '-',
+    plan_id: subscription?.plan_id || null,
+    plan_started_at: subscription?.started_at || null,
+    plan_expires_at: subscription?.expires_at || null,
     department_id: row.department_id,
     department_name: row.departments?.name || '-',
+  };
+}
+
+function buildPlanLearner(row) {
+  if (!row) return null;
+  const profile = row.profiles || row.profile || {};
+  return {
+    subscription_id: row.id,
+    user_id: row.user_id,
+    status: row.status,
+    started_at: row.started_at,
+    expires_at: row.expires_at,
+    price: row.price,
+    currency: row.currency,
+    full_name: profile.full_name,
+    email: profile.email,
+    username: profile.username,
+    last_seen_at: profile.last_seen_at,
+  };
+}
+
+function buildFreeQuiz(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title,
+    slug: row.slug,
+    description: row.description,
+    intro: row.intro,
+    is_active: row.is_active,
+    time_limit_seconds: row.time_limit_seconds,
+    question_count: row.question_count ?? 0,
+    total_attempts: row.total_attempts ?? 0,
+    average_score: row.average_score ?? 0,
+    average_duration_seconds: row.average_duration_seconds ?? 0,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+function buildFreeQuizQuestion(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    free_quiz_id: row.free_quiz_id,
+    question_id: row.question_id,
+    prompt: row.prompt,
+    explanation: row.explanation,
+    image_url: row.image_url,
+    options: Array.isArray(row.options) ? row.options : row.options?.options || row.options,
+    correct_option: row.correct_option,
+    order_index: row.order_index ?? 0,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    question: row.questions ? buildQuestion(row.questions) : null,
   };
 }
 
@@ -2317,6 +2379,27 @@ class DataService {
       if (error) throw error;
       return true;
     } catch (error) {
+      const message =
+        typeof error?.message === 'string' ? error.message.toLowerCase() : '';
+      const detail =
+        typeof error?.details === 'string' ? error.details.toLowerCase() : '';
+
+      if (
+        (error?.code && String(error.code) === '23503') ||
+        message.includes('foreign key') ||
+        detail.includes('foreign key') ||
+        message.includes('user_subscriptions') ||
+        detail.includes('user_subscriptions')
+      ) {
+        throw new DataServiceError(
+          'This product still has learners assigned to its plans. Move or end their subscriptions before deleting the product.',
+          {
+            cause: error,
+            context: { productId },
+          }
+        );
+      }
+
       throw wrapError('Failed to delete subscription product.', error, {
         productId,
       });
@@ -2406,6 +2489,26 @@ class DataService {
       if (error) throw error;
       return true;
     } catch (error) {
+      const message =
+        typeof error?.message === 'string' ? error.message.toLowerCase() : '';
+      const detail =
+        typeof error?.details === 'string' ? error.details.toLowerCase() : '';
+
+      if (
+        (error?.code && String(error.code) === '23503') ||
+        message.includes('foreign key') ||
+        detail.includes('foreign key') ||
+        message.includes('user_subscriptions') ||
+        detail.includes('user_subscriptions')
+      ) {
+        throw new DataServiceError(
+          'This plan is still assigned to learners. Move or end their subscriptions before deleting the plan.',
+          {
+            cause: error,
+            context: { planId },
+          }
+        );
+      }
       throw wrapError('Failed to delete subscription plan.', error, { planId });
     }
   }
@@ -2435,6 +2538,311 @@ class DataService {
       return true;
     } catch (error) {
       throw wrapError('Failed to delete question.', error, { questionId });
+    }
+  }
+
+  async listFreeQuizzes() {
+    const client = await ensureClient();
+    try {
+      const { data, error } = await client
+        .from('free_quiz_metrics')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return Array.isArray(data) ? data.map(buildFreeQuiz) : [];
+    } catch (error) {
+      throw wrapError('Failed to load free quizzes.', error);
+    }
+  }
+
+  async createFreeQuiz({ title, description, intro, time_limit_seconds, is_active = true }) {
+    const client = await ensureClient();
+    const payload = {
+      title,
+      description,
+      intro,
+      time_limit_seconds: time_limit_seconds ? Number(time_limit_seconds) : null,
+      is_active,
+      slug: slugify(title),
+    };
+    try {
+      const { data, error } = await client
+        .from('free_quizzes')
+        .insert(payload)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return buildFreeQuiz(data);
+    } catch (error) {
+      throw wrapError('Failed to create free quiz.', error, { payload });
+    }
+  }
+
+  async updateFreeQuiz(quizId, updates) {
+    const client = await ensureClient();
+    const payload = {};
+    if (updates.title !== undefined) {
+      payload.title = updates.title;
+      payload.slug = slugify(updates.title);
+    }
+    if (updates.description !== undefined) payload.description = updates.description;
+    if (updates.intro !== undefined) payload.intro = updates.intro;
+    if (updates.time_limit_seconds !== undefined)
+      payload.time_limit_seconds = updates.time_limit_seconds ? Number(updates.time_limit_seconds) : null;
+    if (updates.is_active !== undefined) payload.is_active = updates.is_active;
+    if (!Object.keys(payload).length) return null;
+    try {
+      const { data, error } = await client
+        .from('free_quizzes')
+        .update(payload)
+        .eq('id', quizId)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return buildFreeQuiz(data);
+    } catch (error) {
+      throw wrapError('Failed to update free quiz.', error, { quizId, payload });
+    }
+  }
+
+  async deleteFreeQuiz(quizId) {
+    const client = await ensureClient();
+    try {
+      const { error } = await client
+        .from('free_quizzes')
+        .delete()
+        .eq('id', quizId);
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      throw wrapError('Failed to delete free quiz.', error, { quizId });
+    }
+  }
+
+  async getFreeQuizDetail(quizId) {
+    const client = await ensureClient();
+    try {
+      const { data, error } = await client
+        .from('free_quizzes')
+        .select(
+          `*,
+           free_quiz_questions (*, questions:question_id(id, stem, explanation, question_options(*)))
+          `
+        )
+        .eq('id', quizId)
+        .single();
+      if (error) throw error;
+      const quiz = buildFreeQuiz(data);
+      const questions = Array.isArray(data?.free_quiz_questions)
+        ? data.free_quiz_questions
+            .map((row) => buildFreeQuizQuestion(row))
+            .sort((a, b) => a.order_index - b.order_index)
+        : [];
+      return { quiz, questions };
+    } catch (error) {
+      throw wrapError('Failed to load free quiz details.', error, { quizId });
+    }
+  }
+
+  async uploadFreeQuizImage(file, quizId) {
+    if (!file) return null;
+    const client = await ensureClient();
+    const fileExt = file.name?.split('.').pop() || 'png';
+    const uniqueId =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const fileName = `${quizId}/${uniqueId}.${fileExt}`;
+    const { data, error } = await client.storage
+      .from(FREE_QUIZ_IMAGE_BUCKET)
+      .upload(`free-quiz/${fileName}`, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+    if (error) throw error;
+    const { data: publicUrl } = client.storage
+      .from(FREE_QUIZ_IMAGE_BUCKET)
+      .getPublicUrl(`free-quiz/${fileName}`);
+    return publicUrl?.publicUrl || null;
+  }
+
+  async createFreeQuizQuestion({
+    quizId,
+    prompt,
+    explanation,
+    imageFile,
+    options,
+    correctOption,
+  }) {
+    const client = await ensureClient();
+    const storageUpload = imageFile ? await this.uploadFreeQuizImage(imageFile, quizId) : null;
+    const { count: existingCount } = await client
+      .from('free_quiz_questions')
+      .select('id', { count: 'exact', head: true })
+      .eq('free_quiz_id', quizId);
+    const payload = {
+      free_quiz_id: quizId,
+      prompt,
+      explanation: explanation || null,
+      image_url: storageUpload,
+      options,
+      correct_option: correctOption,
+      order_index: Number(existingCount ?? 0),
+    };
+    try {
+      const { data, error } = await client
+        .from('free_quiz_questions')
+        .insert(payload)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return buildFreeQuizQuestion(data);
+    } catch (error) {
+      throw wrapError('Failed to create free quiz question.', error, {
+        quizId,
+        prompt,
+      });
+    }
+  }
+
+  async importFreeQuizQuestionFromBank({ quizId, questionId }) {
+    const client = await ensureClient();
+    try {
+      const { data: question, error: qError } = await client
+        .from('questions')
+        .select('id, stem, explanation, image_url, question_options(id, label, content, is_correct, order_index)')
+        .eq('id', questionId)
+        .single();
+      if (qError) throw qError;
+      if (!question) {
+        throw new DataServiceError('Question not found in bank.');
+      }
+      const options = (question.question_options || []).map((option) => ({
+        id: option.id,
+        label: option.label,
+        content: option.content,
+      }));
+      const correctOption = (question.question_options || []).find((opt) => opt.is_correct)?.id;
+      if (!correctOption) {
+        throw new DataServiceError('Selected question does not have a correct answer flagged.');
+      }
+      const { count: existingCount } = await client
+        .from('free_quiz_questions')
+        .select('id', { count: 'exact', head: true })
+        .eq('free_quiz_id', quizId);
+
+      const payload = {
+        free_quiz_id: quizId,
+        question_id: question.id,
+        prompt: question.stem,
+        explanation: question.explanation,
+        image_url: question.image_url,
+        options,
+        correct_option: correctOption,
+        order_index: Number(existingCount ?? 0),
+      };
+      const { data, error } = await client
+        .from('free_quiz_questions')
+        .insert(payload)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return buildFreeQuizQuestion(data);
+    } catch (error) {
+      throw wrapError('Failed to import question from bank.', error, {
+        quizId,
+        questionId,
+      });
+    }
+  }
+
+  async deleteFreeQuizQuestion(questionId) {
+    const client = await ensureClient();
+    try {
+      const { error } = await client
+        .from('free_quiz_questions')
+        .delete()
+        .eq('id', questionId);
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      throw wrapError('Failed to delete free quiz question.', error, {
+        questionId,
+      });
+    }
+  }
+
+  async reorderFreeQuizQuestions(quizId, questionOrder) {
+    if (!Array.isArray(questionOrder) || !questionOrder.length) return true;
+    const client = await ensureClient();
+    const updates = questionOrder.map((item, index) => ({
+      id: item,
+      order_index: index,
+    }));
+    try {
+      const { error } = await client
+        .from('free_quiz_questions')
+        .upsert(updates, { onConflict: 'id' });
+      if (error) throw error;
+      await client.from('free_quizzes').update({ updated_at: new Date().toISOString() }).eq('id', quizId);
+      return true;
+    } catch (error) {
+      throw wrapError('Failed to reorder free quiz questions.', error, {
+        quizId,
+      });
+    }
+  }
+
+  async importFreeQuizQuestionsFromAiken({ quizId, file }) {
+    if (!file) {
+      throw new DataServiceError('Please choose a file to import.');
+    }
+    const client = await ensureClient();
+    try {
+      const text = await file.text();
+      const parsed = parseAikenContent(text);
+      if (!Array.isArray(parsed) || !parsed.length) {
+        throw new DataServiceError('No questions found in import file.');
+      }
+      const { count: existingCount } = await client
+        .from('free_quiz_questions')
+        .select('id', { count: 'exact', head: true })
+        .eq('free_quiz_id', quizId);
+      const baseIndex = Number(existingCount ?? 0);
+      const batches = parsed.map((entry, index) => {
+        const options = entry.options.map((option) => ({
+          id: option.label,
+          label: option.label,
+          content: option.content,
+        }));
+        const correctOption = entry.options.find((opt) => opt.isCorrect)?.label;
+        if (!correctOption) {
+          throw new DataServiceError('A question is missing a correct answer.', {
+            context: { prompt: entry.stem, position: index + 1 },
+          });
+        }
+        return {
+          free_quiz_id: quizId,
+          prompt: entry.stem,
+          explanation: entry.explanation || null,
+          image_url: null,
+          options,
+          correct_option: correctOption,
+          order_index: baseIndex + index,
+        };
+      });
+
+      const { data, error } = await client
+        .from('free_quiz_questions')
+        .insert(batches)
+        .select('*');
+      if (error) throw error;
+      return Array.isArray(data) ? data.map(buildFreeQuizQuestion) : [];
+    } catch (error) {
+      throw wrapError('Failed to import questions from Aiken file.', error, {
+        quizId,
+        fileName: file?.name,
+      });
     }
   }
 
@@ -2638,6 +3046,9 @@ class DataService {
           departments (name),
           user_subscriptions (
             status,
+            plan_id,
+            started_at,
+            expires_at,
             subscription_plans (
               name
             )
@@ -2648,6 +3059,113 @@ class DataService {
       return Array.isArray(data) ? data.map(buildProfileRow) : [];
     } catch (error) {
       throw wrapError('Failed to fetch profiles.', error);
+    }
+  }
+
+  async listInactiveLearners({ daysWithoutActivity = 14, limit = 10 } = {}) {
+    const client = await ensureClient();
+    const safeDays = Number.isFinite(daysWithoutActivity) && daysWithoutActivity > 0
+      ? Math.min(Math.floor(daysWithoutActivity), 365)
+      : 14;
+    const safeLimit = Number.isFinite(limit) && limit > 0
+      ? Math.min(Math.floor(limit), 200)
+      : 10;
+    const thresholdDate = new Date(Date.now() - safeDays * 24 * 60 * 60 * 1000);
+    const thresholdIso = thresholdDate.toISOString();
+    const relevantStatuses = new Set(['active', 'trialing', 'past_due']);
+
+    try {
+      const baseQuery = client
+        .from('profiles')
+        .select(`
+          *,
+          departments (name),
+          user_subscriptions (
+            status,
+            plan_id,
+            started_at,
+            expires_at,
+            subscription_plans (name)
+          )
+        `)
+        .eq('role', 'learner')
+        .order('last_seen_at', { ascending: true, nullsFirst: true })
+        .limit(safeLimit);
+
+      const { data, error } = await baseQuery.or(
+        `last_seen_at.is.null,last_seen_at.lt.${thresholdIso}`
+      );
+      if (error) throw error;
+      if (!Array.isArray(data)) {
+        return [];
+      }
+
+      return data
+        .map(buildProfileRow)
+        .filter((profile) => {
+          if (!profile) return false;
+          if (!profile.plan_id) return false;
+          const subStatus = (profile.status || '').toLowerCase();
+          if (relevantStatuses.has(subStatus)) return true;
+          const billingStatus = (profile.subscription_status || '').toLowerCase();
+          if (billingStatus && relevantStatuses.has(billingStatus)) return true;
+          return false;
+        });
+    } catch (error) {
+      throw wrapError('Failed to fetch inactive learners.', error, {
+        daysWithoutActivity: safeDays,
+        limit: safeLimit,
+      });
+    }
+  }
+
+  async listPlanLearners(planId, { includeInactive = false } = {}) {
+    if (!planId) {
+      return [];
+    }
+    const client = await ensureClient();
+    const activeStatuses = ['trialing', 'active', 'past_due'];
+
+    try {
+      let query = client
+        .from('user_subscriptions')
+        .select(
+          `
+            id,
+            user_id,
+            status,
+            started_at,
+            expires_at,
+            price,
+            currency,
+            profiles!inner (
+              id,
+              full_name,
+              email,
+              username,
+              last_seen_at
+            )
+          `
+        )
+        .eq('plan_id', planId)
+        .order('last_seen_at', {
+          referencedTable: 'profiles',
+          ascending: true,
+          nullsFirst: true,
+        })
+        .order('started_at', { ascending: true });
+
+      if (!includeInactive) {
+        query = query.in('status', activeStatuses);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return Array.isArray(data)
+        ? data.map(buildPlanLearner).filter(Boolean)
+        : [];
+    } catch (error) {
+      throw wrapError('Failed to load learners for plan.', error, { planId });
     }
   }
 
@@ -2682,6 +3200,75 @@ class DataService {
       return buildProfileRow(data);
     } catch (error) {
       throw wrapError('Failed to upsert profile.', error, { id, role });
+    }
+  }
+
+  async generateBulkCredentials({
+    planId,
+    departmentId,
+    quantity,
+    expiresAt,
+    usernamePrefix,
+  }) {
+    const client = await ensureClient();
+    try {
+      const { data, error } = await client.functions.invoke(
+        'generate-bulk-accounts',
+        {
+          body: {
+            planId,
+            departmentId,
+            quantity,
+            expiresAt,
+            usernamePrefix,
+          },
+        }
+      );
+      if (error) throw error;
+      return Array.isArray(data?.accounts) ? data.accounts : [];
+    } catch (error) {
+      throw wrapError('Failed to generate bulk credentials.', error, {
+        planId,
+        departmentId,
+        quantity,
+      });
+    }
+  }
+
+  async adminUpdateUser({
+    userId,
+    email,
+    username,
+    password,
+    departmentId,
+    planId,
+    planExpiresAt,
+    fullName,
+  }) {
+    const client = await ensureClient();
+    try {
+      const { data, error } = await client.functions.invoke(
+        'admin-update-user',
+        {
+          body: {
+            userId,
+            email,
+            username,
+            password,
+            departmentId,
+            planId,
+            planExpiresAt,
+            fullName,
+          },
+        }
+      );
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw wrapError('Failed to update user account.', error, {
+        userId,
+        planId,
+      });
     }
   }
 }

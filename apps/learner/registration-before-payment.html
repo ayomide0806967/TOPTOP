@@ -153,6 +153,15 @@
                 class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
                 placeholder="name@example.com"
               />
+              <p class="mt-1 text-xs text-slate-500">
+                We'll verify this email is available before proceeding.
+              </p>
+              <p
+                id="email-availability-feedback"
+                class="mt-1 hidden text-xs"
+                role="status"
+                aria-live="polite"
+              ></p>
             </div>
 
             <div>
@@ -170,6 +179,9 @@
                 class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
                 placeholder="e.g. 0801 234 5678"
               />
+              <p class="mt-1 text-xs text-slate-500">
+                Your phone number will be verified for uniqueness.
+              </p>
             </div>
 
             <div
@@ -325,8 +337,10 @@
 
     <script src="https://js.paystack.co/v1/inline.js"></script>
     <script>
+      window.__PAYSTACK_PUBLIC_KEY__ =
+        'pk_live_f3ee8a87f3c9355367009f94fce2ed197c906ef8';
       window.__PAYSTACK_CONFIG__ = window.__PAYSTACK_CONFIG__ || {
-        publicKey: 'pk_test_943cfcdf1016a38545eeeefed3a0735df0e2caf4',
+        publicKey: window.__PAYSTACK_PUBLIC_KEY__,
       };
     </script>
     <script>

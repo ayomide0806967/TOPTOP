@@ -1,15 +1,16 @@
 import { getSupabaseClient } from '../../shared/supabaseClient.js';
 
 const elements = {
-  greeting: document.querySelector('[data-role="user-greeting"]'),
-  email: document.querySelector('[data-role="user-email"]'),
   toast: document.querySelector('[data-role="toast"]'),
+  scheduleNotice: document.querySelector('[data-role="schedule-notice"]'),
+  scheduleNoticeTitle: document.querySelector('[data-role="schedule-notice-title"]'),
+  scheduleNoticeHeadline: document.querySelector('[data-role="schedule-notice-headline"]'),
+  scheduleNoticeDetail: document.querySelector('[data-role="schedule-notice-detail"]'),
+  scheduleNoticeMeta: document.querySelector('[data-role="schedule-notice-meta"]'),
   statStatus: document.querySelector('[data-role="stat-status"]'),
   statProgress: document.querySelector('[data-role="stat-progress"]'),
   statScore: document.querySelector('[data-role="stat-score"]'),
   statStreak: document.querySelector('[data-role="stat-streak"]'),
-  progressBar: document.querySelector('[data-role="progress-bar"]'),
-  progressLabel: document.querySelector('[data-role="progress-label"]'),
   quizTitle: document.querySelector('[data-role="quiz-title"]'),
   quizSubtitle: document.querySelector('[data-role="quiz-subtitle"]'),
   quizTimer: document.querySelector('[data-role="quiz-timer"]'),
@@ -17,14 +18,15 @@ const elements = {
   questions: document.querySelector('[data-role="questions"]'),
   completionBanner: document.querySelector('[data-role="completion-banner"]'),
   historyBody: document.querySelector('[data-role="history-body"]'),
+  historyCards: document.querySelector('[data-role="history-cards"]'),
   historySummary: document.querySelector('[data-role="history-summary"]'),
   regenerateBtn: document.querySelector('[data-role="regenerate-quiz"]'),
   resumeBtn: document.querySelector('[data-role="resume-quiz"]'),
   logoutBtn: document.querySelector('[data-role="logout"]'),
-  scheduleNotice: document.querySelector('[data-role="schedule-notice"]'),
-  scheduleHeadline: document.querySelector('[data-role="schedule-notice-headline"]'),
-  scheduleDetail: document.querySelector('[data-role="schedule-notice-detail"]'),
-  scheduleMeta: document.querySelector('[data-role="schedule-notice-meta"]'),
+  userGreeting: document.querySelector('[data-role="user-greeting"]'),
+  userEmail: document.querySelector('[data-role="user-email"]'),
+  progressBar: document.querySelector('[data-role="progress-bar"]'),
+  progressLabel: document.querySelector('[data-role="progress-label"]'),
 };
 
 const state = {
@@ -347,10 +349,26 @@ function updateStats() {
 }
 
 function renderHistory() {
-  if (!elements.historyBody) return;
+  if (!elements.historyBody && !elements.historyCards) return;
+  
   if (!state.history.length) {
-    elements.historyBody.innerHTML =
-      '<tr><td class="px-4 py-4 text-slate-500" colspan="4">No quiz history yet. Complete today\'s quiz to start your streak.</td></tr>';
+    // Empty state for table
+    if (elements.historyBody) {
+      elements.historyBody.innerHTML =
+        '<tr><td class="px-4 py-4 text-slate-500" colspan="4">No quiz history yet. Complete today\'s quiz to start your streak.</td></tr>';
+    }
+    // Empty state for cards
+    if (elements.historyCards) {
+      elements.historyCards.innerHTML = `
+        <div class="text-center py-12">
+          <svg class="mx-auto h-12 w-12 text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          <p class="text-sm text-slate-500">No quiz history yet</p>
+          <p class="text-xs text-slate-400 mt-1">Complete today's quiz to start your streak</p>
+        </div>
+      `;
+    }
     elements.historySummary.textContent = '0 completed this week';
     if (elements.statStreak) {
       elements.statStreak.textContent = '0 days';
@@ -358,40 +376,104 @@ function renderHistory() {
     return;
   }
 
-  const rows = state.history
-    .map((item) => {
-      const statusBadge = (() => {
-        const base =
-          'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ';
-        if (item.status === 'completed') {
-          return `<span class="${base} bg-emerald-100 text-emerald-700">Completed</span>`;
-        }
-        if (item.status === 'in_progress') {
-          return `<span class="${base} bg-sky-100 text-sky-700">In Progress</span>`;
-        }
-        return `<span class="${base} bg-slate-100 text-slate-500">Assigned</span>`;
-      })();
+  // Render mobile cards
+  if (elements.historyCards) {
+    const cards = state.history
+      .map((item) => {
+        const statusBadge = (() => {
+          const base = 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ';
+          if (item.status === 'completed') {
+            return `<span class="${base} bg-emerald-100 text-emerald-700">✓ Completed</span>`;
+          }
+          if (item.status === 'in_progress') {
+            return `<span class="${base} bg-sky-100 text-sky-700">⏳ In Progress</span>`;
+          }
+          return `<span class="${base} bg-slate-100 text-slate-500">📋 Assigned</span>`;
+        })();
 
-      const score = item.total_questions
-        ? `${item.correct_answers}/${item.total_questions} (${toPercent(item.correct_answers, item.total_questions)}%)`
-        : '—';
+        const score = item.total_questions
+          ? `${item.correct_answers}/${item.total_questions}`
+          : '—';
+        
+        const percent = item.total_questions
+          ? toPercent(item.correct_answers, item.total_questions)
+          : 0;
 
-      const reviewBtn = item.status === 'completed' 
-        ? `<button onclick="window.location.href='result-face.html?daily_quiz_id=${item.id}'" class="text-cyan-600 hover:text-cyan-700 text-sm font-medium">Review</button>`
-        : '—';
+        const percentColor = percent >= 80 ? 'text-emerald-600' : percent >= 60 ? 'text-sky-600' : percent >= 40 ? 'text-amber-600' : 'text-red-600';
 
-      return `
-      <tr>
-        <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-700">${formatDate(item.assigned_date)}</td>
-        <td class="px-4 py-3">${statusBadge}</td>
-        <td class="px-4 py-3 text-sm text-slate-700">${score}</td>
-        <td class="px-4 py-3 text-sm text-slate-500">${reviewBtn}</td>
-      </tr>
-    `;
-    })
-    .join('');
+        const reviewBtn = item.status === 'completed' 
+          ? `<button onclick="window.location.href='result-face.html?daily_quiz_id=${item.id}'" class="w-full mt-3 rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-700 active:scale-95 transition-all">View Results</button>`
+          : '';
 
-  elements.historyBody.innerHTML = rows;
+        return `
+          <div class="rounded-xl border border-slate-200 bg-white p-4 hover:border-cyan-300 hover:shadow-md transition-all">
+            <div class="flex items-start justify-between mb-3">
+              <div>
+                <p class="text-sm font-semibold text-slate-900">${formatDate(item.assigned_date)}</p>
+                <p class="text-xs text-slate-500 mt-0.5">${new Date(item.assigned_date).toLocaleDateString('en-US', { weekday: 'long' })}</p>
+              </div>
+              ${statusBadge}
+            </div>
+            
+            ${item.total_questions ? `
+              <div class="flex items-center gap-4 py-3 border-t border-slate-100">
+                <div class="flex-1">
+                  <p class="text-xs text-slate-500 mb-1">Score</p>
+                  <p class="text-lg font-bold text-slate-900">${score}</p>
+                </div>
+                <div class="flex-1">
+                  <p class="text-xs text-slate-500 mb-1">Percentage</p>
+                  <p class="text-lg font-bold ${percentColor}">${percent}%</p>
+                </div>
+              </div>
+            ` : '<div class="py-2 text-center text-sm text-slate-400">Not started</div>'}
+            
+            ${reviewBtn}
+          </div>
+        `;
+      })
+      .join('');
+
+    elements.historyCards.innerHTML = cards;
+  }
+
+  // Render desktop table rows
+  if (elements.historyBody) {
+    const rows = state.history
+      .map((item) => {
+        const statusBadge = (() => {
+          const base =
+            'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ';
+          if (item.status === 'completed') {
+            return `<span class="${base} bg-emerald-100 text-emerald-700">Completed</span>`;
+          }
+          if (item.status === 'in_progress') {
+            return `<span class="${base} bg-sky-100 text-sky-700">In Progress</span>`;
+          }
+          return `<span class="${base} bg-slate-100 text-slate-500">Assigned</span>`;
+        })();
+
+        const score = item.total_questions
+          ? `${item.correct_answers}/${item.total_questions} (${toPercent(item.correct_answers, item.total_questions)}%)`
+          : '—';
+
+        const reviewBtn = item.status === 'completed' 
+          ? `<button onclick="window.location.href='result-face.html?daily_quiz_id=${item.id}'" class="text-cyan-600 hover:text-cyan-700 text-sm font-medium">Review</button>`
+          : '—';
+
+        return `
+        <tr>
+          <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-700">${formatDate(item.assigned_date)}</td>
+          <td class="px-4 py-3">${statusBadge}</td>
+          <td class="px-4 py-3 text-sm text-slate-700">${score}</td>
+          <td class="px-4 py-3 text-sm text-slate-500">${reviewBtn}</td>
+        </tr>
+      `;
+      })
+      .join('');
+
+    elements.historyBody.innerHTML = rows;
+  }
 
   const completedThisWeek = state.history.filter(
     (item) => item.status === 'completed'

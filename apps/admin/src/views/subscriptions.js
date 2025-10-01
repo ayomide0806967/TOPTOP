@@ -37,6 +37,16 @@ function themeForDepartment(color) {
   return DEPARTMENT_THEMES[color] || DEPARTMENT_THEMES.default;
 }
 
+function escapeHtml(value) {
+  if (value === undefined || value === null) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function formatCurrency(value, currency = 'NGN') {
   if (value === null || value === undefined || value === '')
     return 'Contact sales';
@@ -91,6 +101,7 @@ function planCard(plan, theme) {
           <p class="text-sm text-gray-500">${plan.code}</p>
         </div>
         <div class="flex items-center gap-3 text-sm">
+          <button type="button" class="text-slate-700 hover:text-slate-900" data-role="view-plan-learners">View learners</button>
           <button type="button" class="text-cyan-700 hover:text-cyan-900" data-role="edit-plan">Edit</button>
           <button type="button" class="text-red-600 hover:text-red-700" data-role="delete-plan">Delete</button>
         </div>
@@ -105,6 +116,144 @@ function planCard(plan, theme) {
       </span>
     </article>
   `;
+}
+
+function formatRelativeLastSeen(isoString) {
+  if (!isoString) return 'Never signed in';
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs <= 0) return 'Today';
+
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return '1 day ago';
+  if (diffDays < 7) return `${diffDays} days ago`;
+
+  const diffWeeks = Math.floor(diffDays / 7);
+  if (diffWeeks === 1) return '1 week ago';
+  if (diffWeeks < 5) return `${diffWeeks} weeks ago`;
+
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths <= 1) return '1 month ago';
+  return `${diffMonths} months ago`;
+}
+
+function formatDate(isoString) {
+  if (!isoString) return '—';
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function formatStatusLabel(status) {
+  if (!status) return 'Unknown';
+  return status
+    .toString()
+    .toLowerCase()
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function renderPlanLearnersTable(learners) {
+  const rows = learners
+    .map((learner) => {
+      const name = escapeHtml(learner.full_name || '—');
+      const email = escapeHtml(learner.email || '—');
+      const username = learner.username
+        ? `<span class="ml-2 text-xs text-gray-400">@${escapeHtml(learner.username)}</span>`
+        : '';
+      return `
+        <tr class="border-b last:border-b-0 border-gray-100 text-sm">
+          <td class="px-3 py-3">
+            <div class="font-semibold text-gray-900">${name}${username}</div>
+            <div class="mt-1 text-xs text-gray-500">${email}</div>
+          </td>
+          <td class="px-3 py-3 text-sm text-gray-600">${formatStatusLabel(
+            learner.status
+          )}</td>
+          <td class="px-3 py-3 text-sm text-gray-600">${formatRelativeLastSeen(
+            learner.last_seen_at
+          )}</td>
+          <td class="px-3 py-3 text-sm text-gray-500">${formatDate(
+            learner.started_at
+          )}</td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  return `
+    <div class="mt-4 overflow-hidden rounded-lg border border-gray-200">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <tr>
+            <th scope="col" class="px-3 py-3">Learner</th>
+            <th scope="col" class="px-3 py-3">Status</th>
+            <th scope="col" class="px-3 py-3">Last Active</th>
+            <th scope="col" class="px-3 py-3">Subscribed</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          ${rows}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function openPlanLearnersModal(plan) {
+  openModal({
+    title: `Learners · ${plan.name}`,
+    render: ({ body, footer, close }) => {
+      body.innerHTML = `
+        <div class="py-6 text-sm text-gray-500 flex items-center gap-2">
+          <span class="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-transparent"></span>
+          Loading learners…
+        </div>
+      `;
+      footer.innerHTML = `
+        <button type="button" class="px-4 py-2 rounded-md bg-gray-100 text-gray-700" data-role="close">Close</button>
+      `;
+      footer
+        .querySelector('[data-role="close"]')
+        ?.addEventListener('click', close);
+
+      (async () => {
+        try {
+          const learners = await dataService.listPlanLearners(plan.id);
+          if (!learners.length) {
+            body.innerHTML = `
+              <p class="py-6 text-sm text-gray-500">
+                No active learners are currently assigned to <strong>${escapeHtml(
+                  plan.name
+                )}</strong>.
+              </p>
+            `;
+            return;
+          }
+
+          body.innerHTML = `
+            <p class="text-sm text-gray-500">
+              ${learners.length} learner${learners.length === 1 ? '' : 's'} currently subscribed.
+            </p>
+            ${renderPlanLearnersTable(learners)}
+          `;
+        } catch (error) {
+          console.error('[Subscriptions] Unable to load plan learners', error);
+          const message = escapeHtml(error?.message || 'Unable to load learners.');
+          body.innerHTML = `
+            <div class="py-6 text-sm text-red-600">${message}</div>
+          `;
+        }
+      })();
+    },
+  });
 }
 
 function productCard(product, departmentLookup) {
@@ -578,6 +727,12 @@ export async function subscriptionsView(state, actions) {
           const planId = planEl.dataset.planId;
           const plan = product.plans.find((item) => item.id === planId);
           if (!plan) return;
+          planEl
+            .querySelector('[data-role="view-plan-learners"]')
+            ?.addEventListener('click', (event) => {
+              event.preventDefault();
+              openPlanLearnersModal(plan);
+            });
           planEl
             .querySelector('[data-role="edit-plan"]')
             .addEventListener('click', (event) => {

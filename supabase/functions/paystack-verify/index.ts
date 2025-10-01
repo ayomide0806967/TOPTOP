@@ -1,6 +1,5 @@
 import { serve } from 'https://deno.land/std@0.223.0/http/server.ts';
 import {
-  getAuthenticatedUser,
   upsertPaymentAndSubscription,
 } from '../_shared/paystack.ts';
 
@@ -72,12 +71,6 @@ serve(async (req) => {
     return respondError(req, 'Method Not Allowed', 405);
   }
 
-  const authHeader = req.headers.get('authorization');
-  const { user, error } = await getAuthenticatedUser(authHeader);
-  if (error || !user) {
-    return respondError(req, 'Unauthorized', 401);
-  }
-
   let body: VerifyRequestBody;
   try {
     body = await req.json();
@@ -114,14 +107,14 @@ serve(async (req) => {
   }
 
   const metadata = (data.metadata ?? {}) as Record<string, unknown>;
-  const metadataUserId = metadata.user_id as string | undefined;
+  const userId = metadata.user_id as string | undefined;
   const planId = metadata.plan_id as string | undefined;
 
-  if (!metadataUserId || metadataUserId !== user.id) {
+  if (!userId) {
     return respondError(
       req,
-      'Transaction does not belong to the authenticated user.',
-      403
+      'Transaction metadata missing user information.',
+      422
     );
   }
 
@@ -142,7 +135,7 @@ serve(async (req) => {
 
   try {
     const result = await upsertPaymentAndSubscription({
-      userId: user.id,
+      userId: userId,
       planId,
       reference,
       status: normalizedStatus,

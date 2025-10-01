@@ -10,6 +10,7 @@ const gateEl = document.querySelector('[data-role="department-gate"]');
 const gateOptionsEl = document.querySelector(
   '[data-role="department-options"]'
 );
+const gateLoadingEl = document.querySelector('[data-role="department-loading"]');
 const gateGeneralBtn = document.querySelector('[data-role="select-general"]');
 
 const THEME_MAP = {
@@ -722,6 +723,8 @@ function openDepartmentGate() {
     grid.innerHTML = '';
   }
   changeDepartmentBtn?.classList.add('hidden');
+  gateLoadingEl?.classList.remove('hidden');
+  gateOptionsEl?.classList.add('hidden');
   gateEl.classList.remove('hidden');
   gateEl.classList.add('flex');
 }
@@ -735,9 +738,13 @@ function closeDepartmentGate() {
 function buildDepartmentGate() {
   if (!gateOptionsEl) return;
   if (!state.departments.length && !state.generalProducts.length) {
+    gateLoadingEl?.classList.add('hidden');
     gateEl?.classList.add('hidden');
     return;
   }
+
+  gateLoadingEl?.classList.add('hidden');
+  gateOptionsEl.classList.remove('hidden');
 
   gateOptionsEl.innerHTML = state.departments
     .map((dept) => {
@@ -787,7 +794,10 @@ function buildDepartmentGate() {
 }
 
 async function loadPricing() {
+  openDepartmentGate();
   renderLoadingState();
+  gateLoadingEl?.classList.remove('hidden');
+  gateOptionsEl?.classList.add('hidden');
   try {
     const supabase = await getSupabaseClient();
     const { data, error } = await supabase
@@ -817,7 +827,6 @@ async function loadPricing() {
     }
 
     buildDepartmentGate();
-    openDepartmentGate();
   } catch (error) {
     console.error('[Pricing] Unable to load plans', error);
     showError(

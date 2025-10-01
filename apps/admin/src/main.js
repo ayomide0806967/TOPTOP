@@ -50,6 +50,8 @@ function breadcrumbForView(view) {
       return 'Subscriptions';
     case 'quizbuilder':
       return 'Quiz Builder';
+    case 'freequizzes':
+      return 'Free Quiz';
     case 'users':
       return 'Users';
     default:

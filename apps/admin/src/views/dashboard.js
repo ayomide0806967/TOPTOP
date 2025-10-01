@@ -1,5 +1,17 @@
 import { dataService } from '../services/dataService.js';
 
+const INACTIVE_WINDOW_DAYS = 14;
+
+function escapeHtml(value) {
+  if (value === undefined || value === null) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function formatNumber(value) {
   return Number(value ?? 0).toLocaleString();
 }
@@ -8,8 +20,100 @@ function formatCurrency(value) {
   return `₦${Number(value ?? 0).toLocaleString()}`;
 }
 
+function formatLastActive(isoString) {
+  if (!isoString) return 'Never signed in';
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs <= 0) return 'Today';
+
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return '1 day ago';
+  if (diffDays < 7) return `${diffDays} days ago`;
+
+  const diffWeeks = Math.floor(diffDays / 7);
+  if (diffWeeks === 1) return '1 week ago';
+  if (diffWeeks < 5) return `${diffWeeks} weeks ago`;
+
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths <= 1) return '1 month ago';
+  return `${diffMonths} months ago`;
+}
+
+function renderInactiveLearnersSection(learners) {
+  if (!learners.length) {
+    return `
+      <div class="mt-4 rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-500">
+        No learners have been inactive for more than ${INACTIVE_WINDOW_DAYS} days.
+      </div>
+    `;
+  }
+
+  const rows = learners
+    .map((learner) => {
+      const planLabel = learner.plan_name
+        ? escapeHtml(learner.plan_name)
+        : 'No active plan';
+      const statusLabel = learner.status
+        ? escapeHtml(learner.status.replace(/_/g, ' '))
+        : 'inactive';
+
+      return `
+        <tr class="border-b last:border-b-0 border-gray-100">
+          <td class="px-0 py-3">
+            <div class="font-semibold text-gray-900">${escapeHtml(
+              learner.full_name || '—'
+            )}</div>
+            <div class="mt-1 text-xs text-gray-500">${escapeHtml(
+              learner.email || 'No email on file'
+            )}</div>
+          </td>
+          <td class="px-3 py-3 text-sm text-gray-600">${planLabel}</td>
+          <td class="px-3 py-3 text-sm text-gray-600">${formatLastActive(
+            learner.last_seen_at
+          )}</td>
+          <td class="px-3 py-3 text-sm capitalize text-gray-600">${statusLabel}</td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  return `
+    <div class="mt-4 overflow-hidden rounded-lg border border-gray-200">
+      <table class="min-w-full divide-y divide-gray-200 text-sm">
+        <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <tr>
+            <th scope="col" class="px-0 py-3">Learner</th>
+            <th scope="col" class="px-3 py-3">Plan</th>
+            <th scope="col" class="px-3 py-3">Last Active</th>
+            <th scope="col" class="px-3 py-3">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          ${rows}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 export async function dashboardView() {
-  const stats = await dataService.getDashboardStats();
+  const statsPromise = dataService.getDashboardStats();
+
+  let inactiveLearners = [];
+  try {
+    inactiveLearners = await dataService.listInactiveLearners({
+      daysWithoutActivity: INACTIVE_WINDOW_DAYS,
+      limit: 8,
+    });
+  } catch (error) {
+    console.error('[Dashboard] Failed to load inactive learners list', error);
+    inactiveLearners = [];
+  }
+
+  const stats = await statsPromise;
   const metrics = [
     {
       label: 'Total Users',
@@ -70,6 +174,18 @@ export async function dashboardView() {
             </div>
           </article>
         </div>
+        <article class="bg-white rounded-lg shadow p-6">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 class="text-lg font-semibold text-gray-800">Inactive Learners</h2>
+              <p class="text-sm text-gray-500">Last seen more than ${INACTIVE_WINDOW_DAYS} days ago.</p>
+            </div>
+            <span class="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
+              Attention Needed
+            </span>
+          </div>
+          ${renderInactiveLearnersSection(inactiveLearners)}
+        </article>
       </section>
     `,
   };

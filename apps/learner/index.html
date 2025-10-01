@@ -144,39 +144,36 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center space-x-3">
-            <svg
-              class="h-8 w-auto text-cyan-700"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M12.312 2.969c.943 0 1.844.297 2.61.859l-1.032 1.031a2.999 2.999 0 10-4.242 4.243L8.617 8.07A4.482 4.482 0 0112.312 6.5c.995 0 1.93.324 2.688.875l-1.047 1.047a1.5 1.5 0 102.121 2.121l1.047-1.047c.55 1.054.55 2.296 0 3.35l-1.047 1.047a1.5 1.5 0 102.121 2.121l1.047-1.047c.55.758.875 1.693.875 2.688a4.482 4.482 0 01-1.57 3.695l-1.031-1.032a2.999 2.999 0 10-4.243-4.242l1.032-1.031a4.482 4.482 0 01-3.695 1.57c-.995 0-1.93-.324-2.688-.875l1.047-1.047a1.5 1.5 0 10-2.121-2.121L6.72 15.15c-.55-1.054-.55-2.296 0-3.35l1.047-1.047a1.5 1.5 0 10-2.121-2.121L4.695 9.68A4.482 4.482 0 016.266 6c0-1.23.492-2.35 1.305-3.164L6.54 1.805A6.002 6.002 0 00.75 6.266c-1 2.387.104 5.234 2.227 7.357a1.5 1.5 0 002.121 0l1.016-1.016c.33-.33.33-.865 0-1.195l-1.047-1.047a2.983 2.983 0 010-4.218l1.047-1.047a1.5 1.5 0 000-2.121L5.11 2.227A6.024 6.024 0 006.266.75c2.515-1.104 5.362-.001 7.357 2.122l-1.31 1.31a4.48 4.48 0 01-2.61-.858z"
-                clip-rule="evenodd"
-              />
-            </svg>
+            <img
+              src="../assets/academicnightingale-logo.jpg"
+              alt="Academic Nightingale logo"
+              class="h-10 w-14 rounded-lg object-cover border border-cyan-700 shadow-sm"
+            />
             <span class="font-bold text-lg text-gray-800"
               >Academic Nightingale</span
             >
           </div>
           <div class="hidden md:flex items-center space-x-8">
             <a
-              href="#features"
+              href="about-us.html"
               class="text-gray-600 hover:text-cyan-700 font-medium"
-              >Features</a
+              >About</a
             >
             <a
               href="subscription-plans.html"
               class="text-gray-600 hover:text-cyan-700 font-medium"
               >Pricing</a
             >
-            <a
-              href="#footer"
-              class="text-gray-600 hover:text-cyan-700 font-medium"
-              >About</a
-            >
           </div>
-          <div class="flex items-center space-x-2">
+          <div class="flex items-center space-x-2 md:hidden">
+            <!-- Mobile menu button -->
+            <button id="mobile-menu-button" class="text-gray-600 hover:text-gray-900 p-2">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+              </svg>
+            </button>
+          </div>
+          <div class="hidden md:flex items-center space-x-2">
             <a
               href="login.html"
               class="btn-secondary px-4 py-2 rounded-lg text-sm font-semibold"
@@ -191,6 +188,117 @@
         </div>
       </div>
     </header>
+
+    <!-- Mobile menu -->
+    <div
+      id="mobile-menu"
+      class="fixed inset-0 z-40 hidden md:hidden"
+      aria-hidden="true"
+    >
+      <button
+        type="button"
+        data-role="mobile-overlay"
+        class="absolute inset-0 bg-slate-900/60"
+        tabindex="-1"
+        aria-label="Close menu"
+      ></button>
+      <div
+        class="relative ml-auto flex h-full w-full max-w-xs flex-col bg-white shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="mobile-menu-heading"
+      >
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+          <div class="flex items-center gap-2">
+            <img
+              src="../assets/academicnightingale-logo.jpg"
+              alt="Academic Nightingale logo"
+              class="h-9 w-9 rounded-full object-cover border border-cyan-700 shadow-sm"
+            />
+            <span
+              id="mobile-menu-heading"
+              class="text-base font-semibold text-slate-800"
+              >Academic Nightingale</span
+            >
+          </div>
+          <button
+            type="button"
+            data-role="close-mobile-menu"
+            class="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            aria-label="Close navigation"
+          >
+            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fill-rule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 011.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+        <nav class="flex-1 overflow-y-auto px-5 py-6">
+          <ul class="space-y-2 text-base font-medium text-slate-700">
+            <li>
+              <a
+                href="subscription-plans.html"
+                class="block rounded-lg px-3 py-2 hover:bg-slate-100"
+                >Pricing</a
+              >
+            </li>
+            <li>
+              <a
+                href="about-us.html"
+                class="block rounded-lg px-3 py-2 hover:bg-slate-100"
+                >About</a
+              >
+            </li>
+            <li>
+              <a
+                href="login.html"
+                class="block rounded-lg px-3 py-2 hover:bg-slate-100"
+                >Log In</a
+              >
+            </li>
+            <li>
+              <a
+                href="subscription-plans.html"
+                class="block rounded-lg border border-cyan-600 bg-cyan-600 px-3 py-2 text-center font-semibold text-white shadow-sm hover:bg-cyan-700"
+                >Start Learning</a
+              >
+            </li>
+          </ul>
+
+          <div class="mt-8 space-y-3 border-t border-slate-200 pt-6">
+            <p class="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Connect with us
+            </p>
+            <div class="flex flex-col gap-2 text-sm font-medium text-cyan-700">
+              <a
+                href="https://instagram.com/academicnightingale"
+                target="_blank"
+                rel="noreferrer"
+                class="rounded-lg px-3 py-2 hover:bg-cyan-50"
+                >Instagram</a
+              >
+              <a
+                href="https://twitter.com/AcadNightingale"
+                target="_blank"
+                rel="noreferrer"
+                class="rounded-lg px-3 py-2 hover:bg-cyan-50"
+                >X (Twitter)</a
+              >
+              <a
+                href="https://www.linkedin.com/company/academicnightingale"
+                target="_blank"
+                rel="noreferrer"
+                class="rounded-lg px-3 py-2 hover:bg-cyan-50"
+                >LinkedIn</a
+              >
+            </div>
+          </div>
+        </nav>
+      </div>
+    </div>
 
     <main>
       <!-- Hero Section -->
@@ -212,8 +320,15 @@
                   href="subscription-plans.html"
                   class="btn-primary inline-block px-8 py-3 rounded-lg text-base font-semibold shadow-lg"
                 >
-                  Get Started for Free
+                  Start NMCN Mock Plans
                 </a>
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center rounded-lg border border-cyan-600 px-8 py-3 text-base font-semibold text-cyan-700 hover:bg-cyan-50"
+                  data-role="launch-free-quiz"
+                >
+                  Try the Free Quiz
+                </button>
               </div>
             </div>
             <div class="hidden md:block">
@@ -261,6 +376,94 @@
           </div>
         </div>
       </section>
+
+      <div
+        id="free-quiz-modal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/70 px-4"
+        aria-hidden="true"
+      >
+        <div
+          class="relative w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="free-quiz-heading"
+        >
+          <button
+            type="button"
+            class="absolute right-4 top-4 rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200"
+            data-role="free-quiz-close"
+            aria-label="Close free quiz instructions"
+          >
+            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fill-rule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
+          <div class="bg-gradient-to-br from-cyan-700 to-cyan-800 px-6 py-8 text-white">
+            <p class="text-xs uppercase tracking-[0.3em] text-cyan-100">Free Mock</p>
+            <h2 id="free-quiz-heading" class="mt-2 text-2xl font-bold">
+              Try a Quick Sample
+            </h2>
+            <p class="mt-2 text-sm text-cyan-100" data-role="free-quiz-description">
+              Loading quiz details…
+            </p>
+            <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div class="rounded-xl bg-white/15 p-3 text-center">
+                <p class="text-lg font-bold" data-role="free-quiz-question-count">—</p>
+                <p class="text-xs">Questions</p>
+              </div>
+              <div class="rounded-xl bg-white/15 p-3 text-center">
+                <p class="text-lg font-bold" data-role="free-quiz-timer">—</p>
+                <p class="text-xs">Timer</p>
+              </div>
+            </div>
+          </div>
+          <div class="px-6 py-6 space-y-4">
+            <section>
+              <ul class="grid grid-cols-2 gap-2 text-sm text-slate-700">
+                <li class="flex items-center gap-2">
+                  <span>🧭</span>
+                  <span class="text-xs">Question palette</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <span>🧮</span>
+                  <span class="text-xs">Built-in calculator</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <span>📑</span>
+                  <span class="text-xs">Real exam layout</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <span>⚡</span>
+                  <span class="text-xs">Instant feedback</span>
+                </li>
+              </ul>
+            </section>
+            <section class="bg-slate-50 rounded-xl p-4">
+              <p class="text-xs text-slate-600">
+                • Allow 15–20 minutes<br>
+                • Move freely between questions<br>
+                • No login required
+              </p>
+            </section>
+          </div>
+          <div class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-6 py-5 text-center">
+            <div class="text-xs text-slate-600" data-role="free-quiz-intro">
+              Ready to try our mock exam?
+            </div>
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-xl bg-cyan-700 px-6 py-3 text-sm font-semibold text-white shadow-sm shadow-cyan-700/30 transition hover:bg-cyan-800 w-full"
+              data-role="free-quiz-start"
+            >
+              Start Free Quiz
+            </button>
+          </div>
+        </div>
+      </div>
 
       <!-- Trust Bar Section -->
       <section class="py-12 bg-white">
@@ -331,24 +534,25 @@
                 <h2
                   class="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight leading-snug"
                 >
-                  At Academic Nightingale, we build tools to serve the long-term
-                  well-being of healthcare professionals.
+                  We turn relentless exam pressure into daily confidence for
+                  every caregiver we serve.
                 </h2>
               </div>
               <!-- Right Column: Descriptive Text -->
               <div>
                 <p class="text-lg text-gray-600">
-                  While no one can foresee every challenge in a medical career,
-                  we know that designing powerful educational technologies
-                  requires both bold steps forward and intentional pauses to
-                  consider the effects on learning and practice.
+                  Nursing directives, NMCN question banks, and hospital
+                  expectations shift faster than any printed syllabus. Our
+                  product team studies those changes daily, translating them
+                  into concise drills, analytics, and coaching moments that fit
+                  busy clinical lives.
                 </p>
                 <p class="mt-4 text-lg text-gray-600">
-                  That’s why we focus on building tools with human benefit at
-                  their foundation. Through our daily research, collaboration
-                  with educators, and thoughtful product design, we aim to show
-                  what responsible educational development looks like in
-                  practice.
+                  Academic Nightingale blends research, educator partnerships,
+                  and responsible AI so learners stay calm, informed, and ready
+                  for the next ward round. Every feature is designed to boost
+                  confidence on exam day and clarity on the job the very next
+                  morning.
                 </p>
               </div>
             </div>
@@ -494,7 +698,7 @@
                 invaluable."
               </p>
               <footer class="mt-6">
-                <div class="font-semibold text-gray-900">Tunde Adebayo</div>
+                <div class="font-semibold text-gray-900">Tunde Gabriel</div>
                 <div class="text-gray-600">Public Health Officer, Ibadan</div>
               </footer>
             </div>
@@ -509,6 +713,98 @@
                 <div class="font-semibold text-gray-900">Fatima Sani</div>
                 <div class="text-gray-600">Nursing Student, Kano</div>
               </footer>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- About Us Section -->
+      <section class="py-20 sm:py-24 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center fade-in-section">
+            <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
+              About Academic Nightingale
+            </h2>
+            <p class="mt-4 text-lg text-gray-600 max-w-3xl mx-auto">
+              Empowering healthcare professionals across Africa with comprehensive exam preparation tools
+            </p>
+          </div>
+
+          <div class="mt-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div class="fade-in-section">
+              <h3 class="text-2xl font-bold text-gray-900 mb-6">Our Mission</h3>
+              <p class="text-lg text-gray-600 mb-6">
+                Academic Nightingale is dedicated to supporting nursing, midwifery, and public health students
+                and professionals in achieving their certification goals. We understand the challenges of
+                preparing for high-stakes exams and have built a platform that addresses every aspect of
+                effective exam preparation.
+              </p>
+              <p class="text-lg text-gray-600 mb-6">
+                Founded by healthcare educators and technology experts, our platform combines evidence-based
+                learning methods with cutting-edge technology to create an engaging and effective study experience.
+              </p>
+              <div class="mt-8">
+                <a href="about-us.html" class="text-cyan-700 hover:text-cyan-800 font-semibold flex items-center gap-2">
+                  Learn More About Us
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                  </svg>
+                </a>
+              </div>
+            </div>
+
+            <div class="fade-in-section grid grid-cols-2 gap-6">
+              <div class="bg-white p-6 rounded-xl shadow-sm">
+                <div class="text-3xl font-bold text-cyan-700 mb-2">50K+</div>
+                <div class="text-gray-600">Questions Bank</div>
+              </div>
+              <div class="bg-white p-6 rounded-xl shadow-sm">
+                <div class="text-3xl font-bold text-cyan-700 mb-2">10K+</div>
+                <div class="text-gray-600">Successful Students</div>
+              </div>
+              <div class="bg-white p-6 rounded-xl shadow-sm">
+                <div class="text-3xl font-bold text-cyan-700 mb-2">95%</div>
+                <div class="text-gray-600">Pass Rate</div>
+              </div>
+              <div class="bg-white p-6 rounded-xl shadow-sm">
+                <div class="text-3xl font-bold text-cyan-700 mb-2">24/7</div>
+                <div class="text-gray-600">Platform Access</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-16 fade-in-section">
+            <div class="bg-white p-8 rounded-2xl shadow-sm">
+              <h3 class="text-xl font-bold text-gray-900 mb-4">Our Commitment to Excellence</h3>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="text-center">
+                  <div class="w-12 h-12 bg-cyan-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-6 h-6 text-cyan-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                  </div>
+                  <h4 class="font-semibold text-gray-900 mb-2">Quality Content</h4>
+                  <p class="text-sm text-gray-600">All questions reviewed by certified healthcare professionals</p>
+                </div>
+                <div class="text-center">
+                  <div class="w-12 h-12 bg-cyan-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-6 h-6 text-cyan-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                  </div>
+                  <h4 class="font-semibold text-gray-900 mb-2">Innovation</h4>
+                  <p class="text-sm text-gray-600">Continuously improving with AI-powered analytics</p>
+                </div>
+                <div class="text-center">
+                  <div class="w-12 h-12 bg-cyan-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-6 h-6 text-cyan-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                    </svg>
+                  </div>
+                  <h4 class="font-semibold text-gray-900 mb-2">Student Success</h4>
+                  <p class="text-sm text-gray-600">Dedicated to helping you achieve your career goals</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -571,35 +867,272 @@
           <div>
             <h4 class="font-semibold text-white">Resources</h4>
             <ul class="mt-4 space-y-2 text-sm">
-              <li><a href="#" class="hover:text-white">Blog</a></li>
-              <li><a href="#" class="hover:text-white">Events</a></li>
-              <li><a href="#" class="hover:text-white">Help Center</a></li>
+              <li><a href="blog.html" class="hover:text-white">Blog</a></li>
+              <li><a href="help-center.html" class="hover:text-white">Help Center</a></li>
             </ul>
           </div>
           <div>
             <h4 class="font-semibold text-white">Company</h4>
             <ul class="mt-4 space-y-2 text-sm">
-              <li><a href="#" class="hover:text-white">About Us</a></li>
-              <li><a href="#" class="hover:text-white">Careers</a></li>
-              <li><a href="#" class="hover:text-white">Contact</a></li>
+              <li><a href="about-us.html" class="hover:text-white">About Us</a></li>
+              <li><a href="careers.html" class="hover:text-white">Careers</a></li>
+              <li><a href="contact.html" class="hover:text-white">Contact</a></li>
             </ul>
           </div>
           <div>
             <h4 class="font-semibold text-white">Legal</h4>
             <ul class="mt-4 space-y-2 text-sm">
-              <li><a href="#" class="hover:text-white">Privacy Policy</a></li>
-              <li><a href="#" class="hover:text-white">Terms of Service</a></li>
+              <li><a href="privacy-policy.html" class="hover:text-white">Privacy Policy</a></li>
+              <li><a href="terms-of-service.html" class="hover:text-white">Terms of Service</a></li>
             </ul>
           </div>
         </div>
-        <div class="mt-12 border-t border-gray-700 pt-8 text-center text-sm">
+
+        <!-- Social Media Section -->
+        <div class="mt-12 border-t border-gray-700 pt-8">
+          <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="text-sm text-gray-400">
+              Connect with our community of 23,000+ students
+            </div>
+            <div class="flex items-center gap-6">
+              <a href="https://whatsapp.com/channel/0029VaW2i4qJuyAIGj7CRb0W" target="_blank" class="flex items-center gap-2 text-gray-400 hover:text-green-400 transition-colors">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.149-.67.149-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414-.074-.123-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                </svg>
+                <span class="text-sm">WhatsApp</span>
+              </a>
+              <a href="https://t.me/AcademicNightingale" target="_blank" class="flex items-center gap-2 text-gray-400 hover:text-blue-400 transition-colors">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                </svg>
+                <span class="text-sm">Telegram</span>
+              </a>
+              <a href="https://x.com/Academicnight?t=sFUWnz_yqvc8bgNIj0A_Wg&s=09" target="_blank" class="flex items-center gap-2 text-gray-400 hover:text-gray-100 transition-colors">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+                <span class="text-sm">X (Twitter)</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-8 pt-8 text-center text-sm">
           <p>&copy; 2025 Academic Nightingale Inc. All rights reserved.</p>
         </div>
       </div>
     </footer>
 
     <script>
+      window.__SUPABASE_URL__ = 'https://ghnhfagydcynhkgbazbj.supabase.co';
+      window.__SUPABASE_ANON_KEY__ =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobmhmYWd5ZGN5bmhrZ2JhemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwMDM2MjQsImV4cCI6MjA3NDU3OTYyNH0.KHgZ_ESTneR0CqWBGfu-JOmI3eBBLCZr1XG-g2vpclw';
+    </script>
+
+    <script>
       document.addEventListener('DOMContentLoaded', () => {
+        // Mobile Menu Logic
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const mobileOverlay = mobileMenu?.querySelector('[data-role="mobile-overlay"]');
+        const closeMobileMenuBtn = mobileMenu?.querySelector('[data-role="close-mobile-menu"]');
+
+        const getFocusableItems = () =>
+          mobileMenu?.querySelectorAll(
+            'a[href], button:not([tabindex="-1"]):not([disabled])'
+          ) ?? [];
+
+        let previousActiveElement = null;
+
+        function handleKeydownTrap(event) {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            closeMobileMenu();
+            return;
+          }
+
+          if (event.key !== 'Tab') return;
+
+          const focusable = Array.from(getFocusableItems());
+          if (!focusable.length) return;
+
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+
+          if (event.shiftKey) {
+            if (document.activeElement === first) {
+              event.preventDefault();
+              last.focus();
+            }
+          } else if (document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        }
+
+        const closeMobileMenu = () => {
+          if (!mobileMenu) return;
+          mobileMenu.classList.add('hidden');
+          mobileMenu.setAttribute('aria-hidden', 'true');
+          mobileMenuButton?.setAttribute('aria-expanded', 'false');
+          document.body.classList.remove('overflow-hidden');
+          document.removeEventListener('keydown', handleKeydownTrap);
+          if (previousActiveElement instanceof HTMLElement) {
+            previousActiveElement.focus();
+          }
+        };
+
+        const openMobileMenu = () => {
+          if (!mobileMenu) return;
+          previousActiveElement = document.activeElement;
+          mobileMenu.classList.remove('hidden');
+          mobileMenu.setAttribute('aria-hidden', 'false');
+          mobileMenuButton?.setAttribute('aria-expanded', 'true');
+          document.body.classList.add('overflow-hidden');
+          const focusable = getFocusableItems();
+          if (focusable.length) {
+            focusable[0].focus();
+          }
+          document.addEventListener('keydown', handleKeydownTrap);
+        };
+
+        mobileMenuButton?.setAttribute('aria-haspopup', 'dialog');
+        mobileMenuButton?.setAttribute('aria-expanded', 'false');
+
+        mobileMenuButton?.addEventListener('click', () => {
+          const isOpen = mobileMenuButton.getAttribute('aria-expanded') === 'true';
+          if (isOpen) {
+            closeMobileMenu();
+          } else {
+            openMobileMenu();
+          }
+        });
+
+        mobileOverlay?.addEventListener('click', closeMobileMenu);
+        closeMobileMenuBtn?.addEventListener('click', closeMobileMenu);
+        mobileMenu
+          ?.querySelectorAll('a')
+          .forEach((link) => link.addEventListener('click', closeMobileMenu));
+
+        // Free quiz modal
+        const freeQuizBtn = document.querySelector('[data-role="launch-free-quiz"]');
+        const freeQuizModal = document.getElementById('free-quiz-modal');
+        const freeQuizClose = freeQuizModal?.querySelector('[data-role="free-quiz-close"]');
+        const freeQuizStart = freeQuizModal?.querySelector('[data-role="free-quiz-start"]');
+        const freeQuizDescription = freeQuizModal?.querySelector('[data-role="free-quiz-description"]');
+        const freeQuizIntro = freeQuizModal?.querySelector('[data-role="free-quiz-intro"]');
+        const freeQuizQuestionCount = freeQuizModal?.querySelector('[data-role="free-quiz-question-count"]');
+        const freeQuizTimer = freeQuizModal?.querySelector('[data-role="free-quiz-timer"]');
+
+        const SUPABASE_URL = window.__SUPABASE_URL__;
+        const SUPABASE_KEY = window.__SUPABASE_ANON_KEY__;
+
+        const showFreeQuizModal = () => {
+          if (!freeQuizModal) return;
+          freeQuizModal.classList.remove('hidden');
+          freeQuizModal.classList.add('flex');
+          document.body.classList.add('overflow-hidden');
+        };
+
+        const hideFreeQuizModal = () => {
+          if (!freeQuizModal) return;
+          freeQuizModal.classList.add('hidden');
+          freeQuizModal.classList.remove('flex');
+          document.body.classList.remove('overflow-hidden');
+        };
+
+        async function loadActiveFreeQuiz() {
+          if (!SUPABASE_URL || !SUPABASE_KEY) {
+            throw new Error('Supabase configuration missing.');
+          }
+          const response = await fetch(
+            `${SUPABASE_URL}/rest/v1/free_quiz_metrics?is_active=eq.true&order=created_at.desc&limit=1`,
+            {
+              headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+              },
+            }
+          );
+          if (!response.ok) {
+            throw new Error('Unable to reach free quiz catalogue.');
+          }
+          const data = await response.json();
+          return data?.[0] ?? null;
+        }
+
+        const toast = (message, type = 'info') => {
+          const el = document.createElement('div');
+          const palette =
+            type === 'error'
+              ? 'bg-red-600'
+              : type === 'success'
+                ? 'bg-emerald-600'
+                : 'bg-cyan-600';
+          el.className = `${palette} text-white fixed bottom-6 right-6 z-50 rounded-xl px-4 py-3 text-sm shadow-lg`;
+          el.textContent = message;
+          document.body.appendChild(el);
+          setTimeout(() => el.remove(), 3200);
+        };
+
+        const formatDuration = (seconds) => {
+          const total = Number(seconds);
+          if (!Number.isFinite(total) || total <= 0) return 'No limit';
+          const minutes = Math.floor(total / 60);
+          if (minutes >= 60) {
+            const hours = Math.floor(minutes / 60);
+            const remainder = minutes % 60;
+            return `${hours}h ${remainder ? `${remainder}m` : ''}`.trim();
+          }
+          return `${minutes}m`;
+        };
+
+        async function handleFreeQuizLaunch() {
+          try {
+            freeQuizDescription.textContent = 'Loading quiz details…';
+            freeQuizIntro.textContent = 'Preparing your mock experience.';
+            freeQuizQuestionCount.textContent = '—';
+            freeQuizTimer.textContent = '—';
+            freeQuizStart.disabled = true;
+            showFreeQuizModal();
+            const quiz = await loadActiveFreeQuiz();
+            if (!quiz) {
+              freeQuizDescription.textContent = 'No public free quiz is currently published. Please check back soon!';
+              freeQuizStart.disabled = true;
+              return;
+            }
+            freeQuizModal.dataset.quizSlug = quiz.slug;
+            freeQuizDescription.textContent = quiz.description || 'Preview the Academic Nightingale question engine with real exam conditions.';
+            freeQuizIntro.textContent = quiz.intro || 'Score, analytics, and a taste of our premium experience in minutes.';
+            freeQuizQuestionCount.textContent = `${quiz.question_count ?? 0}`;
+            freeQuizTimer.textContent = formatDuration(quiz.time_limit_seconds);
+            freeQuizStart.disabled = false;
+          } catch (error) {
+            console.error(error);
+            hideFreeQuizModal();
+            toast(error.message || 'We could not load the free quiz at this time.', 'error');
+          }
+        }
+
+        freeQuizBtn?.addEventListener('click', handleFreeQuizLaunch);
+        freeQuizClose?.addEventListener('click', hideFreeQuizModal);
+        freeQuizModal?.addEventListener('click', (event) => {
+          if (event.target === freeQuizModal) hideFreeQuizModal();
+        });
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') hideFreeQuizModal();
+        });
+
+        freeQuizStart?.addEventListener('click', () => {
+          const slug = freeQuizModal?.dataset.quizSlug;
+          if (!slug) {
+            toast('Free quiz is not ready yet.', 'error');
+            return;
+          }
+          hideFreeQuizModal();
+          window.location.href = `exam-face.html?free_quiz=${encodeURIComponent(slug)}`;
+        });
+
         // Sticky Header Logic
         const stickyHeader = document.getElementById('sticky-header');
         const handleScroll = () => {

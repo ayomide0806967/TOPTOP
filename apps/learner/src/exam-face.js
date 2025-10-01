@@ -27,11 +27,22 @@ const els = {
 const state = {
   supabase: null,
   user: null,
-  dailyQuiz: null, // row from daily_quizzes
-  entries: [], // rows from daily_quiz_questions with nested question + options
-  answers: {}, // map of question entry id -> selected option id
+  mode: 'daily',
+  dailyQuiz: null, // active quiz metadata (daily or free)
+  freeQuizAttempt: null,
+  entries: [], // question entries
+  answers: {}, // map of question entry id -> selected option index
   timerId: null,
-  timerStartFrom: null, // Date if started_at exists
+  timerStartFrom: null,
+  deadlineCheckInterval: null,
+};
+
+// LocalStorage keys
+const STORAGE_KEYS = {
+  EXAM_DEADLINE: 'exam_deadline_',
+  PENDING_SUBMISSION: 'pending_submission_',
+  OFFLINE_ANSWERS: 'offline_answers_',
+  FREE_PROGRESS: 'free_quiz_progress_',
 };
 
 function showToast(message, type = 'info') {
@@ -46,6 +57,188 @@ function showToast(message, type = 'info') {
   toast.textContent = message;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 4000);
+}
+
+function computeTimeUsed(startedAt, completedAt) {
+  const start = startedAt ? new Date(startedAt) : null;
+  const end = completedAt ? new Date(completedAt) : null;
+  if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return null;
+  }
+  const diff = Math.floor((end.getTime() - start.getTime()) / 1000);
+  return Number.isFinite(diff) ? Math.max(diff, 0) : null;
+}
+
+function normalizeOptionKey(value) {
+  if (value === undefined || value === null) return '';
+  return value.toString().trim().toLowerCase();
+}
+
+function updateEntrySelection(entry, optionId) {
+  if (!optionId) {
+    entry.selected_option_id = null;
+    entry.is_correct = null;
+    return;
+  }
+  entry.selected_option_id = optionId;
+  const selectedKey = normalizeOptionKey(optionId);
+  let correctKey =
+    entry.correct_option_key ||
+    normalizeOptionKey(entry.correct_option_id) ||
+    normalizeOptionKey(entry.raw_correct_option);
+
+  if (!correctKey) {
+    const options = entry.question?.question_options || [];
+    const markedCorrect = options.find((opt) => opt && (opt.is_correct || normalizeOptionKey(opt.id) === normalizeOptionKey(entry.correct_option_id)));
+    if (markedCorrect) {
+      entry.correct_option_id = markedCorrect.id ?? markedCorrect.label;
+      correctKey = normalizeOptionKey(entry.correct_option_id);
+    }
+  }
+
+  if (!correctKey) {
+    const options = entry.question?.question_options || [];
+    const primaryMatch = options.find((opt) => normalizeOptionKey(opt.label) === normalizeOptionKey(entry.correct_option_id));
+    if (primaryMatch) {
+      entry.correct_option_id = primaryMatch.id ?? primaryMatch.label;
+      correctKey = normalizeOptionKey(entry.correct_option_id);
+    }
+  }
+
+  entry.correct_option_key = correctKey;
+  if (correctKey) {
+    entry.is_correct = selectedKey === correctKey;
+  } else {
+    const options = entry.question?.question_options || [];
+    const selectedOption = options.find((opt) => normalizeOptionKey(opt.id) === selectedKey || normalizeOptionKey(opt.label) === selectedKey);
+    entry.is_correct = !!selectedOption?.is_correct;
+    if (!entry.correct_option_id && selectedOption?.is_correct) {
+      entry.correct_option_id = selectedOption.id ?? selectedOption.label;
+      entry.correct_option_key = normalizeOptionKey(entry.correct_option_id);
+    }
+  }
+}
+
+function isEntryCorrect(entry) {
+  if (!entry || !entry.selected_option_id) return false;
+  const selectedKey = normalizeOptionKey(entry.selected_option_id);
+  const correctKey = entry.correct_option_key || normalizeOptionKey(entry.correct_option_id);
+  if (correctKey) return selectedKey === correctKey;
+  const options = entry.question?.question_options || [];
+  const selectedOption = options.find((opt) => normalizeOptionKey(opt.id) === selectedKey || normalizeOptionKey(opt.label) === selectedKey);
+  return !!selectedOption?.is_correct;
+}
+
+function showConfirmModal(answered, skipped, total) {
+  return new Promise((resolve) => {
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-modal-overlay';
+    
+    // Create modal content
+    const modal = document.createElement('div');
+    modal.className = 'confirm-modal';
+    
+    // Header
+    const header = document.createElement('div');
+    header.className = 'confirm-modal-header';
+    header.innerHTML = `
+      <h3 style="font-size: 24px; font-weight: 700; margin: 0;">
+        ${skipped > 0 ? '⚠️ Submit Quiz?' : '🎉 Submit Quiz?'}
+      </h3>
+      <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 14px;">
+        ${skipped > 0 ? 'Review your progress before submitting' : 'Great job! You answered all questions'}
+      </p>
+    `;
+    
+    // Body with stats
+    const body = document.createElement('div');
+    body.className = 'confirm-modal-body';
+    body.innerHTML = `
+      <div class="confirm-stat">
+        <div class="confirm-stat-icon" style="background: #dcfce7;">
+          <span style="font-size: 24px;">✅</span>
+        </div>
+        <div style="flex: 1;">
+          <div style="font-size: 13px; color: #64748b; font-weight: 500;">Answered</div>
+          <div style="font-size: 20px; font-weight: 700; color: #0f766e;">${answered} question${answered !== 1 ? 's' : ''}</div>
+        </div>
+      </div>
+      
+      ${skipped > 0 ? `
+        <div class="confirm-stat">
+          <div class="confirm-stat-icon" style="background: #fef3c7;">
+            <span style="font-size: 24px;">⏭️</span>
+          </div>
+          <div style="flex: 1;">
+            <div style="font-size: 13px; color: #64748b; font-weight: 500;">Skipped</div>
+            <div style="font-size: 20px; font-weight: 700; color: #d97706;">${skipped} question${skipped !== 1 ? 's' : ''}</div>
+          </div>
+        </div>
+      ` : ''}
+      
+      <div class="confirm-stat">
+        <div class="confirm-stat-icon" style="background: #e0f2fe;">
+          <span style="font-size: 24px;">📝</span>
+        </div>
+        <div style="flex: 1;">
+          <div style="font-size: 13px; color: #64748b; font-weight: 500;">Total Questions</div>
+          <div style="font-size: 20px; font-weight: 700; color: #0369a1;">${total}</div>
+        </div>
+      </div>
+      
+      ${skipped > 0 ? `
+        <div style="margin-top: 16px; padding: 12px; background: #fef3c7; border-radius: 10px; border-left: 4px solid #f59e0b;">
+          <p style="margin: 0; font-size: 14px; color: #92400e; font-weight: 500;">
+            ⚠️ You have ${skipped} unanswered question${skipped !== 1 ? 's' : ''}. You can go back to review them.
+          </p>
+        </div>
+      ` : ''}
+    `;
+    
+    // Footer with buttons
+    const footer = document.createElement('div');
+    footer.className = 'confirm-modal-footer';
+    
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'confirm-btn confirm-btn-cancel';
+    cancelBtn.textContent = 'Go Back';
+    cancelBtn.onclick = () => {
+      document.body.removeChild(overlay);
+      resolve(false);
+    };
+    
+    const submitBtn = document.createElement('button');
+    submitBtn.className = 'confirm-btn confirm-btn-submit';
+    submitBtn.textContent = skipped > 0 ? 'Submit Anyway' : 'Submit Quiz';
+    submitBtn.onclick = () => {
+      document.body.removeChild(overlay);
+      resolve(true);
+    };
+    
+    footer.appendChild(cancelBtn);
+    footer.appendChild(submitBtn);
+    
+    // Assemble modal
+    modal.appendChild(header);
+    modal.appendChild(body);
+    modal.appendChild(footer);
+    overlay.appendChild(modal);
+    
+    // Close on overlay click
+    overlay.onclick = (e) => {
+      if (e.target === overlay) {
+        document.body.removeChild(overlay);
+        resolve(false);
+      }
+    };
+    
+    // Add to DOM
+    document.body.appendChild(overlay);
+    
+    // Focus submit button
+    submitBtn.focus();
+  });
 }
 
 function formatTimeLabel(seconds) {
@@ -85,8 +278,8 @@ function updateTimer() {
     setTimerDisplay("Time's up!");
     clearInterval(state.timerId);
     state.timerId = null;
-    // Auto-submit
-    submitQuiz().catch(() => {});
+    // Auto-submit with force flag
+    submitQuiz(true).catch(() => {});
     return;
   }
   const hours = Math.floor(remaining / 3600);
@@ -110,6 +303,243 @@ function clearTimer() {
   if (state.timerId) {
     clearInterval(state.timerId);
     state.timerId = null;
+  }
+  if (state.deadlineCheckInterval) {
+    clearInterval(state.deadlineCheckInterval);
+    state.deadlineCheckInterval = null;
+  }
+}
+
+// Store exam deadline in localStorage
+function storeExamDeadline() {
+  if (!state.dailyQuiz || !state.dailyQuiz.started_at) return;
+  
+  const limit = Number(state.dailyQuiz.time_limit_seconds || 0);
+  if (!limit) return;
+  
+  const startedAt = new Date(state.dailyQuiz.started_at);
+  const deadline = new Date(startedAt.getTime() + limit * 1000);
+  
+  const key = STORAGE_KEYS.EXAM_DEADLINE + state.dailyQuiz.id;
+  localStorage.setItem(key, deadline.toISOString());
+}
+
+// Check if exam deadline has passed
+function checkExamDeadline() {
+  if (!state.dailyQuiz) return false;
+  
+  const key = STORAGE_KEYS.EXAM_DEADLINE + state.dailyQuiz.id;
+  const deadlineStr = localStorage.getItem(key);
+  
+  if (!deadlineStr) return false;
+  
+  const deadline = new Date(deadlineStr);
+  const now = new Date();
+  
+  return now >= deadline;
+}
+
+// Clear exam deadline from localStorage
+function clearExamDeadline() {
+  if (!state.dailyQuiz) return;
+  const key = STORAGE_KEYS.EXAM_DEADLINE + state.dailyQuiz.id;
+  localStorage.removeItem(key);
+}
+
+// Cleanup old exam deadlines (older than 7 days)
+function cleanupOldDeadlines() {
+  try {
+    const keys = Object.keys(localStorage);
+    const now = Date.now();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    
+    keys.forEach(key => {
+      if (key.startsWith(STORAGE_KEYS.EXAM_DEADLINE)) {
+        const deadlineStr = localStorage.getItem(key);
+        if (deadlineStr) {
+          const deadline = new Date(deadlineStr);
+          // Remove if deadline was more than 7 days ago
+          if (!isNaN(deadline.getTime()) && now - deadline.getTime() > sevenDaysMs) {
+            localStorage.removeItem(key);
+          }
+        }
+      }
+      // Also cleanup old pending submissions
+      if (key.startsWith(STORAGE_KEYS.PENDING_SUBMISSION)) {
+        const dataStr = localStorage.getItem(key);
+        if (dataStr) {
+          try {
+            const data = JSON.parse(dataStr);
+            const timestamp = new Date(data.timestamp);
+            if (!isNaN(timestamp.getTime()) && now - timestamp.getTime() > sevenDaysMs) {
+              localStorage.removeItem(key);
+            }
+          } catch {
+            // Invalid JSON, remove it
+            localStorage.removeItem(key);
+          }
+        }
+      }
+      if (key.startsWith(STORAGE_KEYS.FREE_PROGRESS)) {
+        const dataStr = localStorage.getItem(key);
+        if (dataStr) {
+          try {
+            const data = JSON.parse(dataStr);
+            const timestamp = new Date(data.lastUpdatedAt || data.startedAt || data.started_at || 0);
+            if (!isNaN(timestamp.getTime()) && now - timestamp.getTime() > sevenDaysMs) {
+              localStorage.removeItem(key);
+            }
+          } catch {
+            localStorage.removeItem(key);
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.error('[Exam Face] Cleanup failed:', err);
+  }
+}
+
+// Store pending submission for offline scenarios
+function storePendingSubmission(submissionData) {
+  if (!state.dailyQuiz || state.mode === 'free') return;
+  const key = STORAGE_KEYS.PENDING_SUBMISSION + state.dailyQuiz.id;
+  localStorage.setItem(key, JSON.stringify(submissionData));
+}
+
+// Get pending submission
+function getPendingSubmission() {
+  if (!state.dailyQuiz || state.mode === 'free') return null;
+  const key = STORAGE_KEYS.PENDING_SUBMISSION + state.dailyQuiz.id;
+  const data = localStorage.getItem(key);
+  return data ? JSON.parse(data) : null;
+}
+
+// Clear pending submission
+function clearPendingSubmission() {
+  if (!state.dailyQuiz || state.mode === 'free') return;
+  const key = STORAGE_KEYS.PENDING_SUBMISSION + state.dailyQuiz.id;
+  localStorage.removeItem(key);
+}
+
+function getFreeProgressKey() {
+  if (!state.dailyQuiz) return null;
+  return STORAGE_KEYS.FREE_PROGRESS + state.dailyQuiz.id;
+}
+
+function loadFreeQuizProgress() {
+  if (state.mode !== 'free') return null;
+  const key = getFreeProgressKey();
+  if (!key) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    console.warn('[Exam Face] Unable to read stored free quiz progress', err);
+    return null;
+  }
+}
+
+function saveFreeQuizProgress(update = {}) {
+  if (state.mode !== 'free') return;
+  const key = getFreeProgressKey();
+  if (!key) return;
+  const existing = loadFreeQuizProgress() || {};
+  const merged = {
+    ...existing,
+    ...update,
+  };
+  if (update.answers) {
+    merged.answers = { ...(existing.answers || {}), ...update.answers };
+  }
+  if (update.startedAt) merged.startedAt = update.startedAt;
+  if (update.attemptId) merged.attemptId = update.attemptId;
+  merged.lastUpdatedAt = new Date().toISOString();
+  try {
+    localStorage.setItem(key, JSON.stringify(merged));
+  } catch (err) {
+    console.warn('[Exam Face] Unable to persist free quiz progress', err);
+  }
+}
+
+function clearFreeQuizProgress() {
+  if (state.mode !== 'free') return;
+  const key = getFreeProgressKey();
+  if (key) {
+    localStorage.removeItem(key);
+  }
+}
+
+// Store an answer that couldn't be saved online
+function storeOfflineAnswer(entryId, optionId) {
+  if (!state.dailyQuiz || state.mode === 'free') return;
+  const key = STORAGE_KEYS.OFFLINE_ANSWERS + state.dailyQuiz.id;
+  const offlineAnswers = JSON.parse(localStorage.getItem(key) || '{}');
+  offlineAnswers[entryId] = { optionId, timestamp: new Date().toISOString() };
+  localStorage.setItem(key, JSON.stringify(offlineAnswers));
+}
+
+// Process stored offline answers when online
+async function processOfflineAnswers() {
+  if (!state.dailyQuiz || state.mode === 'free') return;
+  const key = STORAGE_KEYS.OFFLINE_ANSWERS + state.dailyQuiz.id;
+  const offlineAnswers = JSON.parse(localStorage.getItem(key) || '{}');
+  
+  const entryIds = Object.keys(offlineAnswers);
+  if (entryIds.length === 0) return;
+
+  showToast(`Syncing ${entryIds.length} offline answer(s)...`, 'info');
+
+  for (const entryId of entryIds) {
+    const { optionId } = offlineAnswers[entryId];
+    try {
+      // Use a separate, targeted recordAnswer call for offline processing
+      await recordAnswer(entryId, optionId, true); // Pass a flag to avoid re-queueing
+      
+      // If successful, remove from local storage
+      delete offlineAnswers[entryId];
+      localStorage.setItem(key, JSON.stringify(offlineAnswers));
+    } catch (err) {
+      console.error('[Exam Face] Failed to sync offline answer:', err);
+      showToast('Failed to sync an answer. Will retry.', 'error');
+      // Stop processing on first error to maintain order and prevent spamming
+      return; 
+    }
+  }
+
+  // If all synced, the object will be empty
+  if (Object.keys(offlineAnswers).length === 0) {
+    localStorage.removeItem(key);
+    showToast('Offline answers synced successfully!', 'success');
+  }
+}
+
+// Process pending submission when online
+async function processPendingSubmission() {
+  if (state.mode === 'free') return;
+  const pending = getPendingSubmission();
+  if (!pending) return;
+  
+  try {
+    const { error } = await state.supabase
+      .from('daily_quizzes')
+      .update(pending.payload)
+      .eq('id', pending.quizId);
+    
+    if (error) throw error;
+    
+    // Clear pending submission on success
+    clearPendingSubmission();
+    clearExamDeadline();
+    
+    // Redirect to results
+    const url = new URL(window.location.href);
+    url.pathname = url.pathname.replace(/[^/]+$/, 'result-face.html');
+    url.searchParams.set('daily_quiz_id', pending.quizId);
+    window.location.replace(url.toString());
+  } catch (err) {
+    console.error('[Exam Face] Failed to process pending submission', err);
+    // Keep pending submission for next retry
   }
 }
 
@@ -173,6 +603,7 @@ function renderAllQuestions() {
         <span class="inline-block bg-gray-100 text-gray-700 text-xs font-semibold px-2 py-1 rounded">Question ${index + 1} of ${state.entries.length}</span>
       </div>
       <h3>${q?.stem ?? 'Question unavailable'}</h3>
+      ${q?.image_url ? `<img src="${q.image_url}" alt="Question illustration" class="my-4 max-h-64 w-full rounded-lg border border-gray-200 object-contain" />` : ''}
       <div class="space-y-1">${optionHtml(entry)}</div>
     `;
     els.questionsContainer.appendChild(el);
@@ -208,8 +639,67 @@ function renderAllQuestions() {
   }
 }
 
+async function ensureFreeQuizAttempt(progressData = null) {
+  if (state.mode !== 'free' || state.freeQuizAttempt || !state.dailyQuiz) return;
+
+  if (progressData?.attemptId) {
+    state.freeQuizAttempt = {
+      id: progressData.attemptId,
+      started_at: progressData.startedAt || progressData.started_at || state.dailyQuiz.started_at || new Date().toISOString(),
+    };
+    if (!state.dailyQuiz.started_at && state.freeQuizAttempt.started_at) {
+      state.dailyQuiz.started_at = state.freeQuizAttempt.started_at;
+    }
+    state.dailyQuiz.status = 'in_progress';
+    saveFreeQuizProgress({
+      attemptId: state.freeQuizAttempt.id,
+      startedAt: state.dailyQuiz.started_at,
+    });
+    return;
+  }
+
+  const payload = {
+    free_quiz_id: state.dailyQuiz.id,
+    total_questions: state.entries.length,
+  };
+  if (state.user?.id) {
+    payload.profile_id = state.user.id;
+  }
+  const { data, error } = await state.supabase
+    .from('free_quiz_attempts')
+    .insert(payload)
+    .select('id, started_at')
+    .single();
+  if (error) throw error;
+  state.freeQuizAttempt = data;
+  state.dailyQuiz.started_at = data?.started_at || state.dailyQuiz.started_at || new Date().toISOString();
+  state.dailyQuiz.status = 'in_progress';
+  saveFreeQuizProgress({
+    attemptId: state.freeQuizAttempt.id,
+    startedAt: state.dailyQuiz.started_at,
+  });
+}
+
 async function ensureStarted() {
-  if (!state.dailyQuiz || state.dailyQuiz.status !== 'assigned') return;
+  if (!state.dailyQuiz) return;
+
+  if (state.mode === 'free') {
+    if (!state.freeQuizAttempt) {
+      await ensureFreeQuizAttempt();
+    }
+    if (!state.dailyQuiz.started_at) {
+      state.dailyQuiz.started_at = new Date().toISOString();
+    }
+    saveFreeQuizProgress({
+      startedAt: state.dailyQuiz.started_at,
+      attemptId: state.freeQuizAttempt?.id,
+    });
+    storeExamDeadline();
+    if (!state.timerId) startTimerTicking();
+    return;
+  }
+
+  if (state.dailyQuiz.status !== 'assigned') return;
   const startedAt = new Date().toISOString();
   const { error } = await state.supabase
     .from('daily_quizzes')
@@ -218,20 +708,59 @@ async function ensureStarted() {
   if (error) throw error;
   state.dailyQuiz.status = 'in_progress';
   state.dailyQuiz.started_at = startedAt;
+
+  storeExamDeadline();
   startTimerTicking();
 }
 
-async function recordAnswer(entryId, optionId) {
+function persistFreeQuizAnswer(entry) {
+  if (state.mode !== 'free' || !entry) return;
+  saveFreeQuizProgress({
+    startedAt: state.dailyQuiz?.started_at,
+    attemptId: state.freeQuizAttempt?.id,
+    answers: {
+      [entry.id]: {
+        optionId: entry.selected_option_id,
+        recordedAt: entry.answered_at,
+      },
+    },
+  });
+}
+
+function applyStoredFreeAnswers(answersMap) {
+  if (state.mode !== 'free' || !answersMap) return;
+  Object.entries(answersMap).forEach(([entryId, storedValue]) => {
+    const optionId =
+      typeof storedValue === 'object' && storedValue !== null
+        ? storedValue.optionId ?? storedValue.value ?? storedValue.answer ?? storedValue
+        : storedValue;
+    const entry = state.entries.find((item) => item.id === entryId);
+    if (!entry) return;
+    updateEntrySelection(entry, optionId);
+  });
+}
+
+async function recordAnswer(entryId, optionId, isSyncing = false) {
   const entry = state.entries.find(e => e.id === entryId);
   if (!entry) return;
   
   try {
     await ensureStarted();
-    
     const option = entry.question?.question_options?.find(opt => opt.id === optionId);
     if (!option) return;
 
     const answeredAt = new Date().toISOString();
+
+    updateEntrySelection(entry, option.id);
+    entry.answered_at = answeredAt;
+    updateProgress();
+    renderPalette();
+
+    if (state.mode === 'free') {
+      persistFreeQuizAnswer(entry);
+      return;
+    }
+
     const { error } = await state.supabase
       .from('daily_quiz_questions')
       .update({
@@ -242,25 +771,29 @@ async function recordAnswer(entryId, optionId) {
       .eq('id', entry.id);
     if (error) throw error;
 
-    entry.selected_option_id = option.id;
-    entry.is_correct = !!option.is_correct;
-    entry.answered_at = answeredAt;
-
-    updateProgress();
-    renderPalette(); // Update palette to show answered status
   } catch (err) {
     console.error('[Exam Face] recordAnswer failed', err);
     showToast(err.message || 'Unable to save your answer.', 'error');
+    
+    if (state.mode !== 'free' && !isSyncing) {
+      storeOfflineAnswer(entryId, optionId);
+      showToast('Answer saved locally. Will sync when online.', 'info');
+    }
   }
 }
 
-async function submitQuiz() {
+async function submitQuiz(forceSubmit = false) {
   if (!state.dailyQuiz) return;
+
+  // Calculate answered and skipped questions
+  const total = state.entries.length;
+  const answered = state.entries.filter(e => e.selected_option_id).length;
+  const skipped = total - answered;
   
-  // Check if all questions are answered
-  const unanswered = state.entries.filter(e => !e.selected_option_id).length;
-  if (unanswered > 0) {
-    if (!confirm(`You have ${unanswered} unanswered question${unanswered > 1 ? 's' : ''}. Do you want to submit anyway?`)) {
+  // Show modern confirmation dialog (skip if forced by timer)
+  if (!forceSubmit) {
+    const confirmed = await showConfirmModal(answered, skipped, total);
+    if (!confirmed) {
       return;
     }
   }
@@ -269,30 +802,132 @@ async function submitQuiz() {
     clearTimer();
     showToast('Submitting quiz...', 'info');
     
-    const correct = state.entries.filter(
-      (e) => e.selected_option_id && e.is_correct
-    ).length;
-    const total = state.entries.length;
+    const correct = state.entries.filter(isEntryCorrect).length;
+    if (state.mode === 'free') {
+      const completedAt = new Date().toISOString();
+      const durationSeconds = computeTimeUsed(state.dailyQuiz.started_at, completedAt);
+      const scorePercent = total ? Number(((correct / total) * 100).toFixed(2)) : 0;
+
+      if (!state.freeQuizAttempt) {
+        await ensureFreeQuizAttempt();
+      }
+
+      if (state.freeQuizAttempt?.id) {
+        await state.supabase
+          .from('free_quiz_attempts')
+          .update({
+            completed_at: completedAt,
+            duration_seconds: durationSeconds ?? null,
+            total_questions: total,
+            correct_count: correct,
+            score: scorePercent,
+          })
+          .eq('id', state.freeQuizAttempt.id);
+      } else {
+        await state.supabase
+          .from('free_quiz_attempts')
+          .insert({
+            free_quiz_id: state.dailyQuiz.id,
+            profile_id: state.user?.id || null,
+            total_questions: total,
+            correct_count: correct,
+            score: scorePercent,
+            completed_at: completedAt,
+            duration_seconds: durationSeconds ?? null,
+          });
+      }
+
+      try {
+        const cachePayload = {
+          quiz: {
+            id: state.dailyQuiz.id,
+            slug: state.dailyQuiz.slug,
+            title: state.dailyQuiz.title,
+            description: state.dailyQuiz.description,
+            time_limit_seconds: state.dailyQuiz.time_limit_seconds,
+            started_at: state.dailyQuiz.started_at,
+            completed_at: completedAt,
+          },
+          entries: state.entries.map((entry) => ({
+            id: entry.id,
+            question: entry.question,
+            selected_option_id: entry.selected_option_id,
+            is_correct: entry.is_correct,
+            correct_option_id: entry.correct_option_id,
+            correct_option_key: entry.correct_option_key,
+            raw_correct_option: entry.raw_correct_option,
+          })),
+          correct,
+          total,
+          score: scorePercent,
+          duration_seconds: durationSeconds ?? null,
+        };
+        sessionStorage.setItem('free_quiz_last_result', JSON.stringify(cachePayload));
+      } catch (err) {
+        console.warn('[Exam Face] Unable to cache free quiz result', err);
+      }
+
+      clearFreeQuizProgress();
+      clearExamDeadline();
+
+      const resultsUrl = new URL(window.location.href);
+      resultsUrl.pathname = resultsUrl.pathname.replace(/[^/]+$/, 'result-face.html');
+      resultsUrl.searchParams.set('free_quiz', state.dailyQuiz.slug || state.dailyQuiz.id);
+      if (state.freeQuizAttempt?.id) {
+        resultsUrl.searchParams.set('attempt', state.freeQuizAttempt.id);
+      }
+      window.location.replace(resultsUrl.toString());
+      return;
+    }
+
     const payload = {
       status: 'completed',
       correct_answers: correct,
       total_questions: total,
       completed_at: new Date().toISOString(),
     };
+
+    if (!navigator.onLine) {
+      storePendingSubmission({
+        quizId: state.dailyQuiz.id,
+        payload: payload,
+        timestamp: new Date().toISOString(),
+      });
+      showToast('You are offline. Quiz will be submitted when you reconnect.', 'info');
+      setTimeout(() => {
+        showToast('Please stay on this page until you reconnect to the internet.', 'info');
+      }, 4500);
+      return;
+    }
+
     const { error } = await state.supabase
       .from('daily_quizzes')
       .update(payload)
       .eq('id', state.dailyQuiz.id);
     if (error) throw error;
 
-    // Redirect to results page
+    clearExamDeadline();
+    clearPendingSubmission();
+
     const url = new URL(window.location.href);
     url.pathname = url.pathname.replace(/[^/]+$/, 'result-face.html');
     url.searchParams.set('daily_quiz_id', state.dailyQuiz.id);
     window.location.replace(url.toString());
   } catch (err) {
     console.error('[Exam Face] submitQuiz failed', err);
-    showToast(err.message || 'Unable to submit quiz.', 'error');
+    if (state.mode !== 'free') {
+      storePendingSubmission({
+        quizId: state.dailyQuiz.id,
+        payload: {
+          status: 'completed',
+          correct_answers: correct,
+          total_questions: total,
+          completed_at: new Date().toISOString(),
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+    showToast(err.message || 'Unable to submit quiz. Will retry automatically.', 'error');
   }
 }
 
@@ -359,7 +994,13 @@ function initNetworkStatus() {
     });
   }
   
-  window.addEventListener('online', updateNetworkStatus);
+  // Handle reconnection - process pending submissions
+  window.addEventListener('online', () => {
+    updateNetworkStatus();
+    processOfflineAnswers(); // Try to sync answers first
+    processPendingSubmission();
+  });
+  
   window.addEventListener('offline', updateNetworkStatus);
   updateNetworkStatus();
 }
@@ -402,9 +1043,40 @@ function initCalculator() {
 
 async function loadQuizData() {
   const url = new URL(window.location.href);
+  const freeQuizSlug = url.searchParams.get('free_quiz');
+
+  if (freeQuizSlug) {
+    state.mode = 'free';
+    const { data: quiz, error } = await state.supabase
+      .from('free_quizzes')
+      .select('id, title, description, intro, slug, is_active, time_limit_seconds, question_count')
+      .eq('slug', freeQuizSlug)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (error) throw error;
+    if (!quiz) {
+      throw new Error('This free quiz is no longer available.');
+    }
+    state.dailyQuiz = {
+      id: quiz.id,
+      slug: quiz.slug,
+      title: quiz.title,
+      description: quiz.description,
+      intro: quiz.intro,
+      status: 'assigned',
+      assigned_date: new Date().toISOString(),
+      time_limit_seconds: quiz.time_limit_seconds,
+      total_questions: quiz.question_count,
+    };
+    return;
+  }
+
   const quizId = url.searchParams.get('daily_quiz_id');
-  
+
   if (!quizId) {
+    if (!state.user?.id) {
+      throw new Error('Please sign in to access your daily quiz.');
+    }
     // If no quiz ID provided, check for today's quiz or redirect to dashboard
     const today = new Date().toISOString().slice(0, 10);
     const { data: todayQuiz, error: checkError } = await state.supabase
@@ -413,22 +1085,19 @@ async function loadQuizData() {
       .eq('user_id', state.user.id)
       .eq('assigned_date', today)
       .maybeSingle();
-    
+
     if (checkError) throw checkError;
-    
+
     if (!todayQuiz) {
-      // No quiz for today, redirect to dashboard
       window.location.replace('admin-board.html');
       return;
     }
-    
-    // Redirect with the quiz ID
+
     url.searchParams.set('daily_quiz_id', todayQuiz.id);
     window.location.replace(url.toString());
     return;
   }
-  
-  // Load the specified quiz
+
   const { data: quiz, error } = await state.supabase
     .from('daily_quizzes')
     .select(
@@ -436,18 +1105,16 @@ async function loadQuizData() {
     )
     .eq('id', quizId)
     .single();
-    
+
   if (error) throw error;
   if (!quiz) {
     throw new Error('Quiz not found');
   }
-  
-  // Verify the quiz belongs to current user
-  if (quiz.user_id !== state.user.id) {
+
+  if (quiz.user_id !== state.user?.id) {
     throw new Error('Unauthorized access to quiz');
   }
-  
-  // If quiz is already completed, redirect to results
+
   if (quiz.status === 'completed') {
     const resultsUrl = new URL(window.location.href);
     resultsUrl.pathname = resultsUrl.pathname.replace(/[^/]+$/, 'result-face.html');
@@ -455,11 +1122,65 @@ async function loadQuizData() {
     window.location.replace(resultsUrl.toString());
     return;
   }
-  
+
   state.dailyQuiz = quiz;
 }
 
 async function loadQuestions() {
+  if (state.mode === 'free') {
+    const { data, error } = await state.supabase
+      .from('free_quiz_questions')
+      .select('id, question_id, prompt, explanation, image_url, options, correct_option, order_index')
+      .eq('free_quiz_id', state.dailyQuiz.id)
+      .order('order_index', { ascending: true });
+    if (error) throw error;
+    state.entries = (data || []).map((row, idx) => {
+      const rawOptions = Array.isArray(row.options) ? row.options : [];
+      const options = rawOptions.map((option, optionIndex) => {
+        const id = option.id || option.label || String.fromCharCode(65 + optionIndex);
+        const label = option.label || String.fromCharCode(65 + optionIndex);
+        return {
+          id,
+          label,
+          content: option.content,
+          is_correct:
+            (row.correct_option || '').toString().toLowerCase() === id.toString().toLowerCase() ||
+            (row.correct_option || '').toString().toLowerCase() === label.toString().toLowerCase(),
+          order_index: option.order_index ?? optionIndex,
+        };
+      });
+      const normalizedCorrect = normalizeOptionKey(row.correct_option);
+      const correctOption = options.find((opt) => {
+        const idKey = normalizeOptionKey(opt.id);
+        const labelKey = normalizeOptionKey(opt.label);
+        return (normalizedCorrect && (idKey === normalizedCorrect || labelKey === normalizedCorrect)) || opt.is_correct;
+      });
+      const correctOptionId = correctOption?.id ?? correctOption?.label ?? row.correct_option ?? null;
+      const correctOptionKey = normalizeOptionKey(correctOptionId);
+      return {
+        id: row.id,
+        question: {
+          id: row.question_id || row.id,
+          stem: row.prompt,
+          explanation: row.explanation,
+          image_url: row.image_url,
+          question_options: options,
+        },
+        selected_option_id: null,
+        is_correct: null,
+        answered_at: null,
+        daily_quiz_id: state.dailyQuiz.id,
+        order_index: row.order_index ?? idx,
+        correct_option_id: correctOptionId,
+        correct_option_key: correctOptionKey,
+        raw_correct_option: row.correct_option ?? null,
+      };
+    });
+    state.answers = {};
+    state.dailyQuiz.total_questions = state.entries.length;
+    return;
+  }
+
   const { data, error } = await state.supabase
     .from('daily_quiz_questions')
     .select(
@@ -510,11 +1231,35 @@ async function loadQuestions() {
 
 function setHeader() {
   if (!state.dailyQuiz) return;
-  const assignedDate = state.dailyQuiz.assigned_date ? new Date(state.dailyQuiz.assigned_date) : new Date();
-  const dateStr = assignedDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  
+  if (state.mode === 'free') {
+    if (els.title)
+      els.title.textContent = state.dailyQuiz.title || 'Free Quiz Preview';
+    if (els.desc)
+      els.desc.textContent =
+        state.dailyQuiz.description ||
+        'Preview our exam engine and discover how Academic Nightingale supports your prep journey.';
+    if (els.questionCount)
+      els.questionCount.textContent = `Questions: ${state.entries.length}`;
+    if (els.timeLimitLabel)
+      els.timeLimitLabel.textContent = `Time Limit: ${formatTimeLabel(state.dailyQuiz.time_limit_seconds)}`;
+    if (els.difficulty) els.difficulty.style.display = 'none';
+    if (els.totalQuestions)
+      els.totalQuestions.textContent = String(state.entries.length);
+    return;
+  }
+
+  const assignedDate = state.dailyQuiz.assigned_date
+    ? new Date(state.dailyQuiz.assigned_date)
+    : new Date();
+  const dateStr = assignedDate.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
   if (els.title) els.title.textContent = 'Daily Practice Questions';
-  if (els.desc) els.desc.textContent = `Assigned for ${dateStr} • Tailored to your department`;
+  if (els.desc)
+    els.desc.textContent = `Assigned for ${dateStr} • Tailored to your department`;
   if (els.questionCount)
     els.questionCount.textContent = `Questions: ${state.entries.length}`;
   if (els.timeLimitLabel)
@@ -526,15 +1271,22 @@ function setHeader() {
 
 async function initialise() {
   try {
+    // Cleanup old localStorage entries
+    cleanupOldDeadlines();
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('free_quiz')) {
+      state.mode = 'free';
+    }
+
     state.supabase = await getSupabaseClient();
     const {
       data: { session },
     } = await state.supabase.auth.getSession();
-    if (!session?.user) {
+    state.user = session?.user ?? null;
+    if (state.mode !== 'free' && !state.user) {
       window.location.replace('login.html');
       return;
     }
-    state.user = session.user;
 
     els.loading.style.display = 'block';
     els.content.classList.add('hidden');
@@ -545,6 +1297,60 @@ async function initialise() {
       return;
     }
     await loadQuestions();
+
+    let storedFreeProgress = null;
+    if (state.mode === 'free') {
+      storedFreeProgress = loadFreeQuizProgress();
+      if (storedFreeProgress?.startedAt && !state.dailyQuiz.started_at) {
+        state.dailyQuiz.started_at = storedFreeProgress.startedAt;
+        state.dailyQuiz.status = 'in_progress';
+      }
+      if (storedFreeProgress?.answers) {
+        applyStoredFreeAnswers(storedFreeProgress.answers);
+      }
+    }
+
+    if (state.mode === 'free') {
+      await ensureFreeQuizAttempt(storedFreeProgress);
+      if (state.dailyQuiz.started_at) {
+        storeExamDeadline();
+      }
+    }
+
+    // Process any offline data if connection is available
+    if (state.mode !== 'free' && navigator.onLine) {
+      await processOfflineAnswers();
+      await processPendingSubmission();
+    }
+
+    // Check if there's a pending submission to process
+    if (state.mode !== 'free' && navigator.onLine) {
+      await processPendingSubmission();
+    }
+
+    // Check if exam deadline has passed
+    if (state.dailyQuiz.status === 'in_progress') {
+      // Store deadline if not already stored
+      if (state.dailyQuiz.started_at) {
+        storeExamDeadline();
+      }
+      
+      // Check if deadline has already passed
+      if (checkExamDeadline()) {
+        showToast("Time's up! Submitting your exam...", 'info');
+        await submitQuiz(true);
+        return;
+      }
+      
+      // Set up periodic deadline check (every 5 seconds)
+      state.deadlineCheckInterval = setInterval(() => {
+        if (checkExamDeadline()) {
+          clearInterval(state.deadlineCheckInterval);
+          state.deadlineCheckInterval = null;
+          submitQuiz(true).catch(() => {});
+        }
+      }, 5000);
+    }
 
     setHeader();
 
