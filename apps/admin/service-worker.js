@@ -24,7 +24,11 @@ const APP_SHELL = [
   './src/views/freeQuizzes.js',
   './src/services/authService.js',
   './src/services/dataService.js',
-  '../assets/academicnightingale-logo.jpg'
+  '../assets/academicnightingale-logo.jpg',
+  '../assets/academicnightingale-icon-32.png',
+  '../assets/academicnightingale-icon-192.png',
+  '../assets/academicnightingale-icon-512.png',
+  '../assets/tailwind.css'
 ];
 
 const SHELL_SET = new Set(APP_SHELL.map((path) => new URL(path, BASE_URL).href));
@@ -50,7 +54,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-const TAILWIND_HOST = 'cdn.tailwindcss.com';
 const JSDELIVR_HOST = 'cdn.jsdelivr.net';
 const SUPABASE_HOST_FRAGMENT = 'supabase.co';
 
@@ -131,7 +134,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url.hostname.includes(TAILWIND_HOST) || url.hostname.includes(JSDELIVR_HOST)) {
+  if (url.hostname.includes(JSDELIVR_HOST)) {
     event.respondWith(staleWhileRevalidate(request));
     return;
   }

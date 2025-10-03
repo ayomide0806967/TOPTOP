@@ -41,7 +41,13 @@ const APP_SHELL = [
   './src/result-face.js',
   './src/resume-registration.js',
   '../assets/academicnightingale-logo.jpg',
-  '../assets/partnership.png'
+  '../assets/academicnightingale-icon-32.png',
+  '../assets/academicnightingale-icon-192.png',
+  '../assets/academicnightingale-icon-512.png',
+  '../assets/admin-screenshot-wide.png',
+  '../assets/admin-screenshot-portrait.png',
+  '../assets/partnership.png',
+  '../assets/tailwind.css'
 ];
 
 const BASE_URL = self.location.href.replace(/service-worker\.js$/, '');
@@ -72,7 +78,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-const TAILWIND_HOST = 'cdn.tailwindcss.com';
 const GOOGLE_FONTS_HOST = 'fonts.googleapis.com';
 const GOOGLE_STATIC_HOST = 'fonts.gstatic.com';
 const SUPABASE_HOST_FRAGMENT = 'supabase.co';
@@ -152,11 +157,6 @@ self.addEventListener('fetch', (event) => {
       return;
     }
 
-    event.respondWith(staleWhileRevalidate(request));
-    return;
-  }
-
-  if (url.hostname.includes(TAILWIND_HOST)) {
     event.respondWith(staleWhileRevalidate(request));
     return;
   }

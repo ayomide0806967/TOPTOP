@@ -489,8 +489,34 @@ export async function usersView() {
       let bulkDownloadUrl = null;
       let activeProfile = null;
 
+      const ensureModalPortal = (modalEl) => {
+        if (!modalEl) return null;
+        const role = modalEl.dataset.role || '';
+
+        document
+          .querySelectorAll(`[data-role="${role}"][data-portal="true"]`)
+          .forEach((existing) => {
+            if (existing === modalEl) return;
+            existing.remove();
+          });
+
+        if (modalEl.dataset.portal === 'true') {
+          return modalEl;
+        }
+
+        modalEl.dataset.portal = 'true';
+        document.body.appendChild(modalEl);
+        return modalEl;
+      };
+
+      const managedBulkModal = ensureModalPortal(bulkModal);
+      const managedUserModal = ensureModalPortal(userModal);
+
       const filterPlansForDepartment = (departmentId) => {
-        const options = Array.from(bulkPlanSelect.options);
+        if (!bulkPlanSelect) {
+          return;
+        }
+        const options = Array.from(bulkPlanSelect.options || []);
         options.forEach((option) => {
           if (!option.value) return; // skip placeholder
           const optionDept = option.getAttribute('data-department') || '';
@@ -506,18 +532,22 @@ export async function usersView() {
       };
 
       bulkDepartmentSelect?.addEventListener('change', (event) => {
-        const value = event.target.value || '';
+        const value = (event?.target?.value || '').toString();
         filterPlansForDepartment(value);
       });
 
       const openModal = (modalEl) => {
-        modalEl?.classList.remove('hidden');
-        modalEl?.classList.add('flex');
+        if (!modalEl) return;
+        modalEl.classList.remove('hidden');
+        modalEl.classList.add('flex');
+        modalEl.style.display = 'flex';
       };
 
       const closeModal = (modalEl) => {
-        modalEl?.classList.add('hidden');
-        modalEl?.classList.remove('flex');
+        if (!modalEl) return;
+        modalEl.classList.add('hidden');
+        modalEl.classList.remove('flex');
+        modalEl.style.display = 'none';
       };
 
       container.querySelectorAll('[data-role="open-bulk-modal"]').forEach((button) => {
@@ -528,14 +558,17 @@ export async function usersView() {
             URL.revokeObjectURL(bulkDownloadUrl);
             bulkDownloadUrl = null;
           }
-          filterPlansForDepartment(bulkDepartmentSelect.value || '');
-          openModal(bulkModal);
+          const initialDepartment = bulkDepartmentSelect?.value
+            ? bulkDepartmentSelect.value.toString()
+            : '';
+          filterPlansForDepartment(initialDepartment);
+          openModal(managedBulkModal);
         });
       });
 
       container.querySelectorAll('[data-role="close-bulk-modal"]').forEach((button) => {
         button.addEventListener('click', () => {
-          closeModal(bulkModal);
+          closeModal(managedBulkModal);
           if (bulkDownloadUrl) {
             URL.revokeObjectURL(bulkDownloadUrl);
             bulkDownloadUrl = null;
@@ -544,12 +577,12 @@ export async function usersView() {
       });
 
       container.querySelectorAll('[data-role="close-user-modal"]').forEach((button) => {
-        button.addEventListener('click', () => closeModal(userModal));
+        button.addEventListener('click', () => closeModal(managedUserModal));
       });
 
-      bulkModal?.addEventListener('click', (event) => {
-        if (event.target === bulkModal) {
-          closeModal(bulkModal);
+      managedBulkModal?.addEventListener('click', (event) => {
+        if (event.target === managedBulkModal) {
+          closeModal(managedBulkModal);
           if (bulkDownloadUrl) {
             URL.revokeObjectURL(bulkDownloadUrl);
             bulkDownloadUrl = null;
@@ -557,9 +590,9 @@ export async function usersView() {
         }
       });
 
-      userModal?.addEventListener('click', (event) => {
-        if (event.target === userModal) {
-          closeModal(userModal);
+      managedUserModal?.addEventListener('click', (event) => {
+        if (event.target === managedUserModal) {
+          closeModal(managedUserModal);
         }
       });
 
@@ -688,7 +721,7 @@ export async function usersView() {
             ? 'Unsuspend'
             : 'Suspend';
 
-        openModal(userModal);
+        openModal(managedUserModal);
       };
 
       container.querySelectorAll('[data-role="manage-user"]').forEach((button) => {
@@ -730,7 +763,7 @@ export async function usersView() {
 
           await dataService.adminUpdateUser(payload);
           showToast('Account updated successfully.', { type: 'success' });
-          closeModal(userModal);
+          closeModal(managedUserModal);
           actions.refresh();
         } catch (error) {
           console.error('[Users] Failed to update user', error);
@@ -749,7 +782,7 @@ export async function usersView() {
         try {
           await dataService.updateUserProfileStatus(activeProfile.id, nextStatus);
           showToast(`User marked as ${nextStatus}.`, { type: 'success' });
-          closeModal(userModal);
+          closeModal(managedUserModal);
           actions.refresh();
         } catch (error) {
           console.error('[Users] Failed to update status', error);
@@ -787,7 +820,7 @@ export async function usersView() {
           await dataService.deleteUserProfile(activeProfile.id);
           await authService.deleteUser(activeProfile.id);
           showToast('User deleted.', { type: 'success' });
-          closeModal(userModal);
+          closeModal(managedUserModal);
           actions.refresh();
         } catch (error) {
           console.error('[Users] Failed to delete user', error);

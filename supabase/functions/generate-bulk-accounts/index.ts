@@ -18,6 +18,11 @@ interface GenerateRequestBody {
   usernamePrefix?: string | null;
 }
 
+interface CreatedAccountRecord {
+  userId: string;
+  subscriptionId?: string | null;
+}
+
 function normalisePrefix(value?: string | null): string {
   if (!value) return 'learner';
   return value
@@ -115,6 +120,21 @@ serve(async (req) => {
 
     const planId = String(body.planId || '').trim();
     const quantity = Number(body.quantity ?? 0);
+    const rawDepartmentId =
+      typeof body.departmentId === 'string'
+        ? body.departmentId.trim()
+        : body.departmentId ?? '';
+    const requestedDepartmentId = rawDepartmentId || null;
+    const normalisedDepartmentId =
+      requestedDepartmentId &&
+      requestedDepartmentId.toLowerCase() !== 'null' &&
+      requestedDepartmentId.toLowerCase() !== 'undefined'
+        ? requestedDepartmentId
+        : null;
+    const customPrefix =
+      typeof body.usernamePrefix === 'string'
+        ? normalisePrefix(body.usernamePrefix)
+        : null;
 
     if (!planId) {
       return new Response(JSON.stringify({ error: 'planId is required.' }), {
@@ -146,7 +166,10 @@ serve(async (req) => {
 
     const { data: plan, error: planError } = await supabaseAdmin
       .from('subscription_plans')
-      .select('id, name, price, currency, duration_days, metadata, department_id')
+      .select(
+        `id, code, name, price, currency, duration_days, metadata,
+         product:subscription_products!inner(id, department_id)`
+      )
       .eq('id', planId)
       .maybeSingle();
 
@@ -158,8 +181,25 @@ serve(async (req) => {
       });
     }
 
-    const departmentId = body.departmentId || plan.department_id || null;
-    let departmentSlug = normalisePrefix(body.usernamePrefix || undefined);
+    const inheritedDepartmentId =
+      (plan as any).department_id ?? plan.product?.department_id ?? null;
+
+    if (
+      normalisedDepartmentId &&
+      inheritedDepartmentId &&
+      inheritedDepartmentId !== normalisedDepartmentId
+    ) {
+      return new Response(
+        JSON.stringify({ error: 'Selected plan does not belong to the chosen department.' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
+
+    const departmentId = normalisedDepartmentId || inheritedDepartmentId || null;
+    let usernameBase = customPrefix || normalisePrefix(plan.code || plan.name);
     let departmentName: string | null = null;
 
     if (departmentId) {
@@ -170,13 +210,19 @@ serve(async (req) => {
         .maybeSingle();
       if (deptError) throw deptError;
       if (department) {
-        departmentSlug = normalisePrefix(department.slug || department.name);
         departmentName = department.name || null;
+        if (!customPrefix) {
+          usernameBase = normalisePrefix(department.slug || department.name);
+        }
       }
     }
 
+    if (!usernameBase) {
+      usernameBase = 'learner';
+    }
+
     const expiresAt = resolveExpiry(plan, body.expiresAt);
-    const createdAccounts: Array<{ userId: string }> = [];
+    const createdAccounts: CreatedAccountRecord[] = [];
     const results: Array<{
       username: string;
       password: string;
@@ -188,7 +234,7 @@ serve(async (req) => {
 
     try {
       for (let i = 0; i < quantity; i += 1) {
-        const username = await generateUniqueUsername(supabaseAdmin, departmentSlug);
+        const username = await generateUniqueUsername(supabaseAdmin, usernameBase);
         const password = generatePassword();
         const email = `${username}@${BULK_EMAIL_DOMAIN}`;
 
@@ -210,7 +256,8 @@ serve(async (req) => {
         }
 
         const userId = newUser.user.id;
-        createdAccounts.push({ userId });
+        const accountRecord: CreatedAccountRecord = { userId };
+        createdAccounts.push(accountRecord);
 
         const profilePayload: Record<string, unknown> = {
           id: userId,
@@ -247,6 +294,8 @@ serve(async (req) => {
 
         if (subscriptionError) throw subscriptionError;
 
+        accountRecord.subscriptionId = subscriptionPayload.id;
+
         results.push({
           username,
           password,
@@ -258,7 +307,47 @@ serve(async (req) => {
       }
     } catch (generationError) {
       console.error('[generate-bulk-accounts] Generation failed, rolling back', generationError);
-      for (const account of createdAccounts) {
+      for (const account of createdAccounts.reverse()) {
+        try {
+          if (account.subscriptionId) {
+            const { error: subscriptionCleanupError } = await supabaseAdmin
+              .from('user_subscriptions')
+              .delete()
+              .eq('id', account.subscriptionId);
+            if (subscriptionCleanupError) {
+              throw subscriptionCleanupError;
+            }
+          } else {
+            const { error: genericSubscriptionCleanupError } = await supabaseAdmin
+              .from('user_subscriptions')
+              .delete()
+              .eq('user_id', account.userId);
+            if (genericSubscriptionCleanupError) {
+              throw genericSubscriptionCleanupError;
+            }
+          }
+        } catch (cleanupError) {
+          console.error('[generate-bulk-accounts] Failed to cleanup subscription', {
+            userId: account.userId,
+            cleanupError,
+          });
+        }
+
+        try {
+          const { error: profileCleanupError } = await supabaseAdmin
+            .from('profiles')
+            .delete()
+            .eq('id', account.userId);
+          if (profileCleanupError) {
+            throw profileCleanupError;
+          }
+        } catch (cleanupError) {
+          console.error('[generate-bulk-accounts] Failed to cleanup profile', {
+            userId: account.userId,
+            cleanupError,
+          });
+        }
+
         try {
           await supabaseAdmin.auth.admin.deleteUser(account.userId);
         } catch (cleanupError) {
