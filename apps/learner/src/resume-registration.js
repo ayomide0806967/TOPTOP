@@ -105,7 +105,7 @@ async function handleFormSubmit(event) {
       console.error('[Resume Registration] Error:', error);
       const message = await extractFunctionError(
         error,
-        'Could not find a matching registration. Please check your details and try again.'
+        'We could not find a close match with those details. Double-check the email and phone you used during preregistration, or contact support for help.'
       );
       throw new Error(message);
     }

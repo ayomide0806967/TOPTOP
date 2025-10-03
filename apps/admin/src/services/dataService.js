@@ -484,7 +484,12 @@ function buildSubscriptionProductDetailed(row) {
 
 function buildProfileRow(row) {
   if (!row) return null;
-  const subscription = row.user_subscriptions?.[0];
+  const subscriptions = Array.isArray(row.user_subscriptions)
+    ? row.user_subscriptions
+    : [];
+
+  const activeSubscription = subscriptions.find((sub) => sub.status === 'active');
+  const subscription = activeSubscription ?? subscriptions[0] ?? null;
   const plan = subscription?.subscription_plans;
 
   return {

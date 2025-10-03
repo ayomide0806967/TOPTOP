@@ -187,12 +187,27 @@ serve(async (req) => {
       // Cancel existing active subscriptions
       const { data: activeSubscriptions, error: activeError } = await supabaseAdmin
         .from('user_subscriptions')
-        .select('id')
+        .select('id, plan_id')
         .eq('user_id', userId)
         .eq('status', 'active');
       if (activeError) throw activeError;
 
       if (Array.isArray(activeSubscriptions) && activeSubscriptions.length) {
+        const activePlanIds = activeSubscriptions
+          .map((sub) => sub.plan_id)
+          .filter((value): value is string => Boolean(value));
+
+        if (activePlanIds.length) {
+          // Ensure legacy canceled rows do not block the status update unique constraint
+          const { error: cleanupError } = await supabaseAdmin
+            .from('user_subscriptions')
+            .delete()
+            .eq('user_id', userId)
+            .eq('status', 'canceled')
+            .in('plan_id', activePlanIds);
+          if (cleanupError) throw cleanupError;
+        }
+
         const { error: cancelError } = await supabaseAdmin
           .from('user_subscriptions')
           .update({ status: 'canceled', canceled_at: new Date().toISOString() })
@@ -225,6 +240,53 @@ serve(async (req) => {
         .from('profiles')
         .update({ subscription_status: 'active' })
         .eq('id', userId);
+      if (statusError) throw statusError;
+    } else if (body.planExpiresAt) {
+      const overrideDate = new Date(body.planExpiresAt);
+      if (Number.isNaN(overrideDate.getTime())) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid plan expiry date provided.' }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      const overrideIso = overrideDate.toISOString();
+
+      const { data: activeSubscriptions, error: activeFetchError } = await supabaseAdmin
+        .from('user_subscriptions')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('status', 'active');
+
+      if (activeFetchError) throw activeFetchError;
+
+      if (!Array.isArray(activeSubscriptions) || activeSubscriptions.length === 0) {
+        return new Response(
+          JSON.stringify({ error: 'No active subscription to update. Assign a plan first.' }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      const activeIds = activeSubscriptions.map((sub) => sub.id);
+
+      const { error: expiryUpdateError } = await supabaseAdmin
+        .from('user_subscriptions')
+        .update({ expires_at: overrideIso })
+        .in('id', activeIds);
+
+      if (expiryUpdateError) throw expiryUpdateError;
+
+      const { error: statusError } = await supabaseAdmin
+        .from('profiles')
+        .update({ subscription_status: 'active' })
+        .eq('id', userId);
+
       if (statusError) throw statusError;
     }
 

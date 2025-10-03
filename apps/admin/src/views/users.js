@@ -468,7 +468,7 @@ export async function usersView() {
         </div>
       </div>
     `,
-    onMount(container, actions) {
+    onMount(container, _appState, actions) {
       const rows = Array.from(container.querySelectorAll('[data-role="user-row"]'));
       const searchInput = container.querySelector('[data-role="user-search"]');
       const bulkModal = container.querySelector('[data-role="bulk-modal"]');

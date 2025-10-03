@@ -46,6 +46,90 @@ serve(async (req) => {
     const normalizeText = (value: string | null) => (value || '').trim().toLowerCase();
     const digitsOnly = (value: string | null) => (value || '').replace(/\D+/g, '');
 
+    const stripAccents = (value: string) =>
+      value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z\s]/gi, ' ');
+
+    const sanitizeName = (value: string) =>
+      stripAccents(value)
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const levenshtein = (a: string, b: string) => {
+      if (a === b) return 0;
+      if (!a.length) return b.length;
+      if (!b.length) return a.length;
+
+      const matrix: number[][] = [];
+
+      for (let i = 0; i <= b.length; i += 1) {
+        matrix[i] = [i];
+      }
+
+      for (let j = 0; j <= a.length; j += 1) {
+        matrix[0][j] = j;
+      }
+
+      for (let i = 1; i <= b.length; i += 1) {
+        for (let j = 1; j <= a.length; j += 1) {
+          if (b.charAt(i - 1) === a.charAt(j - 1)) {
+            matrix[i][j] = matrix[i - 1][j - 1];
+          } else {
+            matrix[i][j] = Math.min(
+              matrix[i - 1][j] + 1,
+              matrix[i][j - 1] + 1,
+              matrix[i - 1][j - 1] + 1,
+            );
+          }
+        }
+      }
+
+      return matrix[b.length][a.length];
+    };
+
+    const tokens = (value: string) => value.split(' ').filter(Boolean);
+
+    const withinTolerance = (distance: number, length: number) => {
+      if (length <= 3) return distance <= 1;
+      if (length <= 5) return distance <= 1;
+      if (length <= 8) return distance <= 2;
+      return distance <= 3;
+    };
+
+    const fuzzyMatch = (aRaw: string, bRaw: string) => {
+      if (!aRaw || !bRaw) return false;
+      if (aRaw === bRaw) return true;
+
+      if (aRaw.includes(bRaw) || bRaw.includes(aRaw)) {
+        return true;
+      }
+
+      if (withinTolerance(levenshtein(aRaw, bRaw), Math.max(aRaw.length, bRaw.length))) {
+        return true;
+      }
+
+      const aTokens = tokens(aRaw);
+      const bTokens = tokens(bRaw);
+
+      for (const aToken of aTokens) {
+        for (const bToken of bTokens) {
+          if (
+            withinTolerance(
+              levenshtein(aToken, bToken),
+              Math.max(aToken.length, bToken.length),
+            )
+          ) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    };
+
     const providedFirst = normalizeText(normalizedFirstName);
     const providedLast = normalizeText(normalizedLastName);
     const providedPhoneDigits = digitsOnly(normalizedPhone);
@@ -87,8 +171,8 @@ serve(async (req) => {
       });
     }
 
-    const profileFirst = normalizeText(profile.first_name ?? '');
-    const profileLast = normalizeText(profile.last_name ?? '');
+    const profileFirst = sanitizeName(profile.first_name ?? '');
+    const profileLast = sanitizeName(profile.last_name ?? '');
     const profilePhoneDigits = digitsOnly(profile.phone ?? '');
 
     const phoneMatches =
@@ -98,15 +182,39 @@ serve(async (req) => {
       providedPhoneDigits.endsWith(profilePhoneDigits) ||
       profilePhoneDigits.endsWith(providedPhoneDigits);
 
-    if (
-      profileFirst !== providedFirst ||
-      profileLast !== providedLast ||
-      !phoneMatches
-    ) {
-      return new Response(JSON.stringify({ error: 'No matching pending registration found.' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    const sanitizedProvidedFirst = sanitizeName(providedFirst);
+    const sanitizedProvidedLast = sanitizeName(providedLast);
+
+    const firstMatches = fuzzyMatch(sanitizedProvidedFirst, profileFirst);
+    const lastMatches = fuzzyMatch(sanitizedProvidedLast, profileLast);
+    const swappedMatches =
+      !firstMatches &&
+      !lastMatches &&
+      fuzzyMatch(sanitizedProvidedFirst, profileLast) &&
+      fuzzyMatch(sanitizedProvidedLast, profileFirst);
+
+    const emailMatches = normalizedEmail === normalizeText(profile.email ?? '');
+
+    const strongMatches = (emailMatches ? 1 : 0) + (phoneMatches ? 1 : 0);
+    const hasNameSupport = firstMatches || lastMatches || swappedMatches;
+    const bothNamesMatch = (firstMatches && lastMatches) || swappedMatches;
+
+    const isConfidentMatch =
+      strongMatches >= 2 ||
+      (strongMatches === 1 && hasNameSupport) ||
+      (strongMatches === 0 && bothNamesMatch);
+
+    if (!isConfidentMatch) {
+      return new Response(
+        JSON.stringify({
+          error:
+            'We could not confidently match your registration with the details provided. Please double-check your information and ensure at least two fields are correct.',
+        }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
     }
 
     const { data: transaction, error: transactionError } = await supabaseAdmin
@@ -137,7 +245,9 @@ serve(async (req) => {
         .select('reference')
         .eq('user_id', profile.id)
         .eq('status', 'success')
-        .order('created_at', { ascending: false })
+        // Legacy payments records do not capture created_at, so rely on paid_at
+        // to resolve the most recent successful charge.
+        .order('paid_at', { ascending: false, nullsLast: true })
         .limit(1)
         .maybeSingle();
 

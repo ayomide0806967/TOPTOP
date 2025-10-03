@@ -10,6 +10,60 @@ const corsHeaders = {
 const BULK_EMAIL_DOMAIN = 'bulk.academicnightingale.com';
 const MAX_BULK_QUANTITY = 500;
 
+const HANDLE_WORDS = [
+  'amber',
+  'bloom',
+  'breeze',
+  'cedar',
+  'dawn',
+  'ember',
+  'forest',
+  'garden',
+  'harbor',
+  'island',
+  'juniper',
+  'lagoon',
+  'meadow',
+  'north',
+  'oasis',
+  'prairie',
+  'quartz',
+  'river',
+  'spruce',
+  'summit',
+  'tandem',
+  'valley',
+  'willow',
+  'zenith',
+];
+
+const PASSWORD_WORDS = [
+  'bright',
+  'calm',
+  'daring',
+  'eager',
+  'fable',
+  'gallant',
+  'harbor',
+  'ivory',
+  'jolly',
+  'kind',
+  'lively',
+  'mellow',
+  'noble',
+  'ocean',
+  'pearl',
+  'quaint',
+  'ripple',
+  'sunny',
+  'tidy',
+  'vivid',
+  'warm',
+  'witty',
+  'young',
+  'zesty',
+];
+
 interface GenerateRequestBody {
   planId: string;
   departmentId?: string | null;
@@ -33,27 +87,38 @@ function normalisePrefix(value?: string | null): string {
     .slice(0, 12) || 'learner';
 }
 
+function randomFrom<T>(items: readonly T[]): T {
+  if (!items.length) {
+    throw new Error('Cannot pick from an empty list');
+  }
+  const buffer = new Uint32Array(1);
+  crypto.getRandomValues(buffer);
+  const index = buffer[0] % items.length;
+  return items[index];
+}
+
+function randomInt(min: number, max: number): number {
+  const buffer = new Uint32Array(1);
+  crypto.getRandomValues(buffer);
+  const span = max - min + 1;
+  return min + (buffer[0] % span);
+}
+
+function capitalise(word: string): string {
+  if (!word) return '';
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
 function generatePassword(): string {
-  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const lower = 'abcdefghijkmnopqrstuvwxyz';
-  const digits = '23456789';
-  const symbols = '!@#$%';
-  const all = upper + lower + digits + symbols;
-
-  const pick = (set: string) => set[Math.floor(Math.random() * set.length)];
-
-  let password = [pick(upper), pick(lower), pick(digits), pick(symbols)];
-  for (let i = 0; i < 8; i += 1) {
-    password.push(pick(all));
+  const first = randomFrom(PASSWORD_WORDS);
+  let second = randomFrom(PASSWORD_WORDS);
+  if (PASSWORD_WORDS.length > 1) {
+    while (second === first) {
+      second = randomFrom(PASSWORD_WORDS);
+    }
   }
-
-  // Shuffle using Fisher-Yates
-  for (let i = password.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [password[i], password[j]] = [password[j], password[i]];
-  }
-
-  return password.join('');
+  const number = randomInt(100, 999);
+  return `${capitalise(first)}${capitalise(second)}${number}`;
 }
 
 async function generateUniqueUsername(
@@ -61,12 +126,45 @@ async function generateUniqueUsername(
   base: string,
   attempt = 0,
 ): Promise<string> {
-  const suffix = attempt === 0 ? '' : `-${attempt}`;
-  const candidate = `${base}-${crypto.randomUUID().slice(0, 6)}${suffix}`
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 30);
+  const handleSegments = () => {
+    const segments = [] as string[];
+    const safeBase = base.replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-');
+    if (safeBase) segments.push(safeBase);
+
+    const primary = randomFrom(HANDLE_WORDS);
+    let secondary = randomFrom(HANDLE_WORDS);
+    if (HANDLE_WORDS.length > 1) {
+      while (secondary === primary) {
+        secondary = randomFrom(HANDLE_WORDS);
+      }
+    }
+
+    segments.push(primary, secondary, String(randomInt(10, 99)));
+    if (attempt > 0) {
+      segments.push(String(attempt));
+    }
+
+    return segments
+      .map((segment) => segment.toLowerCase().replace(/[^a-z0-9]+/g, '-'))
+      .filter(Boolean)
+      .join('-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 30);
+  };
+
+  let candidate = handleSegments();
+  if (!candidate) {
+    candidate = `${base}-${randomInt(10, 99)}`.replace(/[^a-z0-9-]/g, '').slice(0, 30);
+  }
+
+  if (attempt >= 25) {
+    candidate = `${base}-${crypto.randomUUID().slice(0, 6)}`
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 30);
+  }
 
   const { data, error } = await supabaseAdmin
     .from('profiles')
