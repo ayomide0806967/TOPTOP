@@ -10,14 +10,38 @@
   "description": "Prepare for NMCN exams with daily quizzes, mocks, and analytics from Academic Nightingale.",
   "icons": [
     {
-      "src": "../assets/academicnightingale-logo.jpg",
+      "src": "../assets/academicnightingale-icon-192.png",
       "sizes": "192x192",
-      "type": "image/jpeg"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "../assets/academicnightingale-logo.jpg",
+      "src": "../assets/academicnightingale-icon-512.png",
       "sizes": "512x512",
-      "type": "image/jpeg"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../assets/academicnightingale-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "../assets/admin-screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Learner dashboard overview"
+    },
+    {
+      "src": "../assets/admin-screenshot-portrait.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Learner progress on mobile"
     }
   ]
 }

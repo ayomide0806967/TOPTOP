@@ -1,10 +1,52 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Academic Nightingale | Home</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Academic Nightingale | Nursing & Midwifery CBT Preparation</title>
+    <meta
+      name="description"
+      content="Master Nigerian nursing and midwifery CBT exams with Academic Nightingale's adaptive study plans, question banks, and analytics tailored for schools of nursing."
+    />
+    <meta
+      name="keywords"
+      content="nursing cbt prep, midwifery practice questions, academic nightingale, nursing school nigeria, exam preparation platform"
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://www.academicnightingale.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Academic Nightingale" />
+    <meta
+      property="og:title"
+      content="Academic Nightingale | Nursing & Midwifery CBT Preparation"
+    />
+    <meta
+      property="og:description"
+      content="Personalised practice schedules, daily question drills, and progress insights designed to help Nigerian nursing candidates succeed."
+    />
+    <meta
+      property="og:url"
+      content="https://www.academicnightingale.com/"
+    />
+    <meta
+      property="og:image"
+      content="https://www.academicnightingale.com/apps/assets/academicnightingale-icon-512.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Academic Nightingale | Nursing & Midwifery CBT Preparation"
+    />
+    <meta
+      name="twitter:description"
+      content="Guided CBT prep for Nigerian schools of nursing and midwifery with curated question banks and analytics."
+    />
+    <meta
+      name="twitter:image"
+      content="https://www.academicnightingale.com/apps/assets/academicnightingale-icon-512.png"
+    />
+    <link rel="stylesheet" href="../assets/tailwind.css" />
     <style>
       html {
         scroll-behavior: smooth;
@@ -60,6 +102,11 @@
         animation: marquee 30s linear infinite;
         white-space: nowrap;
       }
+      @media (max-width: 768px) {
+        .marquee-track {
+          animation: marquee-mobile 15s linear infinite;
+        }
+      }
       .marquee-item {
         flex-shrink: 0;
         padding: 0 2rem;
@@ -69,6 +116,14 @@
         color: #4a5568;
       }
       @keyframes marquee {
+        0% {
+          transform: translateX(0);
+        }
+        100% {
+          transform: translateX(-50%);
+        }
+      }
+      @keyframes marquee-mobile {
         0% {
           transform: translateX(0);
         }
@@ -1006,7 +1061,7 @@
                 <span class="text-sm">Telegram</span>
               </a>
               <a href="https://x.com/Academicnight?t=sFUWnz_yqvc8bgNIj0A_Wg&s=09" target="_blank" class="flex items-center gap-2 text-gray-400 hover:text-gray-100 transition-colors">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
                 </svg>
                 <span class="text-sm">X (Twitter)</span>
