@@ -17,12 +17,6 @@ const DASHBOARD_URL = 'admin-board.html';
 const MIN_USERNAME_LENGTH = 3;
 const MIN_PASSWORD_LENGTH = 6;
 const USERNAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
-const RESUME_SUBSCRIPTION_STATUSES = new Set([
-  'pending_payment',
-  'awaiting_setup',
-  'inactive',
-  'past_due',
-]);
 
 // ============================================================================
 // UI FEEDBACK FUNCTIONS
@@ -254,33 +248,6 @@ async function signInWithCredentials(supabase, email, password) {
   }
 }
 
-async function resumeSubscriptionIfNeeded(supabase, { userId, subscriptionStatus, reference }) {
-  if (!userId) return null;
-  const normalizedStatus = (subscriptionStatus || '').toLowerCase();
-  const shouldAttempt = RESUME_SUBSCRIPTION_STATUSES.has(normalizedStatus) || Boolean(reference);
-  if (!shouldAttempt) return null;
-
-  try {
-    const { data, error } = await supabase.functions.invoke('paystack-resume', {
-      body: {
-        userId,
-        reference: reference || undefined,
-      },
-    });
-
-    if (error) {
-      const message = await extractFunctionError(error, 'Unable to resume subscription automatically.');
-      console.warn('[Auth] paystack-resume error:', message);
-      return { status: 'error', message };
-    }
-
-    return data || null;
-  } catch (error) {
-    console.warn('[Auth] Unexpected failure in resumeSubscriptionIfNeeded:', error);
-    return { status: 'error', message: error.message };
-  }
-}
-
 /**
  * Handle login form submission
  * @param {Event} event - Form submit event
@@ -316,9 +283,6 @@ async function handleLogin(event, supabase) {
     const {
       email,
       error: lookupError,
-      status: subscriptionStatus,
-      userId,
-      latestReference,
       pendingRegistration,
       needsSupport,
     } = await getEmailFromUsername(supabase, username);
@@ -337,28 +301,15 @@ async function handleLogin(event, supabase) {
       return;
     }
 
-    let effectiveStatus = subscriptionStatus;
-
-    if (userId) {
-      const resumeResult = await resumeSubscriptionIfNeeded(supabase, {
-        userId,
-        subscriptionStatus,
-        reference: latestReference,
-      });
-
-      if (resumeResult?.status === 'active' || resumeResult?.status === 'restored') {
-        effectiveStatus = 'active';
-      } else if (resumeResult?.status && !['noop', 'active', 'restored'].includes(resumeResult.status)) {
-        console.info('[Auth] Subscription resume result:', resumeResult);
-      }
+    if (needsSupport) {
+      showFeedback('This account is currently inactive. Please contact support for assistance.');
+      setLoading(false);
+      return;
     }
 
-    if (
-      pendingRegistration &&
-      (!effectiveStatus || ['pending_payment', 'awaiting_setup'].includes((effectiveStatus || '').toLowerCase()))
-    ) {
+    if (pendingRegistration) {
       showFeedback(
-        'We found your registration in progress. We’ll finalise your subscription once you log in.',
+        'Your checkout is still pending. Continue registration to unlock your personalised drills.',
         'info'
       );
     }
