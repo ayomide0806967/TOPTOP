@@ -113,6 +113,84 @@
         </section>
 
         <section
+          class="card mb-6 hidden px-6 py-6"
+          data-role="subscription-card"
+        >
+          <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div class="space-y-4">
+              <div class="flex flex-wrap items-center gap-3">
+                <span class="badge bg-slate-100 text-slate-600">Subscription</span>
+                <span
+                  class="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  data-role="plan-status-chip"
+                >
+                  Checking...
+                </span>
+              </div>
+              <div class="space-y-1">
+                <h2
+                  class="text-2xl font-semibold text-slate-900"
+                  data-role="plan-name"
+                >
+                  Loading plan…
+                </h2>
+                <p
+                  class="text-sm text-slate-500"
+                  data-role="plan-description"
+                >
+                  Hold on while we fetch your subscription details.
+                </p>
+              </div>
+              <dl class="grid grid-cols-1 gap-4 text-sm text-slate-600 sm:grid-cols-3">
+                <div>
+                  <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Days left
+                  </dt>
+                  <dd class="mt-1 text-base font-semibold text-slate-900" data-role="plan-days">—</dd>
+                </div>
+                <div>
+                  <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Renews on
+                  </dt>
+                  <dd class="mt-1 text-base font-semibold text-slate-900" data-role="plan-renewal">—</dd>
+                </div>
+                <div>
+                  <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Plan price
+                  </dt>
+                  <dd class="mt-1 text-base font-semibold text-slate-900" data-role="plan-price">—</dd>
+                </div>
+              </dl>
+              <div class="space-y-2">
+                <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500 transition-all"
+                    style="width: 0%"
+                    data-role="plan-progress-bar"
+                  ></div>
+                </div>
+                <div class="flex flex-wrap items-center justify-between text-xs text-slate-500">
+                  <span data-role="plan-progress-label">Updating plan timeline…</span>
+                  <span data-role="plan-dates"></span>
+                </div>
+              </div>
+            </div>
+            <div class="flex w-full flex-col items-stretch gap-3 sm:w-auto">
+              <button
+                type="button"
+                class="inline-flex items-center justify-center rounded-full bg-cyan-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700 focus:outline-none focus:ring focus:ring-cyan-200"
+                data-role="plan-renew"
+              >
+                Manage plan
+              </button>
+              <p class="text-center text-xs text-slate-400">
+                Need help? <a href="help-center.html" class="font-semibold text-cyan-600 hover:text-cyan-700">Visit the help center</a>
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section
           class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
           data-role="stat-cards"
         >

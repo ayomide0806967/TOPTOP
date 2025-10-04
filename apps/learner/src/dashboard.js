@@ -27,6 +27,17 @@ const elements = {
   userEmail: document.querySelector('[data-role="user-email"]'),
   progressBar: document.querySelector('[data-role="progress-bar"]'),
   progressLabel: document.querySelector('[data-role="progress-label"]'),
+  subscriptionCard: document.querySelector('[data-role="subscription-card"]'),
+  planStatusChip: document.querySelector('[data-role="plan-status-chip"]'),
+  planName: document.querySelector('[data-role="plan-name"]'),
+  planDescription: document.querySelector('[data-role="plan-description"]'),
+  planDays: document.querySelector('[data-role="plan-days"]'),
+  planRenewal: document.querySelector('[data-role="plan-renewal"]'),
+  planPrice: document.querySelector('[data-role="plan-price"]'),
+  planProgressBar: document.querySelector('[data-role="plan-progress-bar"]'),
+  planProgressLabel: document.querySelector('[data-role="plan-progress-label"]'),
+  planDates: document.querySelector('[data-role="plan-dates"]'),
+  planRenewBtn: document.querySelector('[data-role="plan-renew"]'),
 };
 
 const state = {
@@ -36,6 +47,7 @@ const state = {
   todayQuiz: null,
   history: [],
   scheduleHealth: null,
+  subscription: null,
 };
 
 const NOTICE_TONE_CLASSES = {
@@ -47,6 +59,47 @@ const NOTICE_TONE_CLASSES = {
 
 const ALL_TONE_CLASSES = [
   ...new Set(Object.values(NOTICE_TONE_CLASSES).flat()),
+];
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+const PLAN_STATUS_STYLES = {
+  active: {
+    label: 'Active',
+    classes: ['bg-emerald-100', 'text-emerald-700', 'border-emerald-200'],
+  },
+  trialing: {
+    label: 'Trialing',
+    classes: ['bg-amber-100', 'text-amber-700', 'border-amber-200'],
+  },
+  past_due: {
+    label: 'Past Due',
+    classes: ['bg-amber-100', 'text-amber-700', 'border-amber-200'],
+  },
+  expired: {
+    label: 'Expired',
+    classes: ['bg-rose-100', 'text-rose-700', 'border-rose-200'],
+  },
+  canceled: {
+    label: 'Cancelled',
+    classes: ['bg-slate-100', 'text-slate-500', 'border-slate-200'],
+  },
+  inactive: {
+    label: 'Inactive',
+    classes: ['bg-slate-100', 'text-slate-500', 'border-slate-200'],
+  },
+  pending_payment: {
+    label: 'Pending',
+    classes: ['bg-amber-100', 'text-amber-700', 'border-amber-200'],
+  },
+  none: {
+    label: 'No Plan',
+    classes: ['bg-slate-100', 'text-slate-500', 'border-slate-200'],
+  },
+};
+
+const PLAN_STATUS_CLASSNAMES = [
+  ...new Set(Object.values(PLAN_STATUS_STYLES).flatMap((entry) => entry.classes)),
 ];
 
 function showToast(message, type = 'info') {
@@ -83,6 +136,36 @@ function formatDate(dateString) {
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+function formatCurrency(amount, currency = 'NGN') {
+  const numeric = Number(amount);
+  if (!Number.isFinite(numeric)) return '—';
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: numeric % 1 === 0 ? 0 : 2,
+    }).format(numeric);
+  } catch {
+    return `${currency} ${numeric.toLocaleString()}`;
+  }
+}
+
+function parseDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function daysBetween(start, end) {
+  if (!start || !end) return null;
+  const diff = Math.round((end.getTime() - start.getTime()) / DAY_IN_MS);
+  return Number.isFinite(diff) ? diff : null;
+}
+
+function clamp(value, minimum, maximum) {
+  return Math.min(Math.max(value, minimum), maximum);
 }
 
 function setScheduleTone(tone = 'info') {
@@ -188,16 +271,187 @@ function updateScheduleNotice(health) {
   container.classList.remove('hidden');
 }
 
-function updateHeader() {
-  if (state.profile?.full_name && elements.greeting) {
-    const firstName = state.profile.full_name.split(' ')[0];
-    elements.greeting.textContent = `Welcome back, ${firstName}`;
-  } else if (state.user?.email && elements.greeting) {
-    elements.greeting.textContent = `Welcome back, ${state.user.email.split('@')[0]}`;
+function setPlanStatusChip(statusKey, customLabel) {
+  const chip = elements.planStatusChip;
+  if (!chip) return;
+  const normalized = (statusKey || '').toLowerCase();
+  const entry = PLAN_STATUS_STYLES[normalized] || PLAN_STATUS_STYLES.none;
+  chip.classList.remove(...PLAN_STATUS_CLASSNAMES);
+  chip.classList.add(...entry.classes);
+  chip.textContent = customLabel || entry.label;
+}
+
+function renderSubscription() {
+  const card = elements.subscriptionCard;
+  if (!card) return;
+
+  const {
+    planName,
+    planDescription,
+    planDays,
+    planRenewal,
+    planPrice,
+    planProgressBar,
+    planProgressLabel,
+    planDates,
+    planRenewBtn,
+  } = elements;
+
+  const subscription = state.subscription;
+  const profileStatus = state.profile?.subscription_status || 'inactive';
+
+  const showCard = () => {
+    card.classList.remove('hidden');
+  };
+
+  const attachRenewHandler = (href, label) => {
+    if (!planRenewBtn) return;
+    planRenewBtn.textContent = label;
+    planRenewBtn.onclick = () => {
+      window.location.href = href;
+    };
+  };
+
+  if (!subscription) {
+    showCard();
+    setPlanStatusChip(profileStatus);
+    if (planName) {
+      planName.textContent = 'No active subscription';
+    }
+    if (planDescription) {
+      planDescription.textContent =
+        profileStatus === 'pending_payment'
+          ? 'We detected a pending payment. Finish checkout to unlock full access to daily quizzes.'
+          : 'Unlock personalised quizzes, analytics, and the full CBT bank by choosing a plan.';
+    }
+    if (planDays) planDays.textContent = '—';
+    if (planRenewal) planRenewal.textContent = '—';
+    if (planPrice) planPrice.textContent = '—';
+    if (planProgressBar) planProgressBar.style.width = '0%';
+    if (planProgressLabel) {
+      planProgressLabel.textContent =
+        profileStatus === 'pending_payment'
+          ? 'Awaiting payment confirmation.'
+          : 'No plan selected yet.';
+    }
+    if (planDates) {
+      planDates.textContent =
+        profileStatus === 'pending_payment'
+          ? 'Resume checkout to activate your plan.'
+          : '';
+    }
+    attachRenewHandler(
+      profileStatus === 'pending_payment' ? 'resume-registration.html' : 'subscription-plans.html',
+      profileStatus === 'pending_payment' ? 'Resume checkout' : 'Browse plans'
+    );
+    return;
   }
 
-  if (elements.email && state.user?.email) {
-    elements.email.textContent = state.user.email;
+  const normalizedStatus = (subscription.status || '').toLowerCase();
+  const plan = subscription.plan || subscription.subscription_plans || {};
+  const startedAt = parseDate(subscription.started_at);
+  const expiresAt = parseDate(subscription.expires_at);
+  const now = new Date();
+  const hasEnded = Boolean(expiresAt && expiresAt.getTime() < now.getTime());
+  const statusKey = hasEnded ? 'expired' : normalizedStatus || 'active';
+
+  const totalDays = startedAt && expiresAt ? Math.max(1, daysBetween(startedAt, expiresAt)) : null;
+  const daysRemaining = expiresAt
+    ? Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / DAY_IN_MS))
+    : null;
+  const usedDays =
+    totalDays !== null && daysRemaining !== null
+      ? clamp(totalDays - daysRemaining, 0, totalDays)
+      : startedAt
+      ? clamp(Math.round((now.getTime() - startedAt.getTime()) / DAY_IN_MS), 0, totalDays ?? 30)
+      : null;
+  const progressPercent =
+    totalDays && usedDays !== null
+      ? clamp(Math.round((usedDays / totalDays) * 100), 0, 100)
+      : hasEnded
+      ? 100
+      : normalizedStatus === 'active'
+      ? 10
+      : 0;
+
+  showCard();
+  setPlanStatusChip(statusKey);
+
+  if (planName) {
+    planName.textContent = plan.name || 'Active subscription';
+  }
+  if (planDescription) {
+    const tagline =
+      plan && typeof plan.metadata === 'object' && plan.metadata !== null
+        ? plan.metadata.tagline
+        : null;
+    planDescription.textContent =
+      tagline || plan.description || 'Personalised drills, analytics, and curated study support.';
+  }
+  if (planDays) {
+    planDays.textContent =
+      daysRemaining !== null
+        ? `${daysRemaining} day${daysRemaining === 1 ? '' : 's'}`
+        : '—';
+  }
+  if (planRenewal) {
+    planRenewal.textContent = expiresAt ? formatDate(expiresAt.toISOString()) : '—';
+  }
+  if (planPrice) {
+    planPrice.textContent = formatCurrency(plan.price, plan.currency || 'NGN');
+  }
+  if (planProgressBar) {
+    planProgressBar.style.width = `${progressPercent}%`;
+  }
+  if (planProgressLabel) {
+    if (totalDays && usedDays !== null && daysRemaining !== null) {
+      planProgressLabel.textContent = `${usedDays} of ${totalDays} days used • ${daysRemaining} left`;
+    } else if (normalizedStatus === 'trialing') {
+      planProgressLabel.textContent = 'Trial access is active.';
+    } else if (hasEnded) {
+      planProgressLabel.textContent = 'Plan expired. Renew to keep access.';
+    } else {
+      planProgressLabel.textContent = 'Plan status updated.';
+    }
+  }
+  if (planDates) {
+    if (startedAt && expiresAt) {
+      planDates.textContent = `${formatDate(startedAt.toISOString())} – ${formatDate(
+        expiresAt.toISOString(),
+      )}`;
+    } else if (startedAt) {
+      planDates.textContent = `Started ${formatDate(startedAt.toISOString())}`;
+    } else if (expiresAt) {
+      planDates.textContent = `Renews ${formatDate(expiresAt.toISOString())}`;
+    } else {
+      planDates.textContent = '';
+    }
+  }
+
+  if (planRenewBtn) {
+    if (hasEnded || (daysRemaining !== null && daysRemaining <= 7)) {
+      attachRenewHandler('subscription-plans.html', hasEnded ? 'Renew now' : 'Renew plan');
+    } else if (normalizedStatus === 'trialing') {
+      attachRenewHandler('subscription-plans.html', 'Upgrade plan');
+    } else {
+      attachRenewHandler('subscription-plans.html', 'Manage plan');
+    }
+  }
+}
+
+function updateHeader() {
+  const greetingEl = elements.userGreeting;
+  const emailEl = elements.userEmail;
+
+  if (state.profile?.full_name && greetingEl) {
+    const firstName = state.profile.full_name.split(' ')[0];
+    greetingEl.textContent = `Welcome back, ${firstName}`;
+  } else if (state.user?.email && greetingEl) {
+    greetingEl.textContent = `Welcome back, ${state.user.email.split('@')[0]}`;
+  }
+
+  if (emailEl && state.user?.email) {
+    emailEl.textContent = state.user.email;
   }
 }
 
@@ -630,12 +884,40 @@ async function refreshHistory() {
   }
 }
 
+async function loadActiveSubscription() {
+  if (!state.supabase || !state.user) return;
+  try {
+    const { data, error } = await state.supabase
+      .from('user_subscriptions')
+      .select(
+        `id, status, started_at, expires_at, plan:subscription_plans (id, name, description, duration_days, price, currency, metadata)`
+      )
+      .eq('user_id', state.user.id)
+      .in('status', ['active', 'trialing', 'past_due'])
+      .order('expires_at', { ascending: false, nullsLast: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+
+    state.subscription = data || null;
+  } catch (error) {
+    console.error('[Dashboard] loadActiveSubscription failed', error);
+    showToast('Unable to load subscription details', 'error');
+    state.subscription = null;
+  }
+
+  renderSubscription();
+}
+
 async function ensureProfile() {
   const fallbackName = state.user.email?.split('@')[0] ?? 'Learner';
   try {
     const { data, error } = await state.supabase
       .from('profiles')
-      .select('id, full_name, role, last_seen_at')
+      .select('id, full_name, role, last_seen_at, subscription_status')
       .eq('id', state.user.id)
       .maybeSingle();
     if (error) throw error;
@@ -649,7 +931,7 @@ async function ensureProfile() {
           role: 'learner',
           last_seen_at: new Date().toISOString(),
         })
-        .select('id, full_name, role, last_seen_at')
+        .select('id, full_name, role, last_seen_at, subscription_status')
         .single();
       if (insertError) throw insertError;
       state.profile = inserted;
@@ -658,7 +940,7 @@ async function ensureProfile() {
         .from('profiles')
         .update({ last_seen_at: new Date().toISOString() })
         .eq('id', state.user.id)
-        .select('id, full_name, role, last_seen_at')
+        .select('id, full_name, role, last_seen_at, subscription_status')
         .single();
       if (!updateError && updated) {
         state.profile = updated;
@@ -669,7 +951,7 @@ async function ensureProfile() {
   } catch (error) {
     console.error('[Dashboard] ensureProfile failed', error);
     showToast('Unable to load profile', 'error');
-    state.profile = { full_name: fallbackName };
+    state.profile = { full_name: fallbackName, subscription_status: 'inactive' };
   }
 }
 
@@ -700,6 +982,7 @@ async function initialise() {
     });
 
     await ensureProfile();
+    await loadActiveSubscription();
     updateHeader();
 
     // Bind event listeners

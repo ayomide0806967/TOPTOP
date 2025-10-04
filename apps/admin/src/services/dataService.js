@@ -2658,7 +2658,7 @@ class DataService {
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const fileName = `${quizId}/${uniqueId}.${fileExt}`;
-    const { data, error } = await client.storage
+    const { error } = await client.storage
       .from(FREE_QUIZ_IMAGE_BUCKET)
       .upload(`free-quiz/${fileName}`, file, {
         cacheControl: '3600',

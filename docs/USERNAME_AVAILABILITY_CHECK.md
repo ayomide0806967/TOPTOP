@@ -1,5 +1,7 @@
 # Username Availability Check - Complete Flow
 
+> **Legacy note:** References to `registration-after.js` describe the retired post-payment credential screen. Username generation and validation now happen on the unified registration form before payment.
+
 ## Overview
 Comprehensive documentation of how the system handles duplicate usernames during registration, with **dual-layer validation** (frontend + backend).
 

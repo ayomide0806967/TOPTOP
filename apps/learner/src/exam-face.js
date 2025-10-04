@@ -797,12 +797,13 @@ async function submitQuiz(forceSubmit = false) {
       return;
     }
   }
-  
+  let correct = 0;
+
   try {
     clearTimer();
     showToast('Submitting quiz...', 'info');
     
-    const correct = state.entries.filter(isEntryCorrect).length;
+    correct = state.entries.filter(isEntryCorrect).length;
     if (state.mode === 'free') {
       const completedAt = new Date().toISOString();
       const durationSeconds = computeTimeUsed(state.dailyQuiz.started_at, completedAt);
@@ -918,10 +919,10 @@ async function submitQuiz(forceSubmit = false) {
     if (state.mode !== 'free') {
       storePendingSubmission({
         quizId: state.dailyQuiz.id,
-        payload: {
-          status: 'completed',
-          correct_answers: correct,
-          total_questions: total,
+          payload: {
+            status: 'completed',
+            correct_answers: correct,
+            total_questions: total,
           completed_at: new Date().toISOString(),
         },
         timestamp: new Date().toISOString(),

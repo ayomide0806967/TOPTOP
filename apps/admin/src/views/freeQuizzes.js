@@ -69,25 +69,50 @@ function buildQuizCard(quiz) {
   `;
 }
 
-function buildQuestionList(items) {
+function buildQuestionList({ items, selectedIds }) {
   if (!items.length) {
-    return '<p class="text-sm text-slate-500 text-center py-6">No questions added yet.</p>';
+    return '<p class="py-6 text-center text-sm text-slate-500">No questions match your current filters.</p>';
   }
+
   return `
     <ul class="divide-y divide-slate-200">
       ${items
-        .map(
-          (item, index) => `
-            <li class="flex items-start justify-between gap-4 py-4" data-question-id="${item.id}">
-              <div class="text-sm text-slate-700 max-w-xl">
-                <p class="font-semibold text-slate-900">Q${index + 1}. ${escapeHtml(item.prompt)}</p>
-                ${item.image_url ? `<img src="${escapeHtml(item.image_url)}" alt="Question visual" class="mt-2 max-h-32 rounded-lg border border-slate-200 object-contain" />` : ''}
-                <p class="mt-2 text-xs uppercase tracking-wide text-slate-500">Correct: <span class="font-semibold text-emerald-600">${escapeHtml(item.correct_option)}</span></p>
+        .map((item, index) => {
+          const isSelected = selectedIds.has(item.id);
+          return `
+            <li class="flex flex-col gap-3 py-4 md:flex-row md:items-start md:justify-between" data-question-id="${item.id}">
+              <div class="flex w-full items-start gap-3 md:flex-1">
+                <div class="pt-1">
+                  <input
+                    type="checkbox"
+                    value="${item.id}"
+                    ${isSelected ? 'checked' : ''}
+                    class="mt-0.5 h-4 w-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"
+                    data-role="question-select"
+                    aria-label="Select question ${index + 1}"
+                  />
+                </div>
+                <div class="flex-1 text-sm text-slate-700">
+                  <p class="font-semibold text-slate-900">Q${index + 1}. ${escapeHtml(item.prompt)}</p>
+                  ${item.image_url ? `<img src="${escapeHtml(item.image_url)}" alt="Question visual" class="mt-2 max-h-32 rounded-lg border border-slate-200 object-contain" />` : ''}
+                  <p class="mt-2 text-xs uppercase tracking-wide text-slate-500">
+                    Correct: <span class="font-semibold text-emerald-600">${escapeHtml(item.correct_option)}</span>
+                  </p>
+                </div>
               </div>
-              <button type="button" class="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50" data-role="remove-question">Remove</button>
+              <div class="flex items-center justify-between gap-2 md:flex-col md:items-end">
+                <span class="text-xs text-slate-400">ID: ${escapeHtml(item.id.slice(0, 8))}</span>
+                <button
+                  type="button"
+                  class="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                  data-role="remove-question"
+                >
+                  Remove
+                </button>
+              </div>
             </li>
-          `
-        )
+          `;
+        })
         .join('')}
     </ul>
   `;
@@ -216,26 +241,8 @@ async function openManageQuizModal(quiz, topics, actions) {
     const detail = await dataService.getFreeQuizDetail(quiz.id);
     const currentQuiz = detail.quiz;
     let questions = detail.questions || [];
-
-    const renderQuestions = (container) => {
-      container.innerHTML = buildQuestionList(questions);
-      container.querySelectorAll('[data-role="remove-question"]').forEach((button) => {
-        button.addEventListener('click', async (event) => {
-          const questionId = event.currentTarget.closest('[data-question-id]')?.dataset?.questionId;
-          if (!questionId) return;
-          if (!window.confirm('Remove this question from the free quiz?')) return;
-          try {
-            await dataService.deleteFreeQuizQuestion(questionId);
-            questions = questions.filter((item) => item.id !== questionId);
-            renderQuestions(container);
-            actions.refresh();
-          } catch (error) {
-            console.error(error);
-            showToast(error.message || 'Unable to remove question.', { type: 'error' });
-          }
-        });
-      });
-    };
+    let selectedQuestionIds = new Set();
+    let questionSearchTerm = '';
 
     openModal({
       title: `Manage · ${escapeHtml(currentQuiz.title)}`,
@@ -287,6 +294,49 @@ async function openManageQuizModal(quiz, topics, actions) {
                   </div>
                 </div>
               </header>
+              <div class="space-y-3 rounded-2xl border border-slate-100 bg-white/60 p-4">
+                <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div class="relative w-full md:w-80">
+                    <input
+                      type="search"
+                      data-role="question-search"
+                      placeholder="Search question text, answer, or ID"
+                      class="w-full rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:border-cyan-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                      aria-label="Search questions in this quiz"
+                    />
+                    <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                      <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M5 11a6 6 0 1012 0 6 6 0 00-12 0z" />
+                      </svg>
+                    </span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <button
+                      type="button"
+                      data-role="select-all-questions"
+                      class="inline-flex items-center rounded-full border border-slate-200 px-3 py-1 font-semibold text-slate-600 hover:border-cyan-500 hover:text-cyan-700"
+                    >
+                      Select all
+                    </button>
+                    <button
+                      type="button"
+                      data-role="clear-selected-questions"
+                      class="inline-flex items-center rounded-full border border-slate-200 px-3 py-1 font-semibold text-slate-600 hover:border-slate-300"
+                    >
+                      Clear selection
+                    </button>
+                    <button
+                      type="button"
+                      data-role="delete-selected-questions"
+                      class="inline-flex items-center rounded-full border border-red-200 px-3 py-1 font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                      disabled
+                    >
+                      Delete selected
+                    </button>
+                  </div>
+                </div>
+                <p data-role="selection-summary" class="text-xs text-slate-500"></p>
+              </div>
               <div data-role="question-list" class="rounded-2xl border border-slate-200 bg-slate-50/60"></div>
             </section>
           </div>
@@ -322,7 +372,171 @@ async function openManageQuizModal(quiz, topics, actions) {
         });
 
         const questionListContainer = body.querySelector('[data-role="question-list"]');
-        renderQuestions(questionListContainer);
+        const questionSearchInput = body.querySelector('[data-role="question-search"]');
+        const selectAllBtn = body.querySelector('[data-role="select-all-questions"]');
+        const clearSelectionBtn = body.querySelector('[data-role="clear-selected-questions"]');
+        const bulkDeleteBtn = body.querySelector('[data-role="delete-selected-questions"]');
+        const selectionSummaryEl = body.querySelector('[data-role="selection-summary"]');
+
+        const ensureValidSelections = () => {
+          selectedQuestionIds = new Set(
+            [...selectedQuestionIds].filter((id) => questions.some((question) => question.id === id)),
+          );
+        };
+
+        const getFilteredQuestions = () => {
+          const term = (questionSearchTerm || '').trim().toLowerCase();
+          if (!term) {
+            return [...questions];
+          }
+          return questions.filter((item) => {
+            const haystack = [item.prompt, item.explanation, item.correct_option, item.id]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase();
+            return haystack.includes(term);
+          });
+        };
+
+        const updateSelectionUI = (filtered = getFilteredQuestions()) => {
+          if (!selectionSummaryEl || !bulkDeleteBtn || !clearSelectionBtn || !selectAllBtn) {
+            return;
+          }
+
+          const totalQuestions = questions.length;
+          const selectedCount = selectedQuestionIds.size;
+          const selectedInView = filtered.filter((item) => selectedQuestionIds.has(item.id)).length;
+          const searchTerm = (questionSearchTerm || '').trim();
+
+          let summary = '';
+          if (!totalQuestions) {
+            summary = 'No questions added yet.';
+          } else if (searchTerm && filtered.length === 0) {
+            summary = `No questions match “${escapeHtml(searchTerm)}”.`;
+          } else {
+            summary = `${filtered.length} of ${totalQuestions} question${totalQuestions === 1 ? '' : 's'} shown.`;
+            if (selectedCount > 0) {
+              summary += ` ${selectedCount} selected${selectedInView !== selectedCount ? ` (${selectedInView} in view)` : ''}.`;
+            }
+          }
+
+          selectionSummaryEl.innerHTML = summary;
+
+          bulkDeleteBtn.disabled = selectedCount === 0;
+          clearSelectionBtn.disabled = selectedCount === 0;
+          selectAllBtn.disabled = filtered.length === 0;
+
+          const allInViewSelected = filtered.length > 0 && filtered.every((item) => selectedQuestionIds.has(item.id));
+          selectAllBtn.textContent = allInViewSelected ? 'Unselect all' : 'Select all';
+        };
+
+        const renderQuestions = () => {
+          ensureValidSelections();
+          const filtered = getFilteredQuestions();
+
+          if (!questions.length) {
+            questionListContainer.innerHTML = '<p class="py-6 text-center text-sm text-slate-500">No questions added yet.</p>';
+            updateSelectionUI(filtered);
+            return;
+          }
+
+          questionListContainer.innerHTML = buildQuestionList({
+            items: filtered,
+            selectedIds: selectedQuestionIds,
+          });
+
+          questionListContainer.querySelectorAll('[data-role="remove-question"]').forEach((button) => {
+            button.addEventListener('click', async (event) => {
+              const questionId = event.currentTarget.closest('[data-question-id]')?.dataset?.questionId;
+              if (!questionId) return;
+              if (!window.confirm('Remove this question from the free quiz?')) return;
+              try {
+                await dataService.deleteFreeQuizQuestion(questionId);
+                questions = questions.filter((item) => item.id !== questionId);
+                selectedQuestionIds.delete(questionId);
+                renderQuestions();
+                actions.refresh();
+                showToast('Question removed.', { type: 'success' });
+              } catch (error) {
+                console.error(error);
+                showToast(error.message || 'Unable to remove question.', { type: 'error' });
+              }
+            });
+          });
+
+          questionListContainer.querySelectorAll('[data-role="question-select"]').forEach((checkbox) => {
+            checkbox.addEventListener('change', (event) => {
+              const value = event.currentTarget.value;
+              if (!value) return;
+              if (event.currentTarget.checked) {
+                selectedQuestionIds.add(value);
+              } else {
+                selectedQuestionIds.delete(value);
+              }
+              updateSelectionUI();
+            });
+          });
+
+          updateSelectionUI(filtered);
+        };
+
+        renderQuestions();
+
+        questionSearchInput?.addEventListener('input', (event) => {
+          questionSearchTerm = event.target.value || '';
+          renderQuestions();
+        });
+
+        selectAllBtn?.addEventListener('click', () => {
+          const filtered = getFilteredQuestions();
+          if (!filtered.length) return;
+          const allSelected = filtered.every((item) => selectedQuestionIds.has(item.id));
+          if (allSelected) {
+            filtered.forEach((item) => selectedQuestionIds.delete(item.id));
+          } else {
+            filtered.forEach((item) => selectedQuestionIds.add(item.id));
+          }
+          renderQuestions();
+        });
+
+        clearSelectionBtn?.addEventListener('click', () => {
+          if (!selectedQuestionIds.size) return;
+          selectedQuestionIds.clear();
+          renderQuestions();
+        });
+
+        bulkDeleteBtn?.addEventListener('click', async () => {
+          const ids = Array.from(selectedQuestionIds);
+          if (!ids.length) return;
+          if (!window.confirm(`Delete ${ids.length} selected question${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) {
+            return;
+          }
+
+          const previousLabel = bulkDeleteBtn.textContent;
+          bulkDeleteBtn.disabled = true;
+          bulkDeleteBtn.textContent = 'Deleting…';
+
+          try {
+            for (const id of ids) {
+              await dataService.deleteFreeQuizQuestion(id);
+              questions = questions.filter((item) => item.id !== id);
+            }
+            selectedQuestionIds.clear();
+            renderQuestions();
+            actions.refresh();
+            showToast(`Deleted ${ids.length} question${ids.length === 1 ? '' : 's'}.`, {
+              type: 'success',
+            });
+          } catch (error) {
+            console.error(error);
+            showToast(error.message || 'Unable to delete selected questions.', {
+              type: 'error',
+            });
+          } finally {
+            bulkDeleteBtn.textContent = previousLabel;
+            bulkDeleteBtn.disabled = selectedQuestionIds.size === 0;
+          }
+        });
 
         body.querySelector('[data-role="add-manual-question"]').addEventListener('click', () => {
           openModal({
@@ -376,7 +590,12 @@ async function openManageQuizModal(quiz, topics, actions) {
                   showToast('Question added.', { type: 'success' });
                   const refreshed = await dataService.getFreeQuizDetail(currentQuiz.id);
                   questions = refreshed.questions || [];
-                  renderQuestions(questionListContainer);
+                  selectedQuestionIds = new Set();
+                  questionSearchTerm = '';
+                  if (questionSearchInput) {
+                    questionSearchInput.value = '';
+                  }
+                  renderQuestions();
                   actions.refresh();
                   closeQuestionModal();
                 } catch (error) {
@@ -444,7 +663,12 @@ async function openManageQuizModal(quiz, topics, actions) {
                       showToast('Question added from bank.', { type: 'success' });
                       const refreshed = await dataService.getFreeQuizDetail(currentQuiz.id);
                       questions = refreshed.questions || [];
-                      renderQuestions(questionListContainer);
+                      selectedQuestionIds = new Set();
+                      questionSearchTerm = '';
+                      if (questionSearchInput) {
+                        questionSearchInput.value = '';
+                      }
+                      renderQuestions();
                       actions.refresh();
                     } catch (error) {
                       console.error(error);
@@ -499,7 +723,12 @@ async function openManageQuizModal(quiz, topics, actions) {
                   showToast('Questions imported successfully.', { type: 'success' });
                   const refreshed = await dataService.getFreeQuizDetail(currentQuiz.id);
                   questions = refreshed.questions || [];
-                  renderQuestions(questionListContainer);
+                  selectedQuestionIds = new Set();
+                  questionSearchTerm = '';
+                  if (questionSearchInput) {
+                    questionSearchInput.value = '';
+                  }
+                  renderQuestions();
                   actions.refresh();
                   closeUploadModal();
                 } catch (error) {

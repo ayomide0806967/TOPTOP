@@ -1,5 +1,7 @@
 # Registration Error Messages - Complete Guide
 
+> **Legacy note:** Section references to `registration-after` assets reflect the deprecated two-step flow. Error handling for the new unified form now lives exclusively in `apps/learner/src/registration-before.js`.
+
 ## Overview
 Complete documentation of all error messages shown to users during registration, with visual examples and code references.
 

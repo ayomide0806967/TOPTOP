@@ -1,5 +1,7 @@
 # Login System Refactor
 
+> **Legacy note:** Any references to `registration-after.js` correspond to the previous credential-completion step. The new journey collects usernames and passwords before payment, so login flows now align with `registration-before.js` and `create-pending-user`.
+
 ## Overview
 Complete refactor of the login system to enforce username/password authentication only, with robust error handling, validation, and improved code structure.
 

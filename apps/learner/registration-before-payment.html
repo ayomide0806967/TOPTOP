@@ -80,13 +80,14 @@
                 clip-rule="evenodd"
               />
             </svg>
-            <p class="pill mt-6">Step 1 of 2</p>
-            <h1 class="mt-3 text-3xl font-bold text-slate-900">
-              Tell us where to send your plan
+            <h1 class="mt-6 text-3xl font-bold text-slate-900">
+              Activate your personalised study plan
             </h1>
-            <p class="mt-2 text-sm text-slate-600">
-              We use this information to personalise your study reminders and
-              issue your receipt. Already registered?
+            <p class="mt-3 text-sm text-slate-600">
+              Tell us who you are, choose a secure password, and complete
+              payment once. We’ll activate your plan and sign you in
+              immediately after Paystack confirms your payment. Already have an
+              account?
               <a
                 href="login.html"
                 class="font-semibold text-cyan-700 hover:text-cyan-600"
@@ -104,86 +105,193 @@
           <form id="registrationForm" class="mt-6 space-y-6">
             <input type="hidden" id="plan-id" name="plan-id" />
 
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label
-                  for="first-name"
-                  class="text-sm font-medium text-slate-700"
-                  >First name</label
-                >
-                <input
-                  id="first-name"
-                  name="first-name"
-                  type="text"
-                  autocomplete="given-name"
-                  required
-                  class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
-                  placeholder="e.g. Aisha"
-                />
+            <section data-section="names">
+              <h2 class="text-sm font-semibold uppercase tracking-widest text-slate-500">
+                Tell us your name
+              </h2>
+              <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    for="first-name"
+                    class="text-sm font-medium text-slate-700"
+                    >First name</label
+                  >
+                  <input
+                    id="first-name"
+                    name="first-name"
+                    type="text"
+                    autocomplete="given-name"
+                    required
+                    class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
+                    placeholder="e.g. Aisha"
+                  />
+                </div>
+                <div>
+                  <label
+                    for="last-name"
+                    class="text-sm font-medium text-slate-700"
+                    >Last name</label
+                  >
+                  <input
+                    id="last-name"
+                    name="last-name"
+                    type="text"
+                    autocomplete="family-name"
+                    required
+                    class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
+                    placeholder="e.g. Bello"
+                  />
+                </div>
               </div>
-              <div>
-                <label
-                  for="last-name"
-                  class="text-sm font-medium text-slate-700"
-                  >Last name</label
-                >
-                <input
-                  id="last-name"
-                  name="last-name"
-                  type="text"
-                  autocomplete="family-name"
-                  required
-                  class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
-                  placeholder="e.g. Bello"
-                />
+              <p class="mt-2 text-xs text-slate-500">
+                We’ll use these details on your receipts and study schedule.
+              </p>
+            </section>
+
+            <section data-section="contact" class="hidden">
+              <h2 class="text-sm font-semibold uppercase tracking-widest text-slate-500">
+                How can we reach you?
+              </h2>
+              <div class="mt-4 space-y-4">
+                <div>
+                  <label
+                    for="email-address"
+                    class="text-sm font-medium text-slate-700"
+                    >Email address</label
+                  >
+                  <input
+                    id="email-address"
+                    name="email"
+                    type="email"
+                    autocomplete="email"
+                    required
+                    class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
+                    placeholder="name@example.com"
+                  />
+                  <p class="mt-1 text-xs text-slate-500">
+                    We’ll send payment receipts and critical study reminders here.
+                  </p>
+                  <p
+                    id="email-availability-feedback"
+                    class="mt-1 hidden text-xs"
+                    role="status"
+                    aria-live="polite"
+                  ></p>
+                </div>
+
+                <div>
+                  <label
+                    for="phone-number"
+                    class="text-sm font-medium text-slate-700"
+                    >Phone number</label
+                  >
+                  <input
+                    id="phone-number"
+                    name="phone"
+                    type="tel"
+                    autocomplete="tel"
+                    required
+                    class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
+                    placeholder="e.g. 0801 234 5678"
+                  />
+                  <p class="mt-1 text-xs text-slate-500">
+                    Used for password recovery and personalised SMS nudges.
+                  </p>
+                  <p
+                    id="phone-availability-feedback"
+                    class="mt-1 hidden text-xs"
+                    role="status"
+                    aria-live="polite"
+                  ></p>
+                </div>
               </div>
-            </div>
+            </section>
 
-            <div>
-              <label
-                for="email-address"
-                class="text-sm font-medium text-slate-700"
-                >Email address</label
-              >
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autocomplete="email"
-                required
-                class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
-                placeholder="name@example.com"
-              />
-              <p class="mt-1 text-xs text-slate-500">
-                We'll verify this email is available before proceeding.
-              </p>
-              <p
-                id="email-availability-feedback"
-                class="mt-1 hidden text-xs"
-                role="status"
-                aria-live="polite"
-              ></p>
-            </div>
+            <section data-section="account" class="hidden">
+              <h2 class="text-sm font-semibold uppercase tracking-widest text-slate-500">
+                Secure your account
+              </h2>
+              <div class="mt-4 space-y-4">
+                <div>
+                  <label
+                    for="generated-username"
+                    class="text-sm font-medium text-slate-700"
+                    >Your username</label
+                  >
+                  <div class="mt-1 flex gap-2">
+                    <input
+                      id="generated-username"
+                      name="username"
+                      type="text"
+                      readonly
+                    class="form-input block w-full rounded-md px-3 py-3 text-sm font-medium text-slate-900"
+                      aria-describedby="username-feedback"
+                    />
+                    <button
+                      type="button"
+                      data-role="copy-username"
+                      class="inline-flex items-center justify-center rounded-md border border-slate-200 px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <p class="mt-1 text-xs text-slate-500">
+                    We generated a short, memorable username for you. It cannot
+                    be changed and will appear on your first login screen.
+                  </p>
+                  <p
+                    id="username-feedback"
+                    class="mt-1 hidden text-xs"
+                    role="status"
+                    aria-live="polite"
+                  ></p>
+                </div>
 
-            <div>
-              <label
-                for="phone-number"
-                class="text-sm font-medium text-slate-700"
-                >Phone number</label
-              >
-              <input
-                id="phone-number"
-                name="phone"
-                type="tel"
-                autocomplete="tel"
-                required
-                class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
-                placeholder="e.g. 0801 234 5678"
-              />
-              <p class="mt-1 text-xs text-slate-500">
-                Your phone number will be verified for uniqueness.
-              </p>
-            </div>
+                <div>
+                  <label
+                    for="password"
+                    class="text-sm font-medium text-slate-700"
+                    >Create password</label
+                  >
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autocomplete="new-password"
+                    required
+                    minlength="8"
+                    class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
+                    placeholder="Choose something unique"
+                  />
+                  <p class="mt-1 text-xs text-slate-500">
+                    Must be at least 8 characters. Use a mix you can remember.
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    for="confirm-password"
+                    class="text-sm font-medium text-slate-700"
+                    >Confirm password</label
+                  >
+                  <input
+                    id="confirm-password"
+                    name="confirm-password"
+                    type="password"
+                    autocomplete="new-password"
+                    required
+                    minlength="8"
+                    class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-slate-900 placeholder-slate-400"
+                    placeholder="Re‑enter to confirm"
+                  />
+                  <p
+                    id="password-feedback"
+                    class="mt-1 hidden text-xs text-red-600"
+                    role="alert"
+                  ></p>
+                </div>
+              </div>
+            </section>
 
             <div
               class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4"
@@ -251,7 +359,7 @@
               class="btn-primary flex w-full items-center justify-center rounded-md px-4 py-3 text-sm font-semibold"
               data-role="submit"
             >
-              <span data-role="submit-text">Continue to payment</span>
+              <span data-role="submit-text">Complete secure payment</span>
             </button>
           </form>
         </div>
@@ -274,13 +382,45 @@
               />
             </svg>
           </div>
-          <h2 class="mt-6 text-2xl font-extrabold text-slate-900">
+          <h2 class="mt-6 text-2xl font-extrabold text-slate-900" data-role="success-title">
             Launching secure checkout…
           </h2>
-          <p class="mt-2 text-sm text-slate-600">
+          <p class="mt-2 text-sm text-slate-600" data-role="success-body">
             If nothing happens after a few seconds, please ensure pop-ups are
             allowed and try again.
           </p>
+          <div
+            class="mt-6 hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-left"
+            data-role="success-credentials"
+          >
+            <p class="text-xs font-semibold uppercase text-emerald-700">
+              Your username
+            </p>
+            <div class="mt-2 flex items-center justify-between gap-2">
+              <span
+                data-role="success-username"
+                class="truncate text-lg font-semibold text-emerald-900"
+              ></span>
+              <button
+                type="button"
+                data-role="success-copy-username"
+                class="rounded-md border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+              >
+                Copy
+              </button>
+            </div>
+            <p class="mt-2 text-xs text-emerald-700">
+              Save this together with the password you chose. You’ll need both
+              next time you sign in.
+            </p>
+          </div>
+          <button
+            type="button"
+            data-role="success-go-dashboard"
+            class="mt-6 hidden w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+          >
+            Go to your dashboard
+          </button>
         </div>
       </div>
 

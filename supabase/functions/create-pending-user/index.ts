@@ -7,6 +7,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const USERNAME_PATTERN = /^[a-z0-9_-]{3,}$/;
+const MIN_PASSWORD_LENGTH = 8;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -29,15 +32,15 @@ serve(async (req) => {
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
     
     const body = await req.json();
-    console.log('[create-pending-user] Received body:', body);
-    
-    const { email, firstName, lastName, phone } = body;
+    const { email, firstName, lastName, phone, username, password } = body;
 
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const sanitizedFirstName = String(firstName || '').trim();
     const sanitizedLastName = String(lastName || '').trim();
     const sanitizedPhone = typeof phone === 'string' ? phone.trim() : '';
     const normalizedPhone = sanitizedPhone || null;
+    const normalizedUsername = String(username || '').trim().toLowerCase();
+    const rawPassword = String(password || '');
 
     if (!normalizedEmail || !sanitizedFirstName || !sanitizedLastName) {
       console.error('[create-pending-user] Missing required fields:', {
@@ -50,14 +53,39 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    
+
+    if (!normalizedUsername || !USERNAME_PATTERN.test(normalizedUsername)) {
+      return new Response(
+        JSON.stringify({
+          error:
+            'Invalid username supplied. Refresh the page to receive a new username and try again.',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    if (rawPassword.length < MIN_PASSWORD_LENGTH) {
+      return new Response(
+        JSON.stringify({
+          error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     console.log('[create-pending-user] Checking existing records for email:', normalizedEmail);
 
     const ACTIVE_STATUSES = new Set(['active', 'trialing']);
 
     const { data: existingProfile, error: profileLookupError } = await supabaseAdmin
       .from('profiles')
-      .select('id, subscription_status')
+      .select('id, subscription_status, username')
       .eq('email', normalizedEmail)
       .maybeSingle();
 
@@ -110,29 +138,58 @@ serve(async (req) => {
       }
     }
 
-    console.log('[create-pending-user] Fetching auth user by email');
-    const { data: existingUserData, error: fetchUserError } =
-      await supabaseAdmin.auth.admin.getUserByEmail(normalizedEmail);
+    const { data: usernameOwner, error: usernameLookupError } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('username', normalizedUsername)
+      .maybeSingle();
 
-    if (fetchUserError && fetchUserError.message !== 'User not found') {
-      console.error('[create-pending-user] getUserByEmail error:', fetchUserError);
+    if (usernameLookupError && usernameLookupError.code !== 'PGRST116') {
+      console.error('[create-pending-user] Username lookup error:', usernameLookupError);
+      throw usernameLookupError;
+    }
+
+    if (usernameOwner && usernameOwner.id !== existingProfile?.id) {
+      return new Response(
+        JSON.stringify({
+          error: 'This username is already taken. Refresh to receive a new username and try again.',
+        }),
+        {
+          status: 409,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    console.log('[create-pending-user] Fetching auth user by email');
+    const { data: userList, error: fetchUserError } = await supabaseAdmin.auth.admin.listUsers({
+      email: normalizedEmail,
+      per_page: 1,
+    });
+
+    if (fetchUserError) {
+      console.error('[create-pending-user] listUsers error:', fetchUserError);
       throw fetchUserError;
     }
 
+    const existingUser = userList?.users?.[0] ?? null;
+
     let userId: string;
 
-    if (existingUserData?.user) {
-      userId = existingUserData.user.id;
+    if (existingUser) {
+      userId = existingUser.id;
       console.log('[create-pending-user] Reusing existing auth user:', userId);
 
       const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
         userId,
         {
           email: normalizedEmail,
+          password: rawPassword,
           user_metadata: {
             first_name: sanitizedFirstName,
             last_name: sanitizedLastName,
             phone: normalizedPhone,
+            username: normalizedUsername,
           },
         }
       );
@@ -147,10 +204,12 @@ serve(async (req) => {
         await supabaseAdmin.auth.admin.createUser({
           email: normalizedEmail,
           email_confirm: true,
+          password: rawPassword,
           user_metadata: {
             first_name: sanitizedFirstName,
             last_name: sanitizedLastName,
             phone: normalizedPhone,
+            username: normalizedUsername,
           },
         });
 
@@ -171,6 +230,8 @@ serve(async (req) => {
         first_name: sanitizedFirstName,
         last_name: sanitizedLastName,
         phone: normalizedPhone,
+        username: normalizedUsername,
+        full_name: `${sanitizedFirstName} ${sanitizedLastName}`.trim() || null,
         subscription_status: 'pending_payment',
       },
       { onConflict: 'id' }
@@ -181,7 +242,12 @@ serve(async (req) => {
       throw profileError;
     }
 
-    return new Response(JSON.stringify({ userId }), {
+    console.log('[create-pending-user] Prepared pending user', {
+      userId,
+      reuseProfile: !!existingProfile,
+    });
+
+    return new Response(JSON.stringify({ userId, username: normalizedUsername }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

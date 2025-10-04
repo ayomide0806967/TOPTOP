@@ -1,5 +1,7 @@
 # Registration Flow - Critical Fixes Applied
 
+> **Legacy note:** This document captures the historic two-step registration flow where credentials were finalised after payment. The new unified flow gathers usernames and passwords on `registration-before-payment.html`.
+
 ## Overview
 Comprehensive audit and fixes for the username/password creation during registration flow. Multiple critical issues were identified and resolved to ensure consistency with the login system.
 

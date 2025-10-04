@@ -200,6 +200,15 @@ export async function upsertPaymentAndSubscription(options: {
     throw new Error('Unable to resolve subscription identifier.');
   }
 
+  const { error: statusUpdateError } = await admin
+    .from('profiles')
+    .update({ subscription_status: 'active' })
+    .eq('id', userId);
+
+  if (statusUpdateError && statusUpdateError.code !== 'PGRST116') {
+    throw statusUpdateError;
+  }
+
   return {
     subscriptionId,
     transactionId,

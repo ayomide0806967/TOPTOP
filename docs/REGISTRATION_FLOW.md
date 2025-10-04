@@ -3,6 +3,10 @@
 ## Overview
 This document describes the complete user registration, payment, and login flow for the CBT Fast application.
 
+### Iteration History
+- **Iteration 1 – Two-step checkout (legacy)**: Users filled contact details, launched Paystack, and then completed credentials on a separate `registration-after-payment.html`. Resume flow existed for unfinished setups.
+- **Iteration 2 – Unified checkout (current)**: A single progressive form gathers contact + credentials, auto-generates usernames, launches Paystack, and verifies payment without navigation. Auto sign-in and username reminders happen on the same page. Resume screen now only serves guidance.
+
 ## Flow Diagram
 
 ```
@@ -19,22 +23,22 @@ User Journey:
 - **Data Stored**: Plan ID in localStorage
 - **Next**: Redirect to `registration-before-payment.html?planId={id}`
 
-### Step 2: Registration (Before Payment)
+### Step 2: Unified Registration & Credentials
 - **Page**: `apps/learner/registration-before-payment.html`
 - **Script**: `apps/learner/src/registration-before.js`
-- **User Inputs**:
-  - First Name
-  - Last Name
-  - Email
-  - Phone Number
-- **Backend Call**: `create-pending-user` function
-  - Creates auth user with email (no password yet)
-  - Creates profile with `subscription_status: 'pending_payment'`
-  - Returns `userId`
-- **Data Stored**: 
-  - `registrationContact` in localStorage with userId
-  - `postPaymentRegistration` prepared for next step
-- **Next**: Opens Paystack checkout modal
+- **User Inputs** (progressively revealed on the same page):
+  - First name & last name
+  - Email (uniqueness check against active subscriptions)
+  - Phone number (uniqueness check against active subscriptions)
+  - Password + confirmation (minimum 8 characters)
+- **System Output**: Auto-generated, non-editable username (short + memorable)
+- **Backend Call**: `create-pending-user`
+  - Creates or updates the auth user with the supplied password
+  - Reserves the generated username in both auth metadata and `profiles`
+  - Persists `subscription_status: 'pending_payment'`
+  - Returns `{ userId, username }`
+- **Data Stored**: `registrationContact` snapshot (no password) for resilience during checkout
+- **Next**: Launches Paystack checkout inline (no intermediate page)
 
 ### Step 3: Paystack Payment
 - **Integration**: Paystack Popup/Inline
@@ -43,36 +47,21 @@ User Journey:
   - Returns Paystack checkout URL and reference
 - **On Success**: Paystack callback triggers
 - **On Close**: User can retry payment
-- **Next**: Redirect to `registration-after-payment.html?reference={ref}`
+- **Next**: Stay on the same page for automatic verification
 
-### Step 4: Payment Verification
-- **Page**: `apps/learner/registration-after-payment.html`
-- **Script**: `apps/learner/src/registration-after.js`
-- **Backend Call**: `paystack-verify` function
-  - Verifies payment with Paystack API
-  - Updates payment status to 'success'
-  - Creates/updates user subscription
-  - Sets subscription status to 'active'
-- **Data Retrieved**: Contact info from localStorage
-- **Next**: Show username/password form
+### Step 4: Payment Verification & Auto Login
+- **Trigger**: Paystack callback on the registration page
+- **Backend Call**: `paystack-verify`
+  - Confirms the transaction with Paystack
+  - Upserts the payment record and activates the subscription via `_shared/paystack.ts`
+  - Promotes the learner profile to `subscription_status: 'active'`
+- **Frontend Actions**:
+  - Shows an activation success message with the reserved username
+  - Attempts automatic sign-in using the stored password
+  - Prompts the learner to save their username/password securely; provides a copy shortcut
+- **Next**: Redirects to `admin-board.html` if auto sign-in works, otherwise instructs the learner to sign in manually
 
-### Step 5: Create Login Credentials
-- **Page**: Same page (`registration-after-payment.html`)
-- **User Inputs**:
-  - Username (unique, 3+ chars, alphanumeric with hyphens/underscores)
-  - Password (6+ chars with strength meter)
-  - Confirm Password
-- **Backend Call**: `finalize-registration` function
-  - Checks username availability
-  - Updates auth user with password
-  - Updates profile with username and `subscription_status: 'active'`
-  - Stores username in user_metadata
-- **Auto-Login**: After successful registration
-  - Calls `supabase.auth.signInWithPassword()`
-  - Uses email and newly created password
-- **Next**: Redirect to `admin-board.html`
-
-### Step 6: Login (Future Sessions)
+### Step 5: Login (Future Sessions)
 - **Page**: `apps/learner/login.html`
 - **Script**: `apps/learner/src/auth.js`
 - **User Inputs**: Username or Email + Password
@@ -83,20 +72,10 @@ User Journey:
 - **On Success**: Redirect to `admin-board.html`
 - **On Failure**: Show helpful error messages
 
-### Step 7: Resume Registration
+### Legacy Resume Flow
 - **Page**: `apps/learner/resume-registration.html`
-- **Script**: `apps/learner/src/resume-registration.js`
-- **Use Case**: User paid but didn't complete username/password setup
-- **User Inputs**:
-  - Email
-  - First Name
-  - Last Name
-  - Phone Number
-- **Backend Call**: `find-pending-registration` function
-  - Looks up user by contact details
-  - Finds successful payment reference
-  - Returns reference and userId
-- **Next**: Redirect to `registration-after-payment.html?reference={ref}`
+- **Status**: Informational only; directs learners to log in or reset their password because credentials are now created before payment
+- **Backend**: No longer calls `find-pending-registration`
 
 ## Database Schema
 
@@ -147,18 +126,19 @@ User Journey:
 
 ### 1. create-pending-user
 - **Path**: `supabase/functions/create-pending-user/index.ts`
-- **Purpose**: Create user account before payment
-- **Input**: `{ email, firstName, lastName, phone }`
-- **Output**: `{ userId }`
+- **Purpose**: Create/update pending learner accounts (with credentials) before payment
+- **Input**: `{ email, firstName, lastName, phone, username, password }`
+- **Output**: `{ userId, username }`
 - **Actions**:
-  - Creates auth user with email (email_confirm: true)
-  - Creates profile with pending_payment status
-  - Handles existing users (updates metadata)
+  - Validates username/password, ensuring uniqueness across profiles
+  - Creates or updates the auth user with password + metadata (first/last name, phone, username)
+  - Upserts the profile with `subscription_status: 'pending_payment'`
+  - Prevents conflicts with active subscriptions (email/phone/username)
 
 ### 2. paystack-initiate
 - **Path**: `supabase/functions/paystack-initiate/` (referenced but not shown)
 - **Purpose**: Initialize Paystack payment
-- **Input**: `{ planId, userId, registration: { first_name, last_name, phone } }`
+- **Input**: `{ planId, userId, registration: { first_name, last_name, phone, username } }`
 - **Output**: `{ reference, amount, currency, publicKey, metadata }`
 
 ### 3. paystack-verify
@@ -170,18 +150,7 @@ User Journey:
   - Calls Paystack API to verify transaction
   - Records payment in payment_transactions
   - Creates/updates user_subscriptions
-  - Sets subscription to active
-
-### 4. finalize-registration
-- **Path**: `supabase/functions/finalize-registration/index.ts`
-- **Purpose**: Set username and password after payment
-- **Input**: `{ userId, username, password, firstName, lastName, phone, email }`
-- **Output**: `{ success: true }`
-- **Actions**:
-  - Validates username availability
-  - Updates auth user password
-  - Updates profile with username and active status
-  - Stores username in user_metadata
+  - Updates profile status to active in `_shared/paystack.ts`
 
 ### 5. find-pending-registration
 - **Path**: `supabase/functions/find-pending-registration/index.ts`
