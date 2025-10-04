@@ -18,6 +18,12 @@ const sections = {
   account: document.querySelector('[data-section="account"]'),
 };
 
+console.log('Sections initialization:', {
+  names: !!sections.names,
+  contact: !!sections.contact,
+  account: !!sections.account
+});
+
 const firstNameInput = document.getElementById('first-name');
 const lastNameInput = document.getElementById('last-name');
 const emailInput = document.getElementById('email-address');
@@ -397,20 +403,70 @@ function resetUsernameState() {
 function evaluateNamesComplete() {
   const firstName = firstNameInput?.value.trim();
   const lastName = lastNameInput?.value.trim();
+  const wasIncomplete = !state.namesComplete;
   state.namesComplete = Boolean(firstName && lastName);
+
+  console.log('evaluateNamesComplete called:', {
+    firstName: firstName || '(empty)',
+    lastName: lastName || '(empty)',
+    namesComplete: state.namesComplete,
+    wasIncomplete
+  });
+
+  if (wasIncomplete && state.namesComplete) {
+    console.log('Names section just completed, showing contact section');
+  }
+
   updateSectionVisibility();
   maybeGenerateUsername();
 }
 
 function updateSectionVisibility() {
+  console.log('updateSectionVisibility called:', {
+    namesComplete: state.namesComplete,
+    emailValid: state.emailValid,
+    phoneValid: state.phoneValid,
+    usernameReady: state.usernameReady,
+    generatedUsername: !!generatedUsername,
+    usernameGenerationPromise: !!usernameGenerationPromise
+  });
+
+  // Show contact section when names are complete
   if (sections.contact) {
+    const wasHidden = sections.contact.classList.contains('hidden');
     sections.contact.classList.toggle('hidden', !state.namesComplete);
+
+    // Add heartbeat animation when contact section becomes visible
+    if (wasHidden && !sections.contact.classList.contains('hidden')) {
+      console.log('Contact section is now visible');
+      // Trigger heartbeat on the first input field in contact section
+      const firstContactInput = sections.contact.querySelector('input');
+      if (firstContactInput) {
+        setTimeout(() => {
+          triggerFieldPulse(firstContactInput);
+          firstContactInput.focus();
+        }, 300);
+      }
+    }
   }
 
   const accountPrereqsMet = state.namesComplete && state.emailValid && state.phoneValid;
   const accountShouldShow = accountPrereqsMet && (generatedUsername || usernameGenerationPromise);
   if (sections.account) {
+    const wasHidden = sections.account.classList.contains('hidden');
     sections.account.classList.toggle('hidden', !accountShouldShow);
+
+    // Add heartbeat animation when account section becomes visible
+    if (wasHidden && !sections.account.classList.contains('hidden')) {
+      console.log('Account section is now visible');
+      const firstAccountInput = sections.account.querySelector('input');
+      if (firstAccountInput && firstAccountInput.id !== 'generated-username') {
+        setTimeout(() => {
+          triggerFieldPulse(firstAccountInput);
+          firstAccountInput.focus();
+        }, 300);
+      }
+    }
   }
 }
 
