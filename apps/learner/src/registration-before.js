@@ -65,6 +65,11 @@ const state = {
   usernameReady: false,
 };
 
+const sectionVisibility = {
+  contact: false,
+  account: false,
+};
+
 function renderFieldStatus(target, message, type = 'info') {
   if (!target) return;
   target.textContent = message;
@@ -111,6 +116,10 @@ function showFeedback(message, type = 'error') {
     feedbackEl.classList.add('bg-red-50', 'border-red-200', 'text-red-700');
   }
 
+  if (feedbackEl?.dataset) {
+    feedbackEl.dataset.state = type;
+  }
+
   feedbackEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
@@ -118,15 +127,41 @@ function clearFeedback() {
   if (!feedbackEl) return;
   feedbackEl.classList.add('hidden');
   feedbackEl.innerHTML = '';
+  if (feedbackEl?.dataset) {
+    delete feedbackEl.dataset.state;
+  }
 }
 
 function setLoading(isLoading) {
   if (!submitBtn || !submitText) return;
   submitBtn.disabled = isLoading;
   submitBtn.classList.toggle('opacity-60', isLoading);
+  submitBtn.classList.toggle('is-loading', isLoading);
   submitText.textContent = isLoading
     ? 'Preparing secure checkout…'
     : 'Complete secure payment';
+}
+
+function triggerFieldPulse(input) {
+  if (!input) return;
+  input.classList.add('pulse-highlight');
+  setTimeout(() => input.classList.remove('pulse-highlight'), 1800);
+}
+
+function flagFieldAttention(input) {
+  if (!input) return;
+  input.classList.remove('attention-shake');
+  void input.offsetWidth; // restart animation
+  input.classList.add('attention-shake');
+  setTimeout(() => input.classList.remove('attention-shake'), 600);
+}
+
+function notifyUsernameGeneration() {
+  if (!feedbackEl) return;
+  const currentState = feedbackEl.dataset?.state || '';
+  if (feedbackEl.classList.contains('hidden') || currentState === 'info') {
+    showFeedback('Generating a short username just for you…', 'info');
+  }
 }
 
 function ensureSupabaseClient() {
@@ -649,6 +684,7 @@ async function prepareUsername() {
   usernameGenerationPromise = (async () => {
     try {
       renderFieldStatus(usernameFeedbackEl, 'Creating your username…', 'info');
+      notifyUsernameGeneration();
       const username = await ensureUniqueUsername(
         firstNameInput.value.trim(),
         lastNameInput.value.trim(),
@@ -657,6 +693,14 @@ async function prepareUsername() {
 
       setUsernameField(username, { status: 'success', message: 'Your username is reserved.' });
       updateSectionVisibility();
+      if (feedbackEl?.dataset?.state === 'info') {
+        showFeedback('Username secured! Use it with your password to sign in after payment.', 'info');
+      }
+      // Auto-focus on password field after username generation
+      setTimeout(() => {
+        passwordInput?.focus();
+        triggerFieldPulse(passwordInput);
+      }, 300);
       return username;
     } catch (error) {
       console.error('[Registration] Failed to generate username', error);
