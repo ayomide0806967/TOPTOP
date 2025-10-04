@@ -1283,10 +1283,7 @@ async function initialise() {
     navigator.clipboard
       .writeText(generatedUsername)
       .then(() => {
-        renderFieldStatus(usernameFeedbackEl, 'Username copied to clipboard.', 'success');
-      })
-      .catch(() => {
-        renderFieldStatus(usernameFeedbackEl, 'Copy failed. Long press the username to copy manually.', 'error');
+        renderFieldStatus(usernameFeedbackEl, 'Your username is reserved, keep it safely', 'success');
       });
   });
 
@@ -1296,11 +1293,9 @@ async function initialise() {
       .writeText(generatedUsername)
       .then(() => {
         if (successBodyEl) {
-          successBodyEl.textContent = 'Username copied. Keep it with your password for next time.';
+          successBodyEl.textContent = 'Your username is reserved, keep it safely';
+          successBodyEl.classList.add('text-green-600');
         }
-      })
-      .catch(() => {
-        showFeedback('Copy failed. Please note the username manually.', 'error');
       });
   });
 
