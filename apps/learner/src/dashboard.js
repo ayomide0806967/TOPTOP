@@ -7,6 +7,11 @@ const elements = {
   scheduleNoticeHeadline: document.querySelector('[data-role="schedule-notice-headline"]'),
   scheduleNoticeDetail: document.querySelector('[data-role="schedule-notice-detail"]'),
   scheduleNoticeMeta: document.querySelector('[data-role="schedule-notice-meta"]'),
+  heroName: document.querySelector('[data-role="hero-name"]'),
+  heroPlanHeadline: document.querySelector('[data-role="hero-plan-headline"]'),
+  heroDaysRemaining: document.querySelector('[data-role="hero-days-remaining"]'),
+  heroProgressBar: document.querySelector('[data-role="hero-progress-bar"]'),
+  heroProgressLabel: document.querySelector('[data-role="hero-progress-label"]'),
   statStatus: document.querySelector('[data-role="stat-status"]'),
   statProgress: document.querySelector('[data-role="stat-progress"]'),
   statScore: document.querySelector('[data-role="stat-score"]'),
@@ -38,6 +43,7 @@ const elements = {
   planProgressLabel: document.querySelector('[data-role="plan-progress-label"]'),
   planDates: document.querySelector('[data-role="plan-dates"]'),
   planRenewBtn: document.querySelector('[data-role="plan-renew"]'),
+  planDailyLimit: document.querySelector('[data-role="plan-daily-limit"]'),
 };
 
 const state = {
@@ -340,6 +346,28 @@ function renderSubscription() {
           ? 'Resume checkout to activate your plan.'
           : '';
     }
+    if (elements.planDailyLimit) {
+      elements.planDailyLimit.textContent = '—';
+    }
+    if (elements.heroPlanHeadline) {
+      elements.heroPlanHeadline.textContent =
+        profileStatus === 'pending_payment'
+          ? 'Finish your checkout to unlock today’s personalised drill.'
+          : 'Choose a plan to unlock daily personalised quizzes and analytics.';
+    }
+    if (elements.heroDaysRemaining) {
+      elements.heroDaysRemaining.textContent =
+        profileStatus === 'pending_payment' ? 'Pending activation' : 'No active plan yet';
+    }
+    if (elements.heroProgressBar) {
+      elements.heroProgressBar.style.width = '0%';
+    }
+    if (elements.heroProgressLabel) {
+      elements.heroProgressLabel.textContent =
+        profileStatus === 'pending_payment'
+          ? 'We are waiting for your payment confirmation.'
+          : 'Your streak begins as soon as you activate a plan.';
+    }
     attachRenewHandler(
       profileStatus === 'pending_payment' ? 'resume-registration.html' : 'subscription-plans.html',
       profileStatus === 'pending_payment' ? 'Resume checkout' : 'Browse plans'
@@ -381,12 +409,15 @@ function renderSubscription() {
     planName.textContent = plan.name || 'Active subscription';
   }
   if (planDescription) {
-    const tagline =
-      plan && typeof plan.metadata === 'object' && plan.metadata !== null
-        ? plan.metadata.tagline
-        : null;
+    const planMetadata =
+      plan && typeof plan.metadata === 'object' && plan.metadata !== null ? plan.metadata : null;
+    const copy =
+      planMetadata?.tagline ||
+      planMetadata?.description ||
+      planMetadata?.summary ||
+      plan.description;
     planDescription.textContent =
-      tagline || plan.description || 'Personalised drills, analytics, and curated study support.';
+      copy || 'Personalised drills, analytics, and curated study support for your exam.';
   }
   if (planDays) {
     planDays.textContent =
@@ -399,6 +430,14 @@ function renderSubscription() {
   }
   if (planPrice) {
     planPrice.textContent = formatCurrency(plan.price, plan.currency || 'NGN');
+  }
+  if (elements.planDailyLimit) {
+    const limit = plan.daily_question_limit;
+    elements.planDailyLimit.textContent = limit
+      ? `${limit} questions / day`
+      : plan?.metadata?.dailyLimit
+      ? `${plan.metadata.dailyLimit} questions / day`
+      : '—';
   }
   if (planProgressBar) {
     planProgressBar.style.width = `${progressPercent}%`;
@@ -437,6 +476,49 @@ function renderSubscription() {
       attachRenewHandler('subscription-plans.html', 'Manage plan');
     }
   }
+
+  if (elements.heroPlanHeadline) {
+    const daysLabel =
+      daysRemaining !== null
+        ? `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left`
+        : expiresAt
+        ? `Renews ${formatDate(expiresAt.toISOString())}`
+        : normalizedStatus === 'trialing'
+        ? 'Trial access is active'
+        : 'Ongoing access';
+
+    elements.heroPlanHeadline.textContent = plan.name
+      ? `${plan.name} • ${daysLabel}`
+      : `Active plan • ${daysLabel}`;
+  }
+
+  if (elements.heroDaysRemaining) {
+    if (daysRemaining !== null) {
+      elements.heroDaysRemaining.textContent = `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining`;
+    } else if (expiresAt) {
+      elements.heroDaysRemaining.textContent = `Renews ${formatDate(expiresAt.toISOString())}`;
+    } else if (normalizedStatus === 'trialing') {
+      elements.heroDaysRemaining.textContent = 'Trial in progress';
+    } else {
+      elements.heroDaysRemaining.textContent = 'Active access';
+    }
+  }
+
+  if (elements.heroProgressBar) {
+    elements.heroProgressBar.style.width = `${progressPercent}%`;
+  }
+
+  if (elements.heroProgressLabel) {
+    if (totalDays && usedDays !== null && daysRemaining !== null) {
+      elements.heroProgressLabel.textContent = `${usedDays} of ${totalDays} days used · ${daysRemaining} to go`;
+    } else if (normalizedStatus === 'trialing') {
+      elements.heroProgressLabel.textContent = 'Trial is underway. Upgrade any time to keep your streak going.';
+    } else if (hasEnded) {
+      elements.heroProgressLabel.textContent = 'Plan expired. Renew to continue your personalised drills.';
+    } else {
+      elements.heroProgressLabel.textContent = 'Your progress updates as you complete each day’s questions.';
+    }
+  }
 }
 
 function updateHeader() {
@@ -448,6 +530,16 @@ function updateHeader() {
     greetingEl.textContent = `Welcome back, ${firstName}`;
   } else if (state.user?.email && greetingEl) {
     greetingEl.textContent = `Welcome back, ${state.user.email.split('@')[0]}`;
+  }
+
+  if (elements.heroName) {
+    if (state.profile?.full_name) {
+      elements.heroName.textContent = state.profile.full_name;
+    } else if (state.user?.email) {
+      elements.heroName.textContent = state.user.email.split('@')[0];
+    } else {
+      elements.heroName.textContent = 'Learner';
+    }
   }
 
   if (emailEl && state.user?.email) {
@@ -890,7 +982,16 @@ async function loadActiveSubscription() {
     const { data, error } = await state.supabase
       .from('user_subscriptions')
       .select(
-        `id, status, started_at, expires_at, plan:subscription_plans (id, name, description, duration_days, price, currency, metadata)`
+        `id, status, started_at, expires_at, plan:subscription_plans (
+          id,
+          name,
+          duration_days,
+          price,
+          currency,
+          daily_question_limit,
+          plan_tier,
+          metadata
+        )`
       )
       .eq('user_id', state.user.id)
       .in('status', ['active', 'trialing', 'past_due'])

@@ -26,6 +26,35 @@
         text-transform: uppercase;
         letter-spacing: 0.06em;
       }
+      .hero-card {
+        background: linear-gradient(140deg, rgba(22, 163, 74, 0.08), rgba(8, 145, 178, 0.08));
+      }
+      .hero-grid {
+        display: grid;
+        gap: 2rem;
+      }
+      @media (min-width: 1024px) {
+        .hero-grid {
+          grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+          align-items: center;
+        }
+      }
+      .hero-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+      }
+      @media (min-width: 768px) {
+        .hero-stats-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+      }
+      .hero-stat-card {
+        border-radius: 0.75rem;
+        background: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        backdrop-filter: blur(6px);
+      }
     </style>
   </head>
   <body class="bg-slate-100 text-slate-900 antialiased">
@@ -82,6 +111,72 @@
           data-role="toast"
         ></div>
 
+        <section class="card hero-card mb-6 px-6 py-6" data-role="hero-card">
+          <div class="hero-grid">
+            <div class="space-y-5">
+              <p class="text-xs font-semibold uppercase tracking-wide text-cyan-600">
+                Welcome back
+              </p>
+              <h1 class="text-3xl font-bold text-slate-900" data-role="hero-name">
+                Ready to learn
+              </h1>
+              <p class="text-sm text-slate-600" data-role="hero-plan-headline">
+                Let’s get your personalised drills ready.
+              </p>
+              <div class="space-y-3">
+                <div class="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <span>Plan progress</span>
+                  <span data-role="hero-days-remaining">—</span>
+                </div>
+                <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500 transition-all"
+                    style="width: 0%"
+                    data-role="hero-progress-bar"
+                  ></div>
+                </div>
+                <p class="text-xs text-slate-500" data-role="hero-progress-label">
+                  We’ll update your streak once your plan is confirmed.
+                </p>
+              </div>
+            </div>
+            <div class="flex flex-col gap-4">
+              <button
+                type="button"
+                class="rounded-full bg-cyan-600 px-6 py-3 text-base font-semibold text-white shadow-lg shadow-cyan-600/20 transition hover:bg-cyan-700 focus:outline-none focus:ring focus:ring-cyan-200"
+                data-role="resume-quiz"
+              >
+                Start today’s exam
+              </button>
+              <button
+                type="button"
+                class="rounded-full border border-cyan-200 px-6 py-3 text-sm font-semibold text-cyan-600 hover:border-cyan-300 hover:text-cyan-700 focus:outline-none focus:ring focus:ring-cyan-100"
+                data-role="regenerate-quiz"
+              >
+                New question set
+              </button>
+              <div class="hero-stats-grid text-sm text-slate-600">
+                <div class="hero-stat-card p-3">
+                  <p class="text-xs uppercase tracking-wide text-slate-500">Status</p>
+                  <p class="mt-1 text-base font-semibold text-slate-900" data-role="stat-status">—</p>
+                </div>
+                <div class="hero-stat-card p-3">
+                  <p class="text-xs uppercase tracking-wide text-slate-500">Answered</p>
+                  <p class="mt-1 text-base font-semibold text-slate-900" data-role="stat-progress">—</p>
+                </div>
+                <div class="hero-stat-card p-3">
+                  <p class="text-xs uppercase tracking-wide text-slate-500">Score</p>
+                  <p class="mt-1 text-base font-semibold text-slate-900" data-role="stat-score">—</p>
+                </div>
+                <div class="hero-stat-card p-3">
+                  <p class="text-xs uppercase tracking-wide text-slate-500">Streak</p>
+                  <p class="mt-1 text-base font-semibold text-slate-900" data-role="stat-streak">—</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section
           class="mb-6 hidden rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm text-slate-700"
           data-role="schedule-notice"
@@ -112,158 +207,10 @@
           </div>
         </section>
 
-        <section
-          class="card mb-6 hidden px-6 py-6"
-          data-role="subscription-card"
-        >
-          <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div class="space-y-4">
-              <div class="flex flex-wrap items-center gap-3">
-                <span class="badge bg-slate-100 text-slate-600">Subscription</span>
-                <span
-                  class="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500"
-                  data-role="plan-status-chip"
-                >
-                  Checking...
-                </span>
-              </div>
-              <div class="space-y-1">
-                <h2
-                  class="text-2xl font-semibold text-slate-900"
-                  data-role="plan-name"
-                >
-                  Loading plan…
-                </h2>
-                <p
-                  class="text-sm text-slate-500"
-                  data-role="plan-description"
-                >
-                  Hold on while we fetch your subscription details.
-                </p>
-              </div>
-              <dl class="grid grid-cols-1 gap-4 text-sm text-slate-600 sm:grid-cols-3">
-                <div>
-                  <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Days left
-                  </dt>
-                  <dd class="mt-1 text-base font-semibold text-slate-900" data-role="plan-days">—</dd>
-                </div>
-                <div>
-                  <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Renews on
-                  </dt>
-                  <dd class="mt-1 text-base font-semibold text-slate-900" data-role="plan-renewal">—</dd>
-                </div>
-                <div>
-                  <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Plan price
-                  </dt>
-                  <dd class="mt-1 text-base font-semibold text-slate-900" data-role="plan-price">—</dd>
-                </div>
-              </dl>
-              <div class="space-y-2">
-                <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500 transition-all"
-                    style="width: 0%"
-                    data-role="plan-progress-bar"
-                  ></div>
-                </div>
-                <div class="flex flex-wrap items-center justify-between text-xs text-slate-500">
-                  <span data-role="plan-progress-label">Updating plan timeline…</span>
-                  <span data-role="plan-dates"></span>
-                </div>
-              </div>
-            </div>
-            <div class="flex w-full flex-col items-stretch gap-3 sm:w-auto">
-              <button
-                type="button"
-                class="inline-flex items-center justify-center rounded-full bg-cyan-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700 focus:outline-none focus:ring focus:ring-cyan-200"
-                data-role="plan-renew"
-              >
-                Manage plan
-              </button>
-              <p class="text-center text-xs text-slate-400">
-                Need help? <a href="help-center.html" class="font-semibold text-cyan-600 hover:text-cyan-700">Visit the help center</a>
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section
-          class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
-          data-role="stat-cards"
-        >
-          <article class="card px-5 py-4">
-            <p
-              class="text-xs font-semibold uppercase tracking-wide text-slate-500"
-            >
-              Today's Status
-            </p>
-            <p
-              class="mt-2 text-2xl font-bold text-slate-900"
-              data-role="stat-status"
-            >
-              —
-            </p>
-            <p class="mt-1 text-xs text-slate-500">
-              Automatically resets every midnight.
-            </p>
-          </article>
-          <article class="card px-5 py-4">
-            <p
-              class="text-xs font-semibold uppercase tracking-wide text-slate-500"
-            >
-              Questions Answered
-            </p>
-            <p
-              class="mt-2 text-2xl font-bold text-slate-900"
-              data-role="stat-progress"
-            >
-              —
-            </p>
-            <p class="mt-1 text-xs text-slate-500">
-              Out of today's assigned set.
-            </p>
-          </article>
-          <article class="card px-5 py-4">
-            <p
-              class="text-xs font-semibold uppercase tracking-wide text-slate-500"
-            >
-              Score
-            </p>
-            <p
-              class="mt-2 text-2xl font-bold text-slate-900"
-              data-role="stat-score"
-            >
-              —
-            </p>
-            <p class="mt-1 text-xs text-slate-500">
-              Updated in real-time as you answer.
-            </p>
-          </article>
-          <article class="card px-5 py-4">
-            <p
-              class="text-xs font-semibold uppercase tracking-wide text-slate-500"
-            >
-              Streak
-            </p>
-            <p
-              class="mt-2 text-2xl font-bold text-slate-900"
-              data-role="stat-streak"
-            >
-              —
-            </p>
-            <p class="mt-1 text-xs text-slate-500">
-              Completed quizzes over the last week.
-            </p>
-          </article>
-        </section>
-
-        <section class="mt-10 card px-6 py-6" data-role="quiz-container">
-          <div class="flex flex-wrap items-center justify-between gap-4">
+        <section class="card px-6 py-6" data-role="quiz-container">
+          <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <span class="badge bg-cyan-50 text-cyan-700">Daily Quiz</span>
+              <span class="badge bg-cyan-50 text-cyan-700">Today’s drill</span>
               <h2
                 class="mt-2 text-2xl font-semibold text-slate-900"
                 data-role="quiz-title"
@@ -273,49 +220,33 @@
               <p class="mt-1 text-sm text-slate-500" data-role="quiz-subtitle">
                 Fetching questions tailored for today.
               </p>
-              <div
-                class="mt-3 hidden items-center gap-2 text-sm font-semibold text-slate-600"
-                data-role="quiz-timer"
-              >
-                <svg
-                  class="h-5 w-5 text-cyan-600"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  aria-hidden="true"
-                >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="8"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  ></circle>
-                  <path
-                    d="M12 8v4l2.5 2.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  ></path>
-                </svg>
-                <span data-role="quiz-timer-value">--:--</span>
-              </div>
             </div>
-            <div class="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                class="rounded-full border border-cyan-200 px-4 py-2 text-sm font-semibold text-cyan-600 hover:border-cyan-300 hover:text-cyan-700 focus:outline-none focus:ring focus:ring-cyan-100"
-                data-role="regenerate-quiz"
+            <div
+              class="hidden items-center gap-2 text-sm font-semibold text-slate-600"
+              data-role="quiz-timer"
+            >
+              <svg
+                class="h-5 w-5 text-cyan-600"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                aria-hidden="true"
               >
-                New set
-              </button>
-              <button
-                type="button"
-                class="rounded-full bg-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-cyan-700 focus:outline-none focus:ring focus:ring-cyan-300"
-                data-role="resume-quiz"
-              >
-                Start / Resume
-              </button>
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ></circle>
+                <path
+                  d="M12 8v4l2.5 2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ></path>
+              </svg>
+              <span data-role="quiz-timer-value">--:--</span>
             </div>
           </div>
 
@@ -341,41 +272,28 @@
             class="mt-8 hidden rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
             data-role="completion-banner"
           >
-            <div class="flex items-center justify-between">
+            <div class="flex flex-wrap items-center justify-between gap-2">
               <span>Fantastic work! Today's quiz is complete.</span>
-              <button onclick="location.href='result-face.html?daily_quiz_id=' + (window.state?.todayQuiz?.id || '')" class="text-emerald-700 font-semibold hover:text-emerald-800">View Detailed Results →</button>
+              <button onclick="location.href='result-face.html?daily_quiz_id=' + (window.state?.todayQuiz?.id || '')" class="text-emerald-700 font-semibold hover:text-emerald-800">View detailed results →</button>
             </div>
           </div>
         </section>
 
         <section class="mt-10 card px-4 py-5 sm:px-6 sm:py-6">
-          <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-5">
+          <div class="mb-5 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 class="text-lg font-semibold text-slate-900">
-                Recent Daily Quizzes
-              </h3>
-              <p
-                class="mt-1 text-xs text-slate-500"
-                data-role="history-summary"
-              >
-                —
-              </p>
+              <h3 class="text-lg font-semibold text-slate-900">Recent daily quizzes</h3>
+              <p class="mt-1 text-xs text-slate-500" data-role="history-summary">—</p>
             </div>
           </div>
-          
-          <!-- Mobile Cards View -->
-          <div class="block sm:hidden space-y-3" data-role="history-cards">
-            <div class="text-center py-8 text-slate-500 text-sm">
-              Loading history…
-            </div>
+
+          <div class="block space-y-3 sm:hidden" data-role="history-cards">
+            <div class="py-8 text-center text-sm text-slate-500">Loading history…</div>
           </div>
-          
-          <!-- Desktop Table View -->
-          <div class="hidden sm:block overflow-x-auto">
+
+          <div class="hidden overflow-x-auto sm:block">
             <table class="min-w-full divide-y divide-slate-200 text-sm">
-              <thead
-                class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"
-              >
+              <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th class="px-4 py-3 text-left">Date</th>
                   <th class="px-4 py-3 text-left">Status</th>
@@ -385,12 +303,79 @@
               </thead>
               <tbody class="divide-y divide-slate-100" data-role="history-body">
                 <tr>
-                  <td class="px-4 py-4 text-slate-500" colspan="4">
-                    Loading history…
-                  </td>
+                  <td class="px-4 py-4 text-slate-500" colspan="4">Loading history…</td>
                 </tr>
               </tbody>
             </table>
+          </div>
+        </section>
+
+        <section
+          class="mt-10 hidden space-y-6 rounded-2xl border border-slate-200 bg-white px-6 py-6"
+          data-role="subscription-card"
+        >
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="space-y-2">
+              <span class="badge bg-slate-100 text-slate-600">Plan details</span>
+              <h2 class="text-2xl font-semibold text-slate-900" data-role="plan-name">
+                Loading plan…
+              </h2>
+              <p class="text-sm text-slate-500" data-role="plan-description">
+                Hold on while we fetch your subscription details.
+              </p>
+            </div>
+            <span
+              class="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500"
+              data-role="plan-status-chip"
+            >
+              Checking…
+            </span>
+          </div>
+
+          <div class="space-y-3">
+            <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500 transition-all"
+                style="width: 0%"
+                data-role="plan-progress-bar"
+              ></div>
+            </div>
+            <div class="flex flex-wrap items-center justify-between text-xs text-slate-500">
+              <span data-role="plan-progress-label">Updating plan timeline…</span>
+              <span data-role="plan-dates"></span>
+            </div>
+          </div>
+
+          <dl class="grid grid-cols-1 gap-4 text-sm text-slate-600 sm:grid-cols-4">
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Days left</dt>
+              <dd class="mt-1 text-base font-semibold text-slate-900" data-role="plan-days">—</dd>
+            </div>
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Renews on</dt>
+              <dd class="mt-1 text-base font-semibold text-slate-900" data-role="plan-renewal">—</dd>
+            </div>
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Plan price</dt>
+              <dd class="mt-1 text-base font-semibold text-slate-900" data-role="plan-price">—</dd>
+            </div>
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Daily limit</dt>
+              <dd class="mt-1 text-base font-semibold text-slate-900" data-role="plan-daily-limit">—</dd>
+            </div>
+          </dl>
+
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <p class="text-xs text-slate-500">
+              Need help? <a href="help-center.html" class="font-semibold text-cyan-600 hover:text-cyan-700">Visit the help center</a>
+            </p>
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-full bg-cyan-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700 focus:outline-none focus:ring focus:ring-cyan-200"
+              data-role="plan-renew"
+            >
+              Manage plan
+            </button>
           </div>
         </section>
       </main>

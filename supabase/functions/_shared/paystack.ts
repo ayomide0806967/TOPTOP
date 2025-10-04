@@ -2,6 +2,7 @@ import {
   createClient,
   SupabaseClient,
 } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
+import { getPaystackSecretKey } from './paystackConfig.ts';
 
 const SUPABASE_URL =
   Deno.env.get('APP_SUPABASE_URL') ?? Deno.env.get('SUPABASE_URL') ?? '';
@@ -219,7 +220,7 @@ export async function verifyPaystackSignature(
   body: string,
   signature: string | null
 ): Promise<boolean> {
-  const secret = Deno.env.get('PAYSTACK_SECRET_KEY') ?? '';
+  const secret = getPaystackSecretKey();
   if (!secret || !signature) return false;
   try {
     const encoder = new TextEncoder();

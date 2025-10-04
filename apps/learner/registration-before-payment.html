@@ -453,6 +453,10 @@
             If nothing happens after a few seconds, please ensure pop-ups are
             allowed and try again.
           </p>
+          <p
+            class="mt-3 hidden text-xs text-slate-500"
+            data-role="success-reference"
+          ></p>
           <div
             class="mt-6 hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-left"
             data-role="success-credentials"
@@ -484,6 +488,13 @@
             class="mt-6 hidden w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
           >
             Go to your dashboard
+          </button>
+          <button
+            type="button"
+            data-role="success-retry"
+            class="mt-3 hidden w-full rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+          >
+            Retry verification
           </button>
         </div>
       </div>
@@ -543,7 +554,7 @@
     <script src="https://js.paystack.co/v1/inline.js"></script>
     <script>
       window.__PAYSTACK_PUBLIC_KEY__ =
-        'pk_live_f3ee8a87f3c9355367009f94fce2ed197c906ef8';
+        'pk_test_943cfcdf1016a38545eeeefed3a0735df0e2caf4';
       window.__PAYSTACK_CONFIG__ = window.__PAYSTACK_CONFIG__ || {
         publicKey: window.__PAYSTACK_PUBLIC_KEY__,
       };
@@ -556,6 +567,5 @@
       };
     </script>
     <script type="module" src="./src/registration-before.js"></script>
-    <script type="module" src="src/pwa-bootstrap.js"></script>
 </body>
 </html>

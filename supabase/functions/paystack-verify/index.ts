@@ -2,12 +2,7 @@ import { serve } from 'https://deno.land/std@0.223.0/http/server.ts';
 import {
   upsertPaymentAndSubscription,
 } from '../_shared/paystack.ts';
-
-const PAYSTACK_SECRET_KEY = Deno.env.get('PAYSTACK_SECRET_KEY');
-
-if (!PAYSTACK_SECRET_KEY) {
-  throw new Error('PAYSTACK_SECRET_KEY is required for Paystack verification.');
-}
+import { getPaystackSecretKey } from '../_shared/paystackConfig.ts';
 
 interface VerifyRequestBody {
   reference?: string;
@@ -54,14 +49,7 @@ const respondError = (
 ) => respondJson(req, { error: message, details }, { status });
 
 serve(async (req) => {
-  const PAYSTACK_SECRET_KEY = Deno.env.get('PAYSTACK_SECRET_KEY');
-  if (!PAYSTACK_SECRET_KEY) {
-    return respondError(
-      req,
-      'PAYSTACK_SECRET_KEY is not set in the Supabase project.',
-      500
-    );
-  }
+  const PAYSTACK_SECRET_KEY = getPaystackSecretKey();
   // Preflight
   if (req.method === 'OPTIONS') {
     return respond(req, null, { status: 204 });

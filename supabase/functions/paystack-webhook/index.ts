@@ -3,10 +3,9 @@ import {
   upsertPaymentAndSubscription,
   verifyPaystackSignature,
 } from '../_shared/paystack.ts';
+import { getPaystackForwardUrl } from '../_shared/paystackConfig.ts';
 
-const PAYSTACK_FORWARD_URL =
-  Deno.env.get('PAYSTACK_FORWARD_URL') ??
-  Deno.env.get('PAYSTACK_WEBHOOK_FORWARD_URL');
+const PAYSTACK_FORWARD_URL = getPaystackForwardUrl();
 
 serve(async (req) => {
   if (req.method !== 'POST') {

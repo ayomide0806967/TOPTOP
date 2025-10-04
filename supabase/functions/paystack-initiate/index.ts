@@ -1,5 +1,9 @@
 import { serve } from 'https://deno.land/std@0.223.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  getPaystackPublicKey,
+  getPaystackSecretKey,
+} from '../_shared/paystackConfig.ts';
 
 interface InitiateRequestBody {
   planId?: string;
@@ -57,8 +61,8 @@ serve(async (req) => {
 
   try {
     // Check environment variables inside the handler
-    const PAYSTACK_SECRET_KEY = Deno.env.get('PAYSTACK_SECRET_KEY');
-    const PAYSTACK_PUBLIC_KEY = Deno.env.get('PAYSTACK_PUBLIC_KEY');
+    const PAYSTACK_SECRET_KEY = getPaystackSecretKey();
+    const PAYSTACK_PUBLIC_KEY = getPaystackPublicKey();
 
     if (!PAYSTACK_SECRET_KEY || !PAYSTACK_PUBLIC_KEY) {
       console.error('[paystack-initiate] Missing Paystack credentials');

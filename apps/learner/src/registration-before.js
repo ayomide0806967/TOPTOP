@@ -2,6 +2,7 @@ import { getSupabaseClient } from '../../shared/supabaseClient.js';
 
 const STORAGE_PLAN = 'registrationPlan';
 const STORAGE_CONTACT = 'registrationContact';
+const STORAGE_REFERENCE = 'registrationPaymentReference';
 
 const paystackConfig = window.__PAYSTACK_CONFIG__ || {};
 
@@ -40,10 +41,12 @@ const passwordFeedbackEl = document.getElementById('password-feedback');
 const copyUsernameBtn = document.querySelector('[data-role="copy-username"]');
 const successTitleEl = successContainer?.querySelector('[data-role="success-title"]');
 const successBodyEl = successContainer?.querySelector('[data-role="success-body"]');
+const successReferenceEl = successContainer?.querySelector('[data-role="success-reference"]');
 const successCredentialsCard = successContainer?.querySelector('[data-role="success-credentials"]');
 const successUsernameEl = successContainer?.querySelector('[data-role="success-username"]');
 const successCopyBtn = successContainer?.querySelector('[data-role="success-copy-username"]');
 const successGoDashboardBtn = successContainer?.querySelector('[data-role="success-go-dashboard"]');
+const successRetryBtn = successContainer?.querySelector('[data-role="success-retry"]');
 
 const planIdInput = document.getElementById('plan-id');
 const planNameEl = document.querySelector('[data-role="plan-name"]');
@@ -54,6 +57,7 @@ const planTimerEl = document.querySelector('[data-role="plan-timer"]');
 
 let supabasePromise = null;
 let activeReference = null;
+let lastReference = null;
 let lastEmailAvailability = { value: '', result: null };
 let lastPhoneAvailability = { value: '', result: null };
 let generatedUsername = '';
@@ -61,6 +65,9 @@ let pendingProfileHint = null;
 let storedPassword = '';
 let pendingUserId = null;
 let usernameGenerationPromise = null;
+let lastContactDetails = null;
+let isVerifyingPayment = false;
+let lastVerificationError = null;
 
 const FIELD_STATUS_CLASSES = ['text-red-600', 'text-green-600', 'text-slate-600'];
 
@@ -69,11 +76,6 @@ const state = {
   emailValid: false,
   phoneValid: false,
   usernameReady: false,
-};
-
-const sectionVisibility = {
-  contact: false,
-  account: false,
 };
 
 function renderFieldStatus(target, message, type = 'info') {
@@ -154,14 +156,6 @@ function triggerFieldPulse(input) {
   setTimeout(() => input.classList.remove('pulse-highlight'), 1800);
 }
 
-function flagFieldAttention(input) {
-  if (!input) return;
-  input.classList.remove('attention-shake');
-  void input.offsetWidth; // restart animation
-  input.classList.add('attention-shake');
-  setTimeout(() => input.classList.remove('attention-shake'), 600);
-}
-
 function notifyUsernameGeneration() {
   if (!feedbackEl) return;
   const currentState = feedbackEl.dataset?.state || '';
@@ -208,6 +202,41 @@ function formatCurrency(value, currency = 'NGN') {
     minimumFractionDigits: 2,
   });
   return formatter.format(Number(value || 0));
+}
+
+function rememberPaymentReference(reference) {
+  if (!reference) return;
+  lastReference = reference;
+  try {
+    const payload = {
+      reference,
+      updatedAt: Date.now(),
+    };
+    window.localStorage.setItem(STORAGE_REFERENCE, JSON.stringify(payload));
+  } catch (error) {
+    console.warn('[Registration] Failed to persist payment reference', error);
+  }
+}
+
+function clearStoredReference() {
+  lastReference = null;
+  try {
+    window.localStorage.removeItem(STORAGE_REFERENCE);
+  } catch (error) {
+    console.warn('[Registration] Failed to clear payment reference', error);
+  }
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function isActiveSubscription(status) {
+  if (!status) return false;
+  const normalized = String(status).toLowerCase();
+  return normalized === 'active' || normalized === 'trialing';
 }
 
 function hydratePlanSummary(plan) {
@@ -877,6 +906,66 @@ async function invokeCheckout(contact, userId) {
   return data;
 }
 
+async function attemptPaymentVerification(reference, options = {}) {
+  const { maxAttempts = 3, baseDelay = 1500 } = options;
+  let attempt = 0;
+  let lastError = null;
+
+  while (attempt < maxAttempts) {
+    try {
+      await verifyPayment(reference);
+      return { success: true };
+    } catch (error) {
+      lastError = error;
+      attempt += 1;
+      if (attempt >= maxAttempts) break;
+      const delay = baseDelay * Math.pow(1.5, attempt - 1);
+      await wait(delay);
+    }
+  }
+
+  return {
+    success: false,
+    error: lastError,
+  };
+}
+
+async function pollSubscriptionStatus(userId, options = {}) {
+  if (!userId) return null;
+  const {
+    attempts = 6,
+    interval = 4000,
+  } = options;
+
+  const supabase = await ensureSupabaseClient();
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('subscription_status')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.warn('[Registration] Subscription status check failed', error);
+      }
+
+      const status = data?.subscription_status;
+      if (isActiveSubscription(status)) {
+        return { status, success: true };
+      }
+    } catch (error) {
+      console.warn('[Registration] Unexpected error while polling subscription status', error);
+    }
+
+    if (attempt < attempts - 1) {
+      await wait(interval);
+    }
+  }
+
+  return { success: false };
+}
+
 async function verifyPayment(reference) {
   const supabase = await ensureSupabaseClient();
   const { error } = await supabase.functions.invoke('paystack-verify', {
@@ -924,6 +1013,16 @@ function showSuccessState(options) {
     successBodyEl.innerHTML = options.body;
   }
 
+  if (successReferenceEl) {
+    if (options.reference) {
+      successReferenceEl.textContent = `Reference: ${options.reference}`;
+      successReferenceEl.classList.remove('hidden');
+    } else {
+      successReferenceEl.classList.add('hidden');
+      successReferenceEl.textContent = '';
+    }
+  }
+
   if (successCredentialsCard) {
     successCredentialsCard.classList.toggle('hidden', !options.showCredentials);
   }
@@ -935,38 +1034,37 @@ function showSuccessState(options) {
   if (successGoDashboardBtn) {
     successGoDashboardBtn.classList.toggle('hidden', !options.showDashboardCta);
   }
+
+  if (successRetryBtn) {
+    successRetryBtn.classList.toggle('hidden', !options.showRetryCta);
+    successRetryBtn.disabled = Boolean(options.disableRetry);
+  }
 }
 
-async function handlePaymentSuccess(reference, contact) {
-  showSuccessState({
-    title: 'Verifying payment…',
-    body: 'We’re confirming your payment with Paystack. This usually takes a few seconds.',
-    showCredentials: false,
-    showDashboardCta: false,
-  });
+async function transitionToActiveState(contact) {
+  const username = contact?.username || generatedUsername;
+  const email = contact?.email || contact?.contactEmail || emailInput?.value?.trim();
 
-  try {
-    await verifyPayment(reference);
+  if (username && successUsernameEl) {
+    successUsernameEl.textContent = username;
+  }
 
-    const username = generatedUsername;
-    const loginResult = await signInWithCredentials(contact.email, storedPassword);
+  let autoLoginSucceeded = false;
+  const hasStoredPassword = Boolean(storedPassword);
 
+  if (email && hasStoredPassword) {
+    const loginResult = await signInWithCredentials(email, storedPassword);
+    autoLoginSucceeded = loginResult.success;
     if (!loginResult.success) {
       console.warn('[Registration] Auto sign-in failed', loginResult.error);
-      showSuccessState({
-        title: 'Payment confirmed — final step',
-        body:
-          'Your subscription is active. Sign in with the username and password you created earlier to continue.',
-        showCredentials: true,
-        username,
-        showDashboardCta: false,
-      });
-      return;
     }
+  }
 
-    window.localStorage.removeItem(STORAGE_CONTACT);
-    window.localStorage.removeItem(STORAGE_PLAN);
+  window.localStorage.removeItem(STORAGE_CONTACT);
+  window.localStorage.removeItem(STORAGE_PLAN);
+  clearStoredReference();
 
+  if (autoLoginSucceeded) {
     showSuccessState({
       title: 'Payment confirmed! You’re in 🎉',
       body:
@@ -974,20 +1072,124 @@ async function handlePaymentSuccess(reference, contact) {
       showCredentials: true,
       username,
       showDashboardCta: true,
+      reference: null,
+      showRetryCta: false,
+    });
+
+    storedPassword = '';
+    return { autoLogin: true };
+  }
+
+  showSuccessState({
+    title: 'Payment confirmed — final step',
+    body:
+      'Your subscription is active. Sign in with the username and password you created earlier to continue.',
+    showCredentials: true,
+    username,
+    showDashboardCta: false,
+    reference: null,
+    showRetryCta: false,
+  });
+
+  return { autoLogin: false };
+}
+
+async function processPaymentVerification(reference, contact, options = {}) {
+  const {
+    maxAttempts = 3,
+    baseDelay = 1500,
+    pollAttempts = 6,
+    pollInterval = 4000,
+  } = options;
+
+  if (!reference) {
+    throw new Error('Missing payment reference.');
+  }
+
+  if (isVerifyingPayment) {
+    console.warn('[Registration] Verification already in progress, ignoring duplicate trigger.');
+    return;
+  }
+
+  isVerifyingPayment = true;
+  lastVerificationError = null;
+
+  try {
+    const verificationResult = await attemptPaymentVerification(reference, {
+      maxAttempts,
+      baseDelay,
+    });
+
+    if (verificationResult.success) {
+      await transitionToActiveState(contact);
+      return;
+    }
+
+    lastVerificationError = verificationResult.error;
+
+    const pollResult = await pollSubscriptionStatus(contact?.userId || pendingUserId, {
+      attempts: pollAttempts,
+      interval: pollInterval,
+    });
+
+    if (pollResult.success) {
+      await transitionToActiveState(contact);
+      return;
+    }
+
+    console.warn('[Registration] Verification pending after retries', lastVerificationError);
+    showSuccessState({
+      title: 'Payment received — almost there',
+      body:
+        'We recorded your payment but have not confirmed it yet. Paystack may still be processing it. Try verification again in a moment or share your reference with support so we can finish it for you.',
+      showCredentials: false,
+      showDashboardCta: false,
+      reference,
+      showRetryCta: true,
     });
   } catch (error) {
-    console.error('[Registration] Payment verification failed', error);
+    lastVerificationError = error;
+    console.error('[Registration] Payment verification encountered an unexpected error', error);
     showSuccessState({
       title: 'Payment received — action required',
       body:
-        'We recorded your payment but could not verify it automatically. Please refresh and try again, or contact support with your payment reference.',
+        'We recorded your payment but could not verify it automatically. Please retry verification below, or contact support with your payment reference.',
       showCredentials: false,
       showDashboardCta: false,
+      reference,
+      showRetryCta: true,
     });
   } finally {
-    storedPassword = '';
-    activeReference = null;
+    isVerifyingPayment = false;
   }
+}
+
+async function handlePaymentSuccess(reference, contact) {
+  lastReference = reference;
+  rememberPaymentReference(reference);
+
+  const contactDetails = {
+    ...contact,
+    userId: contact?.userId || pendingUserId,
+    email: contact?.email,
+    reference,
+  };
+  lastContactDetails = contactDetails;
+
+  showSuccessState({
+    title: 'Verifying payment…',
+    body: 'We’re confirming your payment with Paystack. This usually takes a few seconds.',
+    showCredentials: false,
+    showDashboardCta: false,
+    reference,
+    showRetryCta: false,
+  });
+
+  activeReference = reference;
+
+  await processPaymentVerification(reference, contactDetails).finally(() => {
+    activeReference = null;
+  });
 }
 
 function openPaystackCheckout(paystackData, contact) {
@@ -996,6 +1198,19 @@ function openPaystackCheckout(paystackData, contact) {
   }
 
   activeReference = paystackData.reference;
+  lastReference = paystackData.reference;
+  rememberPaymentReference(paystackData.reference);
+  if (lastContactDetails) {
+    lastContactDetails = {
+      ...lastContactDetails,
+      reference: paystackData.reference,
+    };
+    try {
+      window.localStorage.setItem(STORAGE_CONTACT, JSON.stringify(lastContactDetails));
+    } catch (error) {
+      console.warn('[Registration] Unable to update stored contact with reference', error);
+    }
+  }
 
   const checkoutConfig = {
     key: paystackData.publicKey || paystackConfig.publicKey,
@@ -1065,10 +1280,15 @@ function persistContact(contact) {
     email: contact.email,
     phone: contact.phone,
     username: contact.username,
-    userId: pendingUserId,
+    userId: contact.userId || pendingUserId,
   };
 
+  if (contact.reference) {
+    payload.reference = contact.reference;
+  }
+
   window.localStorage.setItem(STORAGE_CONTACT, JSON.stringify(payload));
+  lastContactDetails = payload;
 }
 
 async function handleFormSubmit(event) {
@@ -1132,6 +1352,7 @@ async function handleFormSubmit(event) {
       email: registrationPayload.email,
       phone: registrationPayload.phone,
       username,
+      userId,
     };
 
     persistContact(contact);
@@ -1220,8 +1441,24 @@ async function initialise() {
       if (stored.userId) {
         pendingUserId = stored.userId;
       }
+      lastContactDetails = stored;
+      if (stored.reference && !lastReference) {
+        lastReference = stored.reference;
+      }
     } catch (error) {
       console.warn('[Registration] Failed to load stored contact info', error);
+    }
+  }
+
+  const storedReferenceRaw = window.localStorage.getItem(STORAGE_REFERENCE);
+  if (storedReferenceRaw) {
+    try {
+      const parsed = JSON.parse(storedReferenceRaw);
+      if (parsed?.reference) {
+        lastReference = parsed.reference;
+      }
+    } catch (error) {
+      console.warn('[Registration] Failed to parse stored payment reference', error);
     }
   }
 
@@ -1301,6 +1538,35 @@ async function initialise() {
 
   successGoDashboardBtn?.addEventListener('click', () => {
     window.location.href = 'admin-board.html';
+  });
+
+  successRetryBtn?.addEventListener('click', () => {
+    if (!lastReference || !lastContactDetails) {
+      showFeedback(
+        'We could not find a recent payment to verify. Please contact support with your payment receipt.',
+        'error'
+      );
+      return;
+    }
+
+    showSuccessState({
+      title: 'Retrying verification…',
+      body: 'Please hold on while we ask Paystack for an update.',
+      showCredentials: false,
+      showDashboardCta: false,
+      reference: lastReference,
+      showRetryCta: false,
+      disableRetry: true,
+    });
+
+    processPaymentVerification(lastReference, lastContactDetails, {
+      maxAttempts: 5,
+      baseDelay: 2000,
+      pollAttempts: 8,
+      pollInterval: 5000,
+    }).catch((error) => {
+      console.error('[Registration] Manual verification retry failed', error);
+    });
   });
 
   formEl.addEventListener('submit', handleFormSubmit);
