@@ -488,9 +488,43 @@ function buildProfileRow(row) {
     ? row.user_subscriptions
     : [];
 
-  const activeSubscription = subscriptions.find((sub) => sub.status === 'active');
-  const subscription = activeSubscription ?? subscriptions[0] ?? null;
+  const normalizedProfileStatus = (row.subscription_status || '').toLowerCase();
+  const orderedSubscriptions = [...subscriptions].sort((a, b) => {
+    const aDate = a?.started_at ? new Date(a.started_at).getTime() : 0;
+    const bDate = b?.started_at ? new Date(b.started_at).getTime() : 0;
+    return bDate - aDate;
+  });
+
+  const activeSubscription = orderedSubscriptions.find((sub) => {
+    const status = (sub.status || '').toLowerCase();
+    return status === 'active' || status === 'trialing' || status === 'past_due';
+  });
+
+  const subscription = activeSubscription ?? orderedSubscriptions[0] ?? null;
   const plan = subscription?.subscription_plans;
+  const subscriptionStatuses = orderedSubscriptions.map((sub) => (sub.status || '').toLowerCase());
+  const hasEverSubscribed = subscriptionStatuses.length > 0;
+  const hasActivePlan = Boolean(activeSubscription);
+
+  let statusBucket = 'no_plan';
+  if (normalizedProfileStatus === 'suspended') {
+    statusBucket = 'suspended';
+  } else if (['pending_payment', 'awaiting_setup'].includes(normalizedProfileStatus)) {
+    statusBucket = 'pending_payment';
+  } else if (hasActivePlan) {
+    statusBucket = 'active';
+  } else if (
+    subscriptionStatuses.some((status) =>
+      ['expired', 'canceled', 'cancelled', 'past_due'].includes(status)
+    )
+  ) {
+    statusBucket = 'expired';
+  } else if (hasEverSubscribed) {
+    statusBucket = 'expired';
+  }
+
+  const displayStatus =
+    subscription?.status || row.subscription_status || (hasEverSubscribed ? 'inactive' : 'no_plan');
 
   return {
     id: row.id,
@@ -501,8 +535,9 @@ function buildProfileRow(row) {
     last_seen_at: row.last_seen_at,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    status: subscription?.status || 'inactive',
+    status: displayStatus,
     subscription_status: row.subscription_status || null,
+    status_bucket: statusBucket,
     plan_name: plan?.name || '-',
     plan_id: subscription?.plan_id || null,
     plan_started_at: subscription?.started_at || null,

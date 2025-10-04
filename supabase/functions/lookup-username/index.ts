@@ -42,7 +42,7 @@ serve(async (req) => {
 
     const { data, error } = await supabaseAdmin
       .from('profiles')
-      .select('email, subscription_status')
+      .select('id, email, subscription_status')
       .eq('username', normalized)
       .maybeSingle();
 
@@ -63,41 +63,42 @@ serve(async (req) => {
 
     const subscriptionStatus = data.subscription_status || null;
 
-    if (subscriptionStatus && RESUMABLE_STATUSES.has(subscriptionStatus)) {
-      return new Response(
-        JSON.stringify({
-          error:
-            'We found your registration but it is not finished yet. Click "Continue previous registration" to complete your account setup.',
-          subscriptionStatus,
-        }),
-        {
-          status: 409,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+    let latestPaymentReference: string | null = null;
+
+    // Fetch latest successful payment reference to assist with resuming checkout
+    try {
+      const { data: transactions } = await supabaseAdmin
+        .from('payment_transactions')
+        .select('reference')
+        .eq('user_id', data.id)
+        .eq('provider', 'paystack')
+        .eq('status', 'success')
+        .order('paid_at', { ascending: false, nullsLast: false })
+        .limit(1);
+
+      latestPaymentReference = transactions?.[0]?.reference ?? null;
+    } catch (txnError) {
+      console.warn('[lookup-username] Unable to fetch latest transaction', txnError);
     }
 
-    if (subscriptionStatus && !ACTIVE_STATUSES.has(subscriptionStatus)) {
-      return new Response(
-        JSON.stringify({
-          error:
-            'This account is not active. Please contact support if you believe this is an error.',
-          subscriptionStatus,
-        }),
-        {
-          status: 423,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
+    const responsePayload = {
+      email: data.email,
+      userId: data.id,
+      subscriptionStatus,
+      pendingRegistration: subscriptionStatus
+        ? RESUMABLE_STATUSES.has(subscriptionStatus)
+        : false,
+      needsSupport:
+        subscriptionStatus !== null &&
+        !ACTIVE_STATUSES.has(subscriptionStatus) &&
+        !RESUMABLE_STATUSES.has(subscriptionStatus),
+      latestReference: latestPaymentReference,
+    };
 
-    return new Response(
-      JSON.stringify({ email: data.email, subscriptionStatus }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return new Response(JSON.stringify(responsePayload), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('[lookup-username] Unexpected error:', error);
     return new Response(

@@ -19,12 +19,6 @@ const sections = {
   account: document.querySelector('[data-section="account"]'),
 };
 
-console.log('Sections initialization:', {
-  names: !!sections.names,
-  contact: !!sections.contact,
-  account: !!sections.account
-});
-
 const firstNameInput = document.getElementById('first-name');
 const lastNameInput = document.getElementById('last-name');
 const emailInput = document.getElementById('email-address');
@@ -70,6 +64,12 @@ let isVerifyingPayment = false;
 let lastVerificationError = null;
 let hasFocusedContact = false;
 let hasFocusedAccount = false;
+let resumePollingHandle = null;
+let resumePollAttempts = 0;
+let resumeInFlight = false;
+
+const RESUME_POLL_INTERVAL_MS = 15000;
+const MAX_RESUME_POLLS = 6;
 
 const FIELD_STATUS_CLASSES = ['text-red-600', 'text-green-600', 'text-slate-600'];
 
@@ -464,34 +464,13 @@ function resetUsernameState() {
 function evaluateNamesComplete() {
   const firstName = firstNameInput?.value.trim();
   const lastName = lastNameInput?.value.trim();
-  const wasIncomplete = !state.namesComplete;
   state.namesComplete = Boolean(firstName && lastName);
-
-  console.log('evaluateNamesComplete called:', {
-    firstName: firstName || '(empty)',
-    lastName: lastName || '(empty)',
-    namesComplete: state.namesComplete,
-    wasIncomplete
-  });
-
-  if (wasIncomplete && state.namesComplete) {
-    console.log('Names section just completed, showing contact section');
-  }
 
   updateSectionVisibility();
   maybeGenerateUsername();
 }
 
 function updateSectionVisibility() {
-  console.log('updateSectionVisibility called:', {
-    namesComplete: state.namesComplete,
-    emailValid: state.emailValid,
-    phoneValid: state.phoneValid,
-    usernameReady: state.usernameReady,
-    generatedUsername: !!generatedUsername,
-    usernameGenerationPromise: !!usernameGenerationPromise
-  });
-
   if (!state.namesComplete) {
     hasFocusedContact = false;
   }
@@ -503,7 +482,6 @@ function updateSectionVisibility() {
 
     // Add heartbeat animation when contact section becomes visible
     if (wasHidden && !sections.contact.classList.contains('hidden')) {
-      console.log('Contact section is now visible');
       // Trigger heartbeat on the first input field in contact section
       const firstContactInput = sections.contact.querySelector('input');
       if (firstContactInput) {
@@ -527,7 +505,6 @@ function updateSectionVisibility() {
 
     // Add heartbeat animation when account section becomes visible
     if (wasHidden && !sections.account.classList.contains('hidden')) {
-      console.log('Account section is now visible');
       const firstAccountInput = sections.account.querySelector('input');
       if (firstAccountInput && firstAccountInput.id !== 'generated-username') {
         setTimeout(() => {
@@ -535,6 +512,14 @@ function updateSectionVisibility() {
         }, 300);
       }
     }
+  }
+
+  if (state.namesComplete) {
+    setTimeout(maybeFocusContact, 200);
+  }
+
+  if (accountShouldShow) {
+    setTimeout(maybeFocusAccount, 200);
   }
 }
 
@@ -572,6 +557,117 @@ function maybeFocusAccount() {
     if (sections.contact?.contains(currentActive)) return;
     firstAccountInput.focus();
   }, 150);
+}
+
+function clearResumePolling() {
+  if (resumePollingHandle) {
+    clearInterval(resumePollingHandle);
+    resumePollingHandle = null;
+  }
+  resumePollAttempts = 0;
+  resumeInFlight = false;
+}
+
+function scheduleResumePolling({ userId, reference, contact }) {
+  if (!userId || resumePollingHandle) return;
+  resumePollAttempts = 0;
+  resumePollingHandle = setInterval(async () => {
+    if (resumeInFlight) return;
+    if (resumePollAttempts >= MAX_RESUME_POLLS) {
+      clearResumePolling();
+      return;
+    }
+    resumeInFlight = true;
+    resumePollAttempts += 1;
+    try {
+      const outcome = await ensureServerActivation({ userId, reference, contact, suppressSchedule: true });
+      if (outcome.status === 'active') {
+        clearResumePolling();
+      }
+    } catch (error) {
+      console.warn('[Registration] Resume polling attempt failed', error);
+    } finally {
+      resumeInFlight = false;
+    }
+  }, RESUME_POLL_INTERVAL_MS);
+}
+
+async function fetchActiveSubscription(client, userId) {
+  if (!client || !userId) return null;
+  try {
+    const { data, error } = await client
+      .from('user_subscriptions')
+      .select('id, status, plan_id, started_at, expires_at')
+      .eq('user_id', userId)
+      .in('status', ['active', 'trialing', 'past_due'])
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+
+    return data ?? null;
+  } catch (error) {
+    console.warn('[Registration] Failed to fetch active subscription from server', error);
+    return null;
+  }
+}
+
+async function ensureServerActivation({
+  userId,
+  reference,
+  contact,
+  suppressSchedule = false,
+} = {}) {
+  if (!userId) {
+    return { status: 'missing_user' };
+  }
+
+  try {
+    const supabase = await ensureSupabaseClient();
+    const activeSubscription = await fetchActiveSubscription(supabase, userId);
+    if (activeSubscription) {
+      await transitionToActiveState(contact || lastContactDetails || {});
+      return { status: 'active', subscriptionId: activeSubscription.id };
+    }
+
+    const payload = { userId };
+    if (reference) payload.reference = reference;
+
+    const { data, error } = await supabase.functions.invoke('paystack-resume', {
+      body: payload,
+    });
+
+    if (error) {
+      const message = await extractEdgeFunctionError(
+        error,
+        'Unable to resume subscription from server.'
+      );
+      return { status: 'error', message };
+    }
+
+    const result = data || {};
+
+    if (result.status === 'active' || result.status === 'restored') {
+      await transitionToActiveState(contact || lastContactDetails || {});
+      return { status: 'active', subscriptionId: result.subscriptionId };
+    }
+
+    if (!suppressSchedule && result.status !== 'noop') {
+      scheduleResumePolling({ userId, reference, contact: contact || lastContactDetails || {} });
+    }
+
+    return { status: result.status || 'pending', details: result };
+  } catch (error) {
+    console.error('[Registration] Failed to ensure server activation', error);
+    return { status: 'error', message: error.message };
+  }
+}
+
+async function attemptResumeFromServer(options = {}) {
+  const { userId, reference, contact } = options;
+  if (!userId) return { status: 'missing_user' };
+  return ensureServerActivation({ userId, reference, contact });
 }
 
 async function checkEmailAvailability(email) {
@@ -1144,6 +1240,7 @@ async function transitionToActiveState(contact) {
     });
 
     storedPassword = '';
+    clearResumePolling();
     return { autoLogin: true };
   }
 
@@ -1158,6 +1255,7 @@ async function transitionToActiveState(contact) {
     showRetryCta: false,
   });
 
+  clearResumePolling();
   return { autoLogin: false };
 }
 
@@ -1178,6 +1276,7 @@ async function processPaymentVerification(reference, contact, options = {}) {
     return;
   }
 
+  clearResumePolling();
   isVerifyingPayment = true;
   lastVerificationError = null;
 
@@ -1204,6 +1303,16 @@ async function processPaymentVerification(reference, contact, options = {}) {
       return;
     }
 
+    const resumeOutcome = await ensureServerActivation({
+      userId: contact?.userId || pendingUserId,
+      reference,
+      contact,
+    });
+
+    if (resumeOutcome.status === 'active') {
+      return;
+    }
+
     console.warn('[Registration] Verification pending after retries', lastVerificationError);
     showSuccessState({
       title: 'Payment received — almost there',
@@ -1213,6 +1322,11 @@ async function processPaymentVerification(reference, contact, options = {}) {
       showDashboardCta: false,
       reference,
       showRetryCta: true,
+    });
+    scheduleResumePolling({
+      userId: contact?.userId || pendingUserId,
+      reference,
+      contact,
     });
   } catch (error) {
     lastVerificationError = error;
@@ -1225,6 +1339,11 @@ async function processPaymentVerification(reference, contact, options = {}) {
       showDashboardCta: false,
       reference,
       showRetryCta: true,
+    });
+    scheduleResumePolling({
+      userId: contact?.userId || pendingUserId,
+      reference,
+      contact,
     });
   } finally {
     isVerifyingPayment = false;
@@ -1264,6 +1383,7 @@ function openPaystackCheckout(paystackData, contact) {
     throw new Error('Paystack library failed to load. Please refresh the page and try again.');
   }
 
+  clearResumePolling();
   activeReference = paystackData.reference;
   lastReference = paystackData.reference;
   rememberPaymentReference(paystackData.reference);
@@ -1465,6 +1585,8 @@ async function handleFormSubmit(event) {
 async function initialise() {
   if (!formEl) return;
 
+  clearResumePolling();
+
   window.localStorage.removeItem('pendingPlanId');
 
   const params = new URLSearchParams(window.location.search);
@@ -1626,6 +1748,8 @@ async function initialise() {
       return;
     }
 
+    clearResumePolling();
+
     showSuccessState({
       title: 'Retrying verification…',
       body: 'Please hold on while we ask Paystack for an update.',
@@ -1645,6 +1769,16 @@ async function initialise() {
       console.error('[Registration] Manual verification retry failed', error);
     });
   });
+
+  if (pendingUserId) {
+    attemptResumeFromServer({
+      userId: pendingUserId,
+      reference: lastReference || lastContactDetails?.reference || null,
+      contact: lastContactDetails,
+    }).catch((error) => {
+      console.warn('[Registration] Automatic resume attempt failed', error);
+    });
+  }
 
   formEl.addEventListener('submit', handleFormSubmit);
 }

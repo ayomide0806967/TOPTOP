@@ -63,13 +63,48 @@ function buildPlanOptions(products) {
 }
 
 export async function usersView() {
-  const [profiles, departments, products] = await Promise.all([
+  const [rawProfiles, departments, products] = await Promise.all([
     dataService.listProfiles(),
     dataService.listDepartments(),
     dataService.listSubscriptionProductsDetailed(),
   ]);
 
+  const profiles = (rawProfiles || []).filter(Boolean);
   const planOptions = buildPlanOptions(products || []);
+
+  const statusCounts = profiles.reduce((acc, profile) => {
+    const bucket = profile.status_bucket || 'no_plan';
+    acc[bucket] = (acc[bucket] || 0) + 1;
+    return acc;
+  }, {});
+
+  statusCounts.all = profiles.length;
+
+  const filterDefinitions = [
+    { key: 'all', label: 'All', count: statusCounts.all || 0 },
+    { key: 'active', label: 'Active', count: statusCounts.active || 0 },
+    { key: 'pending_payment', label: 'Pending payment', count: statusCounts.pending_payment || 0 },
+    { key: 'expired', label: 'Expired', count: statusCounts.expired || 0 },
+    { key: 'no_plan', label: 'No plan', count: statusCounts.no_plan || 0 },
+    { key: 'suspended', label: 'Suspended', count: statusCounts.suspended || 0 },
+  ].filter((item) => item.count > 0 || item.key === 'all');
+
+  const filterButtonsHtml = filterDefinitions
+    .map(
+      ({ key, label, count }) => `
+        <button
+          type="button"
+          data-role="status-filter"
+          data-filter="${key}"
+          class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold transition"
+          ${key === 'all' ? 'data-active="true"' : ''}
+        >
+          <span>${label}</span>
+          <span class="rounded-full px-2 py-0.5 text-[0.65rem] font-semibold">${count}</span>
+        </button>
+      `,
+    )
+    .join('');
 
   const rowsHtml = (profiles || [])
     .map((profile) => {
@@ -79,12 +114,14 @@ export async function usersView() {
         profile.email,
         profile.plan_name,
         profile.department_name,
+        profile.status_bucket,
       ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
 
       const profilePayload = encodeURIComponent(JSON.stringify(profile));
+      const statusBucket = escapeHtml(profile.status_bucket || 'no_plan');
 
       return `
         <tr
@@ -92,6 +129,7 @@ export async function usersView() {
           data-role="user-row"
           data-profile="${profilePayload}"
           data-search="${escapeHtml(searchTerms)}"
+          data-status-bucket="${statusBucket}"
         >
           <td class="px-4 py-4 align-top">
             <div class="font-semibold text-slate-900">${escapeHtml(profile.full_name || '—')}</div>
@@ -200,8 +238,12 @@ export async function usersView() {
               </span>
             </div>
             <p class="text-xs text-slate-400 sm:ml-auto">
-              Showing ${profiles.length} ${profiles.length === 1 ? 'learner' : 'learners'}
+              Showing <span data-role="user-count">${profiles.length}</span> ${profiles.length === 1 ? 'learner' : 'learners'}
             </p>
+          </div>
+
+          <div class="mt-4 flex flex-wrap items-center gap-2" data-role="status-filter-group">
+            ${filterButtonsHtml}
           </div>
 
           <div class="mt-6 overflow-hidden rounded-2xl border border-slate-100">
@@ -471,6 +513,8 @@ export async function usersView() {
     onMount(container, _appState, actions) {
       const rows = Array.from(container.querySelectorAll('[data-role="user-row"]'));
       const searchInput = container.querySelector('[data-role="user-search"]');
+      const filterButtons = Array.from(container.querySelectorAll('[data-role="status-filter"]'));
+      const userCountEl = container.querySelector('[data-role="user-count"]');
       const bulkModal = container.querySelector('[data-role="bulk-modal"]');
       const userModal = container.querySelector('[data-role="user-modal"]');
       const bulkForm = container.querySelector('[data-role="bulk-form"]');
@@ -488,6 +532,71 @@ export async function usersView() {
       const deleteBtn = container.querySelector('[data-role="delete-user"]');
       let bulkDownloadUrl = null;
       let activeProfile = null;
+      let activeFilter = 'all';
+      let searchQuery = '';
+
+      const ACTIVE_FILTER_CLASSES = [
+        'bg-cyan-600',
+        'text-white',
+        'border',
+        'border-cyan-600',
+        'shadow',
+        'shadow-cyan-600/30',
+      ];
+      const INACTIVE_FILTER_CLASSES = [
+        'bg-slate-100',
+        'text-slate-600',
+        'border',
+        'border-slate-200',
+      ];
+
+      const resetFilterStyles = (button) => {
+        button.classList.remove(...ACTIVE_FILTER_CLASSES);
+        button.classList.remove(...INACTIVE_FILTER_CLASSES);
+        const badge = button.querySelector('span:last-child');
+        if (badge) {
+          badge.classList.remove('bg-white', 'text-cyan-700', 'bg-white/70', 'text-slate-500');
+        }
+      };
+
+      const applyFilterStyles = () => {
+        filterButtons.forEach((button) => {
+          resetFilterStyles(button);
+          const isActive = (button.dataset.filter || 'all') === activeFilter;
+          if (isActive) {
+            button.dataset.active = 'true';
+            button.classList.add(...ACTIVE_FILTER_CLASSES);
+            const badge = button.querySelector('span:last-child');
+            if (badge) {
+              badge.classList.add('bg-white', 'text-cyan-700');
+            }
+          } else {
+            button.removeAttribute('data-active');
+            button.classList.add(...INACTIVE_FILTER_CLASSES);
+            const badge = button.querySelector('span:last-child');
+            if (badge) {
+              badge.classList.add('bg-white/70', 'text-slate-500');
+            }
+          }
+        });
+      };
+
+      const applyFilters = () => {
+        let visibleCount = 0;
+        rows.forEach((row) => {
+          const bucket = row.dataset.statusBucket || 'no_plan';
+          const haystack = (row.dataset.search || '').toLowerCase();
+          const matchesFilter = activeFilter === 'all' || bucket === activeFilter;
+          const matchesSearch = !searchQuery || haystack.includes(searchQuery);
+          const visible = matchesFilter && matchesSearch;
+          row.classList.toggle('hidden', !visible);
+          if (visible) visibleCount += 1;
+        });
+
+        if (userCountEl) {
+          userCountEl.textContent = visibleCount.toString();
+        }
+      };
 
       const ensureModalPortal = (modalEl) => {
         if (!modalEl) return null;
@@ -601,12 +710,22 @@ export async function usersView() {
       });
 
       searchInput?.addEventListener('input', (event) => {
-        const query = event.target.value.trim().toLowerCase();
-        rows.forEach((row) => {
-          const haystack = row.dataset.search || '';
-          row.classList.toggle('hidden', query && !haystack.includes(query));
+        searchQuery = event.target.value.trim().toLowerCase();
+        applyFilters();
+      });
+
+      filterButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          const nextFilter = button.dataset.filter || 'all';
+          if (activeFilter === nextFilter) return;
+          activeFilter = nextFilter;
+          applyFilterStyles();
+          applyFilters();
         });
       });
+
+      applyFilterStyles();
+      applyFilters();
 
       bulkForm?.addEventListener('submit', async (event) => {
         event.preventDefault();
