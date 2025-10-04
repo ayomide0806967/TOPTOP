@@ -379,6 +379,14 @@ function setUsernameField(value, { status = 'info', message = '' } = {}) {
   generatedUsername = value || '';
   if (usernameInput) {
     usernameInput.value = generatedUsername;
+    // Add distinctive green styling for auto-generated usernames
+    if (generatedUsername) {
+      usernameInput.classList.add('bg-green-50', 'border-green-300', 'text-green-800', 'font-semibold');
+      usernameInput.classList.remove('bg-white', 'border-slate-300', 'text-slate-900');
+    } else {
+      usernameInput.classList.remove('bg-green-50', 'border-green-300', 'text-green-800', 'font-semibold');
+      usernameInput.classList.add('bg-white', 'border-slate-300', 'text-slate-900');
+    }
   }
 
   if (generatedUsername) {
