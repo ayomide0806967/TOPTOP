@@ -190,20 +190,16 @@ function updateScheduleNotice(health) {
   const meta = elements.scheduleMeta;
 
   container.classList.add('hidden');
-  if (headline) headline.textContent = 'Daily schedule status';
-  if (detail) detail.textContent = 'Loading latest schedule data…';
+  if (headline) headline.textContent = '';
+  if (detail) detail.textContent = '';
   if (meta) meta.textContent = '';
 
-  if (!health) {
-    return;
-  }
+  if (!health) return;
 
   let tone = 'info';
   let headlineText = '';
   let detailText = '';
   let metaText = '';
-  const target = Number(health.question_target ?? 0);
-  const count = Number(health.question_count ?? 0);
   const missing = Number(health.missing_questions ?? 0);
   const dayOffset = Number.isFinite(Number(health.day_offset))
     ? Number(health.day_offset)
@@ -213,12 +209,7 @@ function updateScheduleNotice(health) {
   switch (health.status) {
     case 'ready':
     case 'published':
-      tone = 'positive';
-      headlineText = "Today's Question Pool is Ready";
-      detailText = target
-        ? `${count}/${target} questions prepared for your daily practice.`
-        : `${count} questions available for today.`;
-      break;
+      return; // No banner needed when everything is ready
     case 'underfilled':
       tone = 'warning';
       headlineText = "Today's pool is being prepared";
@@ -252,10 +243,7 @@ function updateScheduleNotice(health) {
       detailText = health.message || 'Please refresh the page to try again.';
       break;
     default:
-      tone = 'info';
-      headlineText = 'Checking daily schedule…';
-      detailText = 'Loading your question pool status.';
-      break;
+      return;
   }
 
   const cycleTitle = health.cycle_title ? `Cycle: ${health.cycle_title}` : '';
@@ -269,6 +257,12 @@ function updateScheduleNotice(health) {
   metaText = [cycleTitle, dayLabel, windowDates, nextReady]
     .filter(Boolean)
     .join(' · ');
+
+  const shouldShow = tone !== 'info' || headlineText || detailText || metaText;
+  if (!shouldShow) {
+    container.classList.add('hidden');
+    return;
+  }
 
   if (headline) headline.textContent = headlineText;
   if (detail) detail.textContent = detailText;

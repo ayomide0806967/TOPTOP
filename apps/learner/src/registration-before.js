@@ -68,6 +68,8 @@ let usernameGenerationPromise = null;
 let lastContactDetails = null;
 let isVerifyingPayment = false;
 let lastVerificationError = null;
+let hasFocusedContact = false;
+let hasFocusedAccount = false;
 
 const FIELD_STATUS_CLASSES = ['text-red-600', 'text-green-600', 'text-slate-600'];
 
@@ -408,13 +410,33 @@ function setUsernameField(value, { status = 'info', message = '' } = {}) {
   generatedUsername = value || '';
   if (usernameInput) {
     usernameInput.value = generatedUsername;
-    // Add distinctive green styling for auto-generated usernames
+    // Add distinctive styling for auto-generated usernames
     if (generatedUsername) {
-      usernameInput.classList.add('bg-green-50', 'border-green-300', 'text-green-800', 'font-semibold');
-      usernameInput.classList.remove('bg-white', 'border-slate-300', 'text-slate-900');
+      usernameInput.classList.add(
+        'bg-emerald-50',
+        'border-emerald-300',
+        'text-emerald-900',
+        'font-semibold'
+      );
+      usernameInput.classList.remove(
+        'bg-white',
+        'border-slate-300',
+        'text-slate-900',
+        'font-medium'
+      );
     } else {
-      usernameInput.classList.remove('bg-green-50', 'border-green-300', 'text-green-800', 'font-semibold');
-      usernameInput.classList.add('bg-white', 'border-slate-300', 'text-slate-900');
+      usernameInput.classList.remove(
+        'bg-emerald-50',
+        'border-emerald-300',
+        'text-emerald-900',
+        'font-semibold'
+      );
+      usernameInput.classList.add(
+        'bg-white',
+        'border-slate-300',
+        'text-slate-900',
+        'font-medium'
+      );
     }
   }
 
@@ -425,6 +447,7 @@ function setUsernameField(value, { status = 'info', message = '' } = {}) {
     } else {
       clearFieldStatus(usernameFeedbackEl);
     }
+    setTimeout(maybeFocusAccount, 150);
   } else {
     state.usernameReady = false;
     clearFieldStatus(usernameFeedbackEl);
@@ -434,6 +457,7 @@ function setUsernameField(value, { status = 'info', message = '' } = {}) {
 function resetUsernameState() {
   usernameGenerationPromise = null;
   setUsernameField('');
+  hasFocusedAccount = false;
   updateSectionVisibility();
 }
 
@@ -468,6 +492,10 @@ function updateSectionVisibility() {
     usernameGenerationPromise: !!usernameGenerationPromise
   });
 
+  if (!state.namesComplete) {
+    hasFocusedContact = false;
+  }
+
   // Show contact section when names are complete
   if (sections.contact) {
     const wasHidden = sections.contact.classList.contains('hidden');
@@ -481,7 +509,6 @@ function updateSectionVisibility() {
       if (firstContactInput) {
         setTimeout(() => {
           triggerFieldPulse(firstContactInput);
-          firstContactInput.focus();
         }, 300);
       }
     }
@@ -489,6 +516,11 @@ function updateSectionVisibility() {
 
   const accountPrereqsMet = state.namesComplete && state.emailValid && state.phoneValid;
   const accountShouldShow = accountPrereqsMet && (generatedUsername || usernameGenerationPromise);
+
+  if (!accountPrereqsMet) {
+    hasFocusedAccount = false;
+  }
+
   if (sections.account) {
     const wasHidden = sections.account.classList.contains('hidden');
     sections.account.classList.toggle('hidden', !accountShouldShow);
@@ -500,11 +532,46 @@ function updateSectionVisibility() {
       if (firstAccountInput && firstAccountInput.id !== 'generated-username') {
         setTimeout(() => {
           triggerFieldPulse(firstAccountInput);
-          firstAccountInput.focus();
         }, 300);
       }
     }
   }
+}
+
+function maybeFocusContact() {
+  if (!state.namesComplete || hasFocusedContact) return;
+  if (document.activeElement === firstNameInput || document.activeElement === lastNameInput) {
+    return;
+  }
+  const firstContactInput = sections.contact?.querySelector('input');
+  if (!firstContactInput) return;
+  hasFocusedContact = true;
+  setTimeout(() => {
+    if (document.activeElement === firstNameInput || document.activeElement === lastNameInput) return;
+    firstContactInput.focus();
+  }, 120);
+}
+
+function maybeFocusAccount() {
+  const accountVisible = sections.account && !sections.account.classList.contains('hidden');
+  if (!accountVisible) return;
+  if (!state.namesComplete || !state.emailValid || !state.phoneValid) return;
+  if (hasFocusedAccount) return;
+
+  const activeElement = document.activeElement;
+  if (sections.contact?.contains(activeElement)) {
+    return;
+  }
+
+  const firstAccountInput = sections.account?.querySelector('input:not([readonly])');
+  if (!firstAccountInput || firstAccountInput.disabled) return;
+
+  hasFocusedAccount = true;
+  setTimeout(() => {
+    const currentActive = document.activeElement;
+    if (sections.contact?.contains(currentActive)) return;
+    firstAccountInput.focus();
+  }, 150);
 }
 
 async function checkEmailAvailability(email) {
@@ -1478,6 +1545,7 @@ async function initialise() {
         console.error('[Registration] Email validation failed', error);
       });
       maybeGenerateUsername();
+      setTimeout(maybeFocusAccount, 120);
     });
   }
 
@@ -1494,6 +1562,7 @@ async function initialise() {
         console.error('[Registration] Phone validation failed', error);
       });
       maybeGenerateUsername();
+      setTimeout(maybeFocusAccount, 120);
     });
   }
 
@@ -1505,6 +1574,14 @@ async function initialise() {
   lastNameInput?.addEventListener('input', () => {
     resetUsernameState();
     evaluateNamesComplete();
+  });
+
+  firstNameInput?.addEventListener('blur', () => {
+    setTimeout(maybeFocusContact, 120);
+  });
+
+  lastNameInput?.addEventListener('blur', () => {
+    setTimeout(maybeFocusContact, 120);
   });
 
   passwordInput?.addEventListener('input', () => {
