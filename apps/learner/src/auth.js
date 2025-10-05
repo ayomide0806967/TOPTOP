@@ -1,4 +1,8 @@
 import { getSupabaseClient } from '../../shared/supabaseClient.js';
+import {
+  deriveSessionFingerprint,
+  storeSessionFingerprint,
+} from '../../shared/sessionFingerprint.js';
 
 // ============================================================================
 // DOM ELEMENTS
@@ -215,7 +219,7 @@ async function getEmailFromUsername(supabase, username) {
  */
 async function signInWithCredentials(supabase, email, password) {
   try {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -241,10 +245,51 @@ async function signInWithCredentials(supabase, email, password) {
       return { success: false, error: error.message || 'Unable to sign in. Please try again.' };
     }
 
-    return { success: true };
+    return { success: true, session: data?.session || null };
   } catch (error) {
     console.error('[Auth] Unexpected error in signInWithCredentials:', error);
     return { success: false, error: 'An unexpected error occurred. Please try again.' };
+  }
+}
+
+async function syncActiveSession(supabase, session) {
+  try {
+    let activeSession = session;
+    if (!activeSession) {
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession();
+      activeSession = currentSession;
+    }
+
+    const refreshToken = activeSession?.refresh_token;
+    if (!refreshToken) {
+      console.warn('[Auth] No refresh token found for session synchronisation.');
+      return;
+    }
+
+    const fingerprint = await deriveSessionFingerprint(refreshToken);
+    if (!fingerprint) {
+      console.warn('[Auth] Unable to derive session fingerprint.');
+      return;
+    }
+
+    storeSessionFingerprint(fingerprint);
+
+    const refreshedAtIso = activeSession?.expires_at
+      ? new Date(activeSession.expires_at * 1000).toISOString()
+      : new Date().toISOString();
+
+    const { error } = await supabase.rpc('sync_profile_session', {
+      p_session_fingerprint: fingerprint,
+      p_session_refreshed_at: refreshedAtIso,
+    });
+
+    if (error) {
+      console.warn('[Auth] Failed to sync active session fingerprint', error);
+    }
+  } catch (error) {
+    console.warn('[Auth] Unexpected error while syncing active session', error);
   }
 }
 
@@ -316,13 +361,19 @@ async function handleLogin(event, supabase) {
     }
 
     // Step 2: Sign in with email and password
-    const { success, error: signInError } = await signInWithCredentials(supabase, email, password);
+    const {
+      success,
+      error: signInError,
+      session,
+    } = await signInWithCredentials(supabase, email, password);
     
     if (!success) {
       showFeedback(signInError || 'Unable to sign in.');
       setLoading(false);
       return;
     }
+
+    await syncActiveSession(supabase, session);
 
     try {
       window.sessionStorage.setItem(

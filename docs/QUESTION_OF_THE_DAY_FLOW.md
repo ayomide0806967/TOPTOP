@@ -86,7 +86,7 @@ When user clicks "Start Daily Questions":
 ### API Endpoints
 
 #### RPC Functions
-- `generate_daily_quiz()` - Generates quiz for current day
+- `generate_daily_quiz(p_subscription_id uuid default null, p_limit integer default null)` - Generates quiz for current day using the selected subscription (or the learner’s default preference)
 - `get_user_schedule_health()` - Gets schedule status
 
 ### Error Handling
@@ -95,17 +95,21 @@ The system handles various error scenarios:
 
 1. **No Active Subscription**
    - Message: "You need an active subscription to access daily questions"
-   - Action: Prevents quiz generation
+   - Action: Prevents quiz generation and prompts learner to pick/renew a plan
 
-2. **No Active Study Slot**
+2. **Invalid Selected Plan**
+   - Message: "The selected subscription is no longer active. Choose a different plan to continue."
+   - Action: Refreshes subscription list and requests a new selection
+
+3. **No Active Study Slot**
    - Message: "No active study slot for your department today"
    - Action: Shows informative message on dashboard
 
-3. **Incomplete Question Pool**
+4. **Incomplete Question Pool**
    - Message: "Today's question pool is being prepared"
    - Action: Shows warning, allows retry later
 
-4. **Network Errors**
+5. **Network Errors**
    - Automatic retry with exponential backoff
    - User-friendly error messages
    - Option to retry or return to dashboard

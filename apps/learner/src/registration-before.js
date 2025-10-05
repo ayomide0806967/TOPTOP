@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '../../shared/supabaseClient.js';
+import { clearSessionFingerprint } from '../../shared/sessionFingerprint.js';
 
 const STORAGE_PLAN = 'registrationPlan';
 const STORAGE_CONTACT = 'registrationContact';
@@ -64,8 +65,10 @@ let isVerifyingPayment = false;
 let lastVerificationError = null;
 let hasFocusedContact = false;
 let hasFocusedAccount = false;
+let pendingRegistrationToken = null;
 
 const FIELD_STATUS_CLASSES = ['text-red-600', 'text-amber-600', 'text-slate-600'];
+const FALLBACK_USERNAME_WORDS = ['prep', 'learn', 'study', 'ace', 'quiz', 'focus', 'track', 'mentor'];
 
 async function copyToClipboard(value) {
   if (!value) return false;
@@ -100,6 +103,7 @@ const state = {
   emailValid: false,
   phoneValid: false,
   usernameReady: false,
+  session: null,
 };
 
 function renderFieldStatus(target, message, type = 'info') {
@@ -142,7 +146,7 @@ function clearFieldStatus(target) {
 function showFeedback(message, type = 'error') {
   if (!feedbackEl) return;
 
-  feedbackEl.innerHTML = message;
+  feedbackEl.textContent = message;
   feedbackEl.classList.remove('hidden');
   feedbackEl.classList.remove(
     'bg-green-50',
@@ -174,7 +178,7 @@ function showFeedback(message, type = 'error') {
 function clearFeedback() {
   if (!feedbackEl) return;
   feedbackEl.classList.add('hidden');
-  feedbackEl.innerHTML = '';
+  feedbackEl.textContent = '';
   if (feedbackEl?.dataset) {
     delete feedbackEl.dataset.state;
   }
@@ -357,26 +361,46 @@ function sanitizeForUsername(value) {
     .replace(/[^a-z0-9]/g, '');
 }
 
-function deriveUsernameBase(firstName, lastName, email) {
+function buildUsernameCandidates(firstName, lastName, email) {
   const primary = sanitizeForUsername(firstName);
   const secondary = sanitizeForUsername(lastName);
-  const emailPrefix = sanitizeForUsername(email.split('@')[0] || '');
+  const emailPrefix = sanitizeForUsername((email.split('@')[0] || '').toLowerCase());
 
-  let base = (primary + secondary.slice(0, 1)).slice(0, 10);
+  const candidates = new Set();
 
-  if (base.length < 3) {
-    base = (primary + emailPrefix).slice(0, 10);
+  const pushCandidate = (raw) => {
+    if (!raw) return;
+    const sanitized = sanitizeForUsername(raw).slice(0, 12);
+    if (sanitized.length >= 3) {
+      candidates.add(sanitized);
+    }
+  };
+
+  pushCandidate(primary + secondary.slice(0, 2));
+  pushCandidate(primary + secondary.charAt(0));
+  pushCandidate(primary.slice(0, 3) + secondary);
+  pushCandidate(primary + emailPrefix.slice(-2));
+  pushCandidate(primary.slice(0, 5) + emailPrefix.slice(0, 3));
+  pushCandidate(emailPrefix + secondary.slice(0, 2));
+  pushCandidate(primary.charAt(0) + secondary);
+  pushCandidate(secondary.charAt(0) + primary);
+  pushCandidate(emailPrefix);
+
+  FALLBACK_USERNAME_WORDS.forEach((word) => {
+    pushCandidate(`${primary}${word}`);
+    pushCandidate(`${word}${primary.slice(0, 3)}`);
+  });
+
+  if (!candidates.size) {
+    pushCandidate(primary);
+    pushCandidate(emailPrefix);
   }
 
-  if (base.length < 3) {
-    base = (emailPrefix || primary || 'nightingale').slice(0, 10);
-  }
+  pushCandidate('nightingale');
+  pushCandidate('study');
+  pushCandidate('prep');
 
-  if (base.length < 3) {
-    base = 'study';
-  }
-
-  return base;
+  return Array.from(candidates);
 }
 
 async function checkUsernameAvailability(username, allowedProfileId = null) {
@@ -409,12 +433,9 @@ async function checkUsernameAvailability(username, allowedProfileId = null) {
 }
 
 async function ensureUniqueUsername(firstName, lastName, email) {
-  const base = deriveUsernameBase(firstName, lastName, email);
+  const allowProfileId = pendingProfileHint?.profileId || null;
   const attempted = new Set();
 
-  const allowProfileId = pendingProfileHint?.profileId || null;
-
-  // Allow reusing the stored username for pending profiles when possible
   if (pendingProfileHint?.username) {
     const normalized = sanitizeForUsername(pendingProfileHint.username);
     if (normalized.length >= 3) {
@@ -425,19 +446,30 @@ async function ensureUniqueUsername(firstName, lastName, email) {
     }
   }
 
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    const suffix = attempt === 0 ? '' : String(Math.floor(10 + Math.random() * 90));
-    const trimmedBase = base.slice(0, Math.max(3, 12 - suffix.length));
-    const candidate = `${trimmedBase}${suffix}`.toLowerCase();
+  const candidateBases = buildUsernameCandidates(firstName, lastName, email);
 
-    if (candidate.length < 3 || attempted.has(candidate)) {
-      continue;
+  for (const base of candidateBases) {
+    if (attempted.has(base)) continue;
+    attempted.add(base);
+
+    const directCheck = await checkUsernameAvailability(base, allowProfileId);
+    if (directCheck.available) {
+      return base;
     }
-    attempted.add(candidate);
 
-    const availability = await checkUsernameAvailability(candidate, allowProfileId);
-    if (availability.available) {
-      return candidate;
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const suffix = String(Math.floor(100 + Math.random() * 9000));
+      const trimmedBase = base.slice(0, Math.max(3, 12 - suffix.length));
+      const candidate = `${trimmedBase}${suffix}`;
+      if (attempted.has(candidate)) {
+        continue;
+      }
+      attempted.add(candidate);
+
+      const availability = await checkUsernameAvailability(candidate, allowProfileId);
+      if (availability.available) {
+        return candidate;
+      }
     }
   }
 
@@ -968,9 +1000,14 @@ async function createPendingUser(payload) {
     throw new Error('Failed to get a user ID from the server.');
   }
 
+  if (data.registrationToken) {
+    pendingRegistrationToken = data.registrationToken;
+  }
+
   return {
     userId: data.userId,
     username: data.username || payload.username,
+    registrationToken: data.registrationToken,
   };
 }
 
@@ -1175,6 +1212,7 @@ async function transitionToActiveState(contact) {
   window.localStorage.removeItem(STORAGE_CONTACT);
   window.localStorage.removeItem(STORAGE_PLAN);
   clearStoredReference();
+  pendingRegistrationToken = null;
 
   if (autoLoginSucceeded) {
     if (storedPassword) {
@@ -1301,6 +1339,7 @@ async function handlePaymentSuccess(reference, contact) {
     userId: contact?.userId || pendingUserId,
     email: contact?.email,
     reference,
+    registrationToken: pendingRegistrationToken,
   };
   lastContactDetails = contactDetails;
 
@@ -1573,7 +1612,16 @@ async function initialise() {
 
   try {
     const supabase = await ensureSupabaseClient();
-    await supabase.auth.signOut();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session?.user) {
+      state.session = session;
+    } else {
+      await supabase.auth.signOut();
+      clearSessionFingerprint();
+    }
   } catch (error) {
     console.warn('[Registration] Failed to clear existing session', error);
   }

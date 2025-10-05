@@ -361,7 +361,6 @@ serve(async (req) => {
           id: userId,
           email,
           username,
-          subscription_status: 'active',
           role: 'learner',
         };
 
@@ -375,15 +374,18 @@ serve(async (req) => {
 
         if (profileError) throw profileError;
 
+        const nowIso = new Date().toISOString();
         const subscriptionPayload = {
           id: crypto.randomUUID(),
           user_id: userId,
           plan_id: planId,
           status: 'active',
-          started_at: new Date().toISOString(),
+          started_at: nowIso,
           expires_at: expiresAt,
           price: plan.price ?? 0,
           currency: plan.currency || 'NGN',
+          purchased_at: nowIso,
+          quantity: 1,
         };
 
         const { error: subscriptionError } = await supabaseAdmin
@@ -393,6 +395,20 @@ serve(async (req) => {
         if (subscriptionError) throw subscriptionError;
 
         accountRecord.subscriptionId = subscriptionPayload.id;
+
+        const { error: defaultSubscriptionError } = await supabaseAdmin
+          .from('profiles')
+          .update({
+            default_subscription_id: subscriptionPayload.id,
+            updated_at: nowIso,
+          })
+          .eq('id', userId);
+
+        if (defaultSubscriptionError) throw defaultSubscriptionError;
+
+        await supabaseAdmin.rpc('refresh_profile_subscription_status', {
+          p_user_id: userId,
+        });
 
         results.push({
           username,

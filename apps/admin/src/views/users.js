@@ -116,12 +116,27 @@ export async function usersView() {
         profile.department_name,
         profile.status_bucket,
       ]
+        .concat(
+          Array.isArray(profile.subscriptions)
+            ? profile.subscriptions.map((subscription) => subscription.plan_name)
+            : [],
+        )
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
 
       const profilePayload = encodeURIComponent(JSON.stringify(profile));
       const statusBucket = escapeHtml(profile.status_bucket || 'no_plan');
+      const additionalPlans = Math.max((profile.subscriptions?.length || 0) - 1, 0);
+      const planLabel = profile.plan_name && profile.plan_name !== '-' ? profile.plan_name : 'No active plan';
+      const expiresLabel = profile.plan_expires_at
+        ? `Expires ${formatDate(profile.plan_expires_at)}`
+        : 'No expiry set';
+      const additionalLabel =
+        additionalPlans > 0
+          ? ` • +${additionalPlans} other plan${additionalPlans === 1 ? '' : 's'}`
+          : '';
+      const activeCount = profile.active_subscription_count || 0;
 
       return `
         <tr
@@ -142,9 +157,12 @@ export async function usersView() {
             <div class="mt-1 text-xs text-slate-400">${escapeHtml(profile.department_name || '—')}</div>
           </td>
           <td class="px-4 py-4 align-top">
-            <div class="font-medium text-slate-900">${escapeHtml(profile.plan_name || 'No active plan')}</div>
+            <div class="font-medium text-slate-900">${escapeHtml(planLabel)}</div>
             <div class="mt-1 text-xs text-slate-400">
-              ${profile.plan_expires_at ? `Expires ${formatDate(profile.plan_expires_at)}` : 'No expiry set'}
+              ${escapeHtml(expiresLabel)}${escapeHtml(additionalLabel)}
+            </div>
+            <div class="mt-1 text-[0.65rem] uppercase tracking-wide text-slate-400">
+              ${activeCount > 0 ? `${activeCount} active plan${activeCount === 1 ? '' : 's'}` : 'No active plans'}
             </div>
           </td>
           <td class="px-4 py-4 align-top">
@@ -808,32 +826,59 @@ export async function usersView() {
             : '';
         }
 
-        const metaLines = [];
-        metaLines.push(
-          `<div><span class="font-semibold text-slate-700">Plan:</span> ${escapeHtml(
-            profile.plan_name || 'No active plan',
-          )}</div>`,
-        );
-        metaLines.push(
-          `<div><span class="font-semibold text-slate-700">Status:</span> ${escapeHtml(
-            profile.status || profile.subscription_status || 'inactive',
-          )}</div>`,
-        );
-        if (profile.plan_started_at) {
-          metaLines.push(
-            `<div><span class="font-semibold text-slate-700">Started:</span> ${formatDate(
-              profile.plan_started_at,
-            )}</div>`,
-          );
+        const subscriptions = Array.isArray(profile.subscriptions)
+          ? profile.subscriptions
+          : [];
+
+        if (subscriptions.length) {
+          const listMarkup = subscriptions
+            .map((subscription) => {
+              const badge = renderStatusBadge(subscription.status || subscription.status_key);
+              const details = [];
+              if (subscription.started_at) {
+                details.push(`Started ${formatDate(subscription.started_at)}`);
+              }
+              if (subscription.expires_at) {
+                details.push(`Expires ${formatDate(subscription.expires_at)}`);
+              }
+              if (subscription.purchased_at && subscription.purchased_at !== subscription.started_at) {
+                details.push(`Purchased ${formatDate(subscription.purchased_at)}`);
+              }
+              if (subscription.daily_limit) {
+                details.push(`${subscription.daily_limit} questions/day`);
+              }
+              const departmentLabel = subscription.department?.name
+                ? subscription.department.name
+                : subscription.product_name || 'General';
+              const highlight =
+                profile.default_subscription_id &&
+                subscription.id === profile.default_subscription_id;
+
+              return `
+                <article class="rounded-xl border ${highlight ? 'border-cyan-200 bg-cyan-50/60' : 'border-slate-200 bg-white'} px-4 py-3">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div class="text-sm font-semibold text-slate-900">${escapeHtml(
+                        subscription.plan_name || 'Subscription',
+                      )}</div>
+                      <div class="text-xs text-slate-500">${escapeHtml(departmentLabel || '—')}</div>
+                    </div>
+                    <div class="text-xs">${badge}</div>
+                  </div>
+                  <div class="mt-2 text-xs text-slate-500">
+                    ${escapeHtml(details.join(' • ') || 'No timeline available')}
+                  </div>
+                  ${highlight ? '<div class="mt-1 text-[0.7rem] font-semibold uppercase tracking-wide text-cyan-600">Selected for daily questions</div>' : ''}
+                </article>
+              `;
+            })
+            .join('');
+
+          userPlanMeta.innerHTML = `<div class="space-y-3">${listMarkup}</div>`;
+        } else {
+          userPlanMeta.innerHTML =
+            '<div class="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">No subscriptions found for this learner.</div>';
         }
-        if (profile.plan_expires_at) {
-          metaLines.push(
-            `<div><span class="font-semibold text-slate-700">Expires:</span> ${formatDate(
-              profile.plan_expires_at,
-            )}</div>`,
-          );
-        }
-        userPlanMeta.innerHTML = metaLines.join('');
 
         suspendBtn.textContent =
           (profile.subscription_status || '').toLowerCase() === 'suspended'

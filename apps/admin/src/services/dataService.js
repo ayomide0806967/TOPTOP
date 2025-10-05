@@ -482,29 +482,109 @@ function buildSubscriptionProductDetailed(row) {
   };
 }
 
+const SUBSCRIPTION_SORT_WEIGHT = {
+  active: 0,
+  trialing: 0,
+  past_due: 1,
+  pending_payment: 2,
+  expired: 3,
+  canceled: 4,
+  cancelled: 4,
+  inactive: 5,
+  none: 6,
+};
+
+function getUserSubscriptionStatus(entry) {
+  if (!entry) return 'none';
+  const normalized = (entry.status || '').toLowerCase();
+  if (entry.expires_at) {
+    const expires = new Date(entry.expires_at);
+    if (!Number.isNaN(expires.getTime()) && expires.getTime() < Date.now()) {
+      return 'expired';
+    }
+  }
+  return normalized || 'inactive';
+}
+
+function normalizeUserSubscription(entry) {
+  if (!entry) return null;
+  const statusKey = getUserSubscriptionStatus(entry);
+  const plan = entry.subscription_plans || entry.plan || {};
+  const product = plan.subscription_products || plan.product || {};
+  const department = product.departments || product.department || {};
+
+  const startedAtDate = entry.started_at ? new Date(entry.started_at) : null;
+  const expiresAtDate = entry.expires_at ? new Date(entry.expires_at) : null;
+  const now = new Date();
+  const isActiveNow = ['active', 'trialing', 'past_due'].includes(statusKey)
+    && (!startedAtDate || startedAtDate.getTime() <= now.getTime())
+    && (!expiresAtDate || expiresAtDate.getTime() >= now.getTime());
+
+  return {
+    id: entry.id,
+    status: entry.status,
+    status_key: statusKey,
+    plan_id: entry.plan_id,
+    plan_name: plan.name || plan.code || null,
+    plan_code: plan.code || null,
+    plan_price: plan.price ?? null,
+    plan_currency: plan.currency || 'NGN',
+    daily_limit: plan.daily_question_limit ?? null,
+    duration_days: plan.duration_days ?? null,
+    plan_tier: plan.plan_tier || null,
+    purchased_at: entry.purchased_at || null,
+    started_at: entry.started_at || null,
+    expires_at: entry.expires_at || null,
+    quantity: entry.quantity ?? 1,
+    renewed_from_subscription_id: entry.renewed_from_subscription_id || null,
+    is_active_now: isActiveNow,
+    product_name: product.name || null,
+    department: {
+      id: department.id || product.department_id || null,
+      name: department.name || null,
+      slug: department.slug || null,
+      color: department.color_theme || null,
+    },
+  };
+}
+
+function compareNormalizedSubscriptions(a, b) {
+  const weightA = SUBSCRIPTION_SORT_WEIGHT[a.status_key] ?? 10;
+  const weightB = SUBSCRIPTION_SORT_WEIGHT[b.status_key] ?? 10;
+  if (weightA !== weightB) {
+    return weightA - weightB;
+  }
+
+  const expiresA = a.expires_at ? new Date(a.expires_at).getTime() : Number.POSITIVE_INFINITY;
+  const expiresB = b.expires_at ? new Date(b.expires_at).getTime() : Number.POSITIVE_INFINITY;
+  if (expiresA !== expiresB) {
+    return expiresA - expiresB;
+  }
+
+  const startedA = a.started_at ? new Date(a.started_at).getTime() : 0;
+  const startedB = b.started_at ? new Date(b.started_at).getTime() : 0;
+  return startedB - startedA;
+}
+
 function buildProfileRow(row) {
   if (!row) return null;
-  const subscriptions = Array.isArray(row.user_subscriptions)
-    ? row.user_subscriptions
-    : [];
+  const rawSubscriptions = Array.isArray(row.user_subscriptions) ? row.user_subscriptions : [];
+  const normalizedSubscriptions = rawSubscriptions
+    .map(normalizeUserSubscription)
+    .filter(Boolean)
+    .sort(compareNormalizedSubscriptions);
 
   const normalizedProfileStatus = (row.subscription_status || '').toLowerCase();
-  const orderedSubscriptions = [...subscriptions].sort((a, b) => {
-    const aDate = a?.started_at ? new Date(a.started_at).getTime() : 0;
-    const bDate = b?.started_at ? new Date(b.started_at).getTime() : 0;
-    return bDate - aDate;
-  });
+  const defaultId = row.default_subscription_id || null;
+  const explicitDefault = normalizedSubscriptions.find((sub) => sub.id === defaultId);
+  const activeSubscription = normalizedSubscriptions.find((sub) =>
+    ['active', 'trialing', 'past_due'].includes(sub.status_key) && sub.is_active_now
+  );
+  const primarySubscription = explicitDefault || activeSubscription || normalizedSubscriptions[0] || null;
 
-  const activeSubscription = orderedSubscriptions.find((sub) => {
-    const status = (sub.status || '').toLowerCase();
-    return status === 'active' || status === 'trialing' || status === 'past_due';
-  });
-
-  const subscription = activeSubscription ?? orderedSubscriptions[0] ?? null;
-  const plan = subscription?.subscription_plans;
-  const subscriptionStatuses = orderedSubscriptions.map((sub) => (sub.status || '').toLowerCase());
+  const subscriptionStatuses = normalizedSubscriptions.map((sub) => sub.status_key);
   const hasEverSubscribed = subscriptionStatuses.length > 0;
-  const hasActivePlan = Boolean(activeSubscription);
+  const hasActivePlan = normalizedSubscriptions.some((sub) => sub.is_active_now);
 
   let statusBucket = 'no_plan';
   if (normalizedProfileStatus === 'suspended') {
@@ -524,7 +604,7 @@ function buildProfileRow(row) {
   }
 
   const displayStatus =
-    subscription?.status || row.subscription_status || (hasEverSubscribed ? 'inactive' : 'no_plan');
+    primarySubscription?.status || row.subscription_status || (hasEverSubscribed ? 'inactive' : 'no_plan');
 
   return {
     id: row.id,
@@ -538,10 +618,13 @@ function buildProfileRow(row) {
     status: displayStatus,
     subscription_status: row.subscription_status || null,
     status_bucket: statusBucket,
-    plan_name: plan?.name || '-',
-    plan_id: subscription?.plan_id || null,
-    plan_started_at: subscription?.started_at || null,
-    plan_expires_at: subscription?.expires_at || null,
+    plan_name: primarySubscription?.plan_name || '-',
+    plan_id: primarySubscription?.plan_id || null,
+    plan_started_at: primarySubscription?.started_at || null,
+    plan_expires_at: primarySubscription?.expires_at || null,
+    default_subscription_id: primarySubscription?.id || defaultId,
+    subscriptions: normalizedSubscriptions,
+    active_subscription_count: normalizedSubscriptions.filter((sub) => sub.is_active_now).length,
     department_id: row.department_id,
     department_name: row.departments?.name || '-',
   };
@@ -556,6 +639,7 @@ function buildPlanLearner(row) {
     status: row.status,
     started_at: row.started_at,
     expires_at: row.expires_at,
+    purchased_at: row.purchased_at || null,
     price: row.price,
     currency: row.currency,
     full_name: profile.full_name,
@@ -3084,13 +3168,35 @@ class DataService {
         .select(`
           *,
           departments (name),
-          user_subscriptions (
+          user_subscriptions!user_subscriptions_user_id_fkey (
+            id,
             status,
             plan_id,
             started_at,
             expires_at,
+            purchased_at,
+            quantity,
+            renewed_from_subscription_id,
             subscription_plans (
-              name
+              id,
+              name,
+              code,
+              price,
+              currency,
+              daily_question_limit,
+              duration_days,
+              plan_tier,
+              subscription_products (
+                id,
+                name,
+                department_id,
+                departments (
+                  id,
+                  name,
+                  slug,
+                  color_theme
+                )
+              )
             )
           )
         `)
@@ -3120,12 +3226,36 @@ class DataService {
         .select(`
           *,
           departments (name),
-          user_subscriptions (
+          user_subscriptions!user_subscriptions_user_id_fkey (
+            id,
             status,
             plan_id,
             started_at,
             expires_at,
-            subscription_plans (name)
+            purchased_at,
+            quantity,
+            renewed_from_subscription_id,
+            subscription_plans (
+              id,
+              name,
+              code,
+              price,
+              currency,
+              daily_question_limit,
+              duration_days,
+              plan_tier,
+              subscription_products (
+                id,
+                name,
+                department_id,
+                departments (
+                  id,
+                  name,
+                  slug,
+                  color_theme
+                )
+              )
+            )
           )
         `)
         .eq('role', 'learner')
@@ -3176,6 +3306,7 @@ class DataService {
             status,
             started_at,
             expires_at,
+            purchased_at,
             price,
             currency,
             profiles!inner (
@@ -3314,5 +3445,11 @@ class DataService {
 }
 
 export const dataService = new DataService();
+
+export const __userSubscriptionHelpers = {
+  getUserSubscriptionStatus,
+  normalizeUserSubscription,
+  compareNormalizedSubscriptions,
+};
 
 export { buildCycleTimeline };

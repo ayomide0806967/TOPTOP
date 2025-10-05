@@ -59,12 +59,12 @@ export function getUserClient(authHeader: string | null): SupabaseClient {
 
 function computeExpiryDate(
   durationDays: number | null | undefined,
-  paidAt: string | null
+  startsAt: string | null
 ): string | null {
   if (!durationDays || durationDays <= 0) {
     return null;
   }
-  const base = paidAt ? new Date(paidAt) : new Date();
+  const base = startsAt ? new Date(startsAt) : new Date();
   if (Number.isNaN(base.getTime())) {
     return null;
   }
@@ -111,12 +111,21 @@ export async function upsertPaymentAndSubscription(options: {
     throw new Error('Invalid payment amount.');
   }
 
-  if (plan.price && Math.abs(Number(plan.price) - amount) > 5) {
-    console.warn('[Paystack] Amount mismatch', {
-      expected: plan.price,
-      received: amount,
-      reference,
-    });
+  if (status.toLowerCase() !== 'success') {
+    throw new Error(`Payment status is not successful (received: ${status}).`);
+  }
+
+  const planPrice = plan.price != null ? Number(plan.price) : null;
+  const requestedQuantity = Number(metadata?.quantity ?? 1);
+  if (!Number.isFinite(requestedQuantity) || requestedQuantity !== 1) {
+    throw new Error('Invalid purchase quantity.');
+  }
+
+  if (planPrice != null) {
+    const expectedAmountKobo = Math.round(planPrice * 100 * requestedQuantity);
+    if (expectedAmountKobo !== amountKobo) {
+      throw new Error('Payment amount does not match the plan price.');
+    }
   }
 
   const upsertPayload = {
@@ -147,68 +156,112 @@ export async function upsertPaymentAndSubscription(options: {
     throw new Error('Failed to record payment transaction.');
   }
 
-  const expiresAt = computeExpiryDate(plan.duration_days, paidAt);
-
-  const subscriptionPayload = {
-    status: 'active',
-    started_at: paidAt,
-    expires_at: expiresAt,
-    price: amount,
-    currency: currency || plan.currency || 'NGN',
-  };
-
-  const { data: existingSub, error: existingError } = await admin
+  const { data: latestActive, error: latestError } = await admin
     .from('user_subscriptions')
-    .select('id')
+    .select('id, status, started_at, expires_at, quantity')
     .eq('user_id', userId)
     .eq('plan_id', planId)
-    .eq('status', 'active')
+    .in('status', ['active', 'trialing', 'past_due'])
+    .order('expires_at', { ascending: false, nullsLast: false })
+    .order('started_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
-  if (existingError && existingError.code !== 'PGRST116') {
-    throw existingError;
+  if (latestError && latestError.code !== 'PGRST116') {
+    throw latestError;
   }
 
-  let subscriptionId: string | null = null;
+  const latestExpiresAt = latestActive?.expires_at ? new Date(latestActive.expires_at) : null;
+  const purchaseDate = paidAt ? new Date(paidAt) : new Date();
+  const startAnchor =
+    latestExpiresAt && !Number.isNaN(latestExpiresAt.getTime()) && latestExpiresAt > purchaseDate
+      ? latestExpiresAt
+      : purchaseDate;
+  const startsAtIso = startAnchor.toISOString();
+  const expiresAt = computeExpiryDate(plan.duration_days, startsAtIso);
 
-  if (existingSub?.id) {
+  const normalizedQuantity = 1; // quantity is fixed for now to avoid abuse
+
+  let subscriptionId = latestActive?.id ?? null;
+
+  if (latestActive?.id) {
+    const newExpiresAt = expiresAt;
+    const newQuantity = Number(latestActive.quantity ?? 1) + normalizedQuantity;
+    const shouldResetStart =
+      !latestExpiresAt || latestExpiresAt <= purchaseDate || !latestActive.started_at;
+
+    const updatePayload: Record<string, unknown> = {
+      status: 'active',
+      canceled_at: null,
+      expires_at: newExpiresAt,
+      quantity: newQuantity,
+    };
+
+    if (shouldResetStart) {
+      updatePayload.started_at = startsAtIso;
+    }
+
     const { error: updateError } = await admin
       .from('user_subscriptions')
-      .update(subscriptionPayload)
-      .eq('id', existingSub.id);
+      .update(updatePayload)
+      .eq('id', latestActive.id);
+
     if (updateError) {
       throw updateError;
     }
-    subscriptionId = existingSub.id;
+
+    subscriptionId = latestActive.id;
   } else {
     const insertPayload = {
       user_id: userId,
       plan_id: planId,
-      ...subscriptionPayload,
+      status: 'active',
+      started_at: startsAtIso,
+      expires_at: expiresAt,
+      price: amount,
+      currency: currency || plan.currency || 'NGN',
+      purchased_at: paidAt,
+      payment_transaction_id: transactionId,
+      quantity: normalizedQuantity,
+      renewed_from_subscription_id: latestActive?.id ?? null,
     };
+
     const { data: inserted, error: insertError } = await admin
       .from('user_subscriptions')
       .insert(insertPayload)
       .select('id')
       .single();
+
     if (insertError) {
       throw insertError;
     }
+
     subscriptionId = inserted.id;
   }
 
-  if (!subscriptionId) {
-    throw new Error('Unable to resolve subscription identifier.');
+  const { error: transactionLinkError } = await admin
+    .from('payment_transactions')
+    .update({ subscription_id: subscriptionId })
+    .eq('id', transactionId);
+
+  if (transactionLinkError && transactionLinkError.code !== 'PGRST116') {
+    throw transactionLinkError;
   }
 
-  const { error: statusUpdateError } = await admin
+  const { data: profile } = await admin
     .from('profiles')
-    .update({ subscription_status: 'active' })
-    .eq('id', userId);
+    .select('default_subscription_id')
+    .eq('id', userId)
+    .maybeSingle();
 
-  if (statusUpdateError && statusUpdateError.code !== 'PGRST116') {
-    throw statusUpdateError;
+  if (!profile?.default_subscription_id) {
+    await admin
+      .from('profiles')
+      .update({ default_subscription_id: subscriptionId })
+      .eq('id', userId);
   }
+
+  await admin.rpc('refresh_profile_subscription_status', { p_user_id: userId });
 
   return {
     subscriptionId,

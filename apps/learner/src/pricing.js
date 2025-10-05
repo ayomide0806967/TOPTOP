@@ -161,6 +161,9 @@ const state = {
   },
   session: null,
   user: null,
+  profile: null,
+  profileLoaded: false,
+  profileLoading: false,
   pendingPlanId: window.localStorage.getItem('pendingPlanId') || null,
   checkout: {
     activeReference: null,
@@ -325,6 +328,8 @@ function renderPlanCard({ plan, product, palette, variant }) {
   const priceText = escapeHtml(formatCurrency(plan.price, plan.currency));
   const billingTextSafe = escapeHtml(billingText);
   const productIdSafe = escapeHtml(planIdentifier);
+  const isLoading = state.checkout.loadingPlanId === planIdentifier;
+  const ctaLabel = isLoading ? 'Preparing checkout…' : `Choose ${planName}`;
 
   return `
     <article class="plan-card ${isContrast ? 'plan-card--contrast' : 'plan-card--soft'}" data-plan-id="${productIdSafe}" style="${style}">
@@ -349,8 +354,8 @@ function renderPlanCard({ plan, product, palette, variant }) {
         </a>
       </div>
       <footer class="plan-card__actions">
-        <button type="button" class="plan-card__cta" data-action="choose-plan" data-plan-id="${productIdSafe}">
-          Choose ${planName}
+        <button type="button" class="plan-card__cta ${isLoading ? 'opacity-60 cursor-wait' : ''}" data-action="choose-plan" data-plan-id="${productIdSafe}" ${isLoading ? 'disabled' : ''}>
+          ${ctaLabel}
         </button>
       </footer>
     </article>
@@ -618,17 +623,61 @@ async function ensureAuthSession() {
     if (!error) {
       state.session = data.session;
       state.user = data.session?.user ?? null;
+      if (state.user) {
+        await ensureProfile();
+      } else {
+        state.profile = null;
+        state.profileLoaded = false;
+      }
     }
     if (!state.authListenerBound) {
       supabase.auth.onAuthStateChange((_event, session) => {
         state.session = session;
         state.user = session?.user ?? null;
+        state.profile = null;
+        state.profileLoaded = false;
+        if (state.user) {
+          ensureProfile().catch((profileError) => {
+            console.warn('[Pricing] Failed to refresh profile after auth change', profileError);
+          });
+        }
       });
       state.authListenerBound = true;
     }
   } catch (error) {
     console.error('[Pricing] Unable to resolve auth session', error);
   }
+}
+
+async function ensureProfile() {
+  if (!state.user) {
+    state.profile = null;
+    state.profileLoaded = true;
+    return null;
+  }
+  if (state.profileLoaded || state.profileLoading) {
+    return state.profile;
+  }
+  state.profileLoading = true;
+  try {
+    const supabase = await getSupabaseClient();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, first_name, last_name, phone, email, username, subscription_status')
+      .eq('id', state.user.id)
+      .maybeSingle();
+    if (error) {
+      throw error;
+    }
+    state.profile = data || null;
+  } catch (error) {
+    console.error('[Pricing] Failed to load profile for checkout', error);
+    state.profile = null;
+  } finally {
+    state.profileLoaded = true;
+    state.profileLoading = false;
+  }
+  return state.profile;
 }
 
 
@@ -658,6 +707,221 @@ function maybeTriggerPendingCheckout() {
   state.pendingPlanId = null;
   window.localStorage.removeItem('pendingPlanId');
   handlePlanSelection(planId);
+}
+
+
+function shouldUseRegistrationFlow() {
+  if (!state.user) return true;
+  const status = (state.profile?.subscription_status || '').toLowerCase();
+  return status === 'pending_payment' || status === 'awaiting_setup';
+}
+
+function setCheckoutLoading(planId) {
+  state.checkout.loadingPlanId = planId;
+  renderProductsForSelection();
+}
+
+function resetCheckoutState() {
+  state.checkout.loadingPlanId = null;
+  state.checkout.activeReference = null;
+  renderProductsForSelection();
+}
+
+function splitNameParts(fullName = '') {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) {
+    return { first: '', last: '' };
+  }
+  if (parts.length === 1) {
+    return { first: parts[0], last: '' };
+  }
+  return { first: parts[0], last: parts.slice(1).join(' ') };
+}
+
+function buildContactPayload(planId) {
+  const profile = state.profile || {};
+  const metadata = state.user?.user_metadata || {};
+  const email = state.user?.email || profile.email || metadata.email || '';
+  const { first: fullFirst, last: fullLast } = splitNameParts(
+    profile.full_name || metadata.full_name || ''
+  );
+  const firstName = profile.first_name || metadata.first_name || fullFirst || 'Learner';
+  const lastName = profile.last_name || metadata.last_name || fullLast || 'Account';
+  const phone = profile.phone || metadata.phone || '';
+  const username =
+    metadata.username || profile.username || (email ? email.split('@')[0] : `user-${Date.now()}`);
+
+  return {
+    planId,
+    email,
+    firstName,
+    lastName,
+    phone,
+    username,
+  };
+}
+
+async function extractEdgeFunctionError(error, fallbackMessage) {
+  if (error?.context instanceof Response) {
+    try {
+      const cloned = error.context.clone();
+      const contentType = cloned.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const json = await cloned.json();
+        if (json?.error) return json.error;
+        if (json?.message) return json.message;
+      }
+      const text = await cloned.text();
+      if (text) return text;
+    } catch (parseError) {
+      console.warn('[Pricing] Failed to parse edge error response', parseError);
+    }
+  }
+
+  if (error?.message && error.message !== 'Edge Function returned a non-2xx status code') {
+    return error.message;
+  }
+
+  return fallbackMessage;
+}
+
+async function verifyExistingPayment(reference) {
+  const supabase = await getSupabaseClient();
+  const { error } = await supabase.functions.invoke('paystack-verify', {
+    body: { reference },
+  });
+  if (error) {
+    const message = await extractEdgeFunctionError(
+      error,
+      'Payment verification failed. Please contact support with your reference.'
+    );
+    throw new Error(message);
+  }
+}
+
+async function refreshProfileStatus() {
+  if (!state.user) return;
+  try {
+    const supabase = await getSupabaseClient();
+    await supabase.rpc('refresh_profile_subscription_status', {
+      p_user_id: state.user.id,
+    });
+  } catch (error) {
+    console.warn('[Pricing] Unable to refresh profile subscription status', error);
+  }
+  state.profileLoaded = false;
+  await ensureProfile();
+}
+
+
+async function startExistingUserCheckout(planId) {
+  const entry = state.planLookup.get(planId);
+  if (!entry || !entry.plan) {
+    showBanner('We could not locate that plan. Please refresh and try again.', 'error');
+    return;
+  }
+
+  const planRecord = entry.plan;
+  const planKey = planRecord.id || planRecord.code || planId;
+
+  try {
+    const contact = buildContactPayload(planRecord.id || planId);
+    if (!contact.email) {
+      throw new Error(
+        'We need an email address on file before we can start checkout. Please update your profile or contact support.'
+      );
+    }
+
+    setCheckoutLoading(planKey);
+    showBanner('Preparing secure checkout. Please wait…', 'info');
+
+    const supabase = await getSupabaseClient();
+    const { data, error } = await supabase.functions.invoke('paystack-initiate', {
+      body: {
+        planId: planRecord.id || planId,
+        userId: state.user.id,
+        registration: {
+          first_name: contact.firstName,
+          last_name: contact.lastName,
+          phone: contact.phone,
+          username: contact.username,
+        },
+      },
+    });
+
+    if (error) {
+      const message = await extractEdgeFunctionError(
+        error,
+        'Unable to initialise checkout. Please try again.'
+      );
+      throw new Error(message);
+    }
+
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+
+    if (!data || !data.reference) {
+      throw new Error('Paystack did not return a checkout reference.');
+    }
+
+    state.checkout.activeReference = data.reference;
+    launchExistingUserCheckout(data, contact);
+  } catch (error) {
+    console.error('[Pricing] Checkout initialisation failed', error);
+    showBanner(error.message || 'Unable to start checkout. Please try again.', 'error');
+    resetCheckoutState();
+  }
+}
+
+function launchExistingUserCheckout(paystackData, contact) {
+  if (!window.PaystackPop) {
+    showBanner('Payment library failed to load. Please refresh and try again.', 'error');
+    resetCheckoutState();
+    return;
+  }
+
+  try {
+    const handler = window.PaystackPop.setup({
+      key: paystackData.publicKey || state.paystack.publicKey,
+      email: contact.email,
+      amount: paystackData.amount,
+      currency: paystackData.currency || 'NGN',
+      ref: paystackData.reference,
+      metadata: paystackData.metadata || {},
+      callback: (response) => {
+        const reference = response.reference || paystackData.reference;
+        verifyExistingPayment(reference)
+          .then(() => refreshProfileStatus())
+          .then(() => {
+            showBanner('Payment confirmed! Redirecting to your dashboard…', 'success');
+            resetCheckoutState();
+            window.setTimeout(() => {
+              window.location.href = 'admin-board.html';
+            }, 1500);
+          })
+          .catch((error) => {
+            console.error('[Pricing] Post-payment verification failed', error);
+            showBanner(
+              error.message ||
+                'We received your payment but could not verify it automatically. Please contact support with your reference.',
+              'error'
+            );
+            resetCheckoutState();
+          });
+      },
+      onClose: () => {
+        showBanner('Checkout closed before completion. You can try again anytime.', 'warning');
+        resetCheckoutState();
+      },
+    });
+
+    handler.openIframe();
+  } catch (error) {
+    console.error('[Pricing] Failed to open Paystack checkout', error);
+    showBanner('We could not open the payment window. Please refresh and try again.', 'error');
+    resetCheckoutState();
+  }
 }
 
 
@@ -697,15 +961,25 @@ function redirectToRegistration(planId) {
 
 
 async function handlePlanSelection(planId) {
-  // Always use the pre-payment registration form to collect details,
-  // even if a user session exists. This enforces the desired flow:
-  // Select plan -> Fill contact form -> Pay -> Create login.
+  const entry = state.planLookup.get(planId);
+  if (!entry || !entry.plan) {
+    showBanner('We could not locate that plan. Please refresh and try again.', 'error');
+    return;
+  }
+
+  if (state.user) {
+    await ensureProfile();
+    if (!shouldUseRegistrationFlow()) {
+      await startExistingUserCheckout(planId);
+      return;
+    }
+  }
+
   showBanner(
     'Tell us who is subscribing so we can tailor your practice sets.',
     'info'
   );
   redirectToRegistration(planId);
-  return;
 }
 
 

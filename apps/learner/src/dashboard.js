@@ -1,4 +1,56 @@
 import { getSupabaseClient } from '../../shared/supabaseClient.js';
+import { clearSessionFingerprint } from '../../shared/sessionFingerprint.js';
+import {
+  getQuizSnapshot,
+  listQuizSnapshots,
+} from '../../shared/quizSnapshotStore.js';
+
+const CARD_PALETTES = {
+  default: {
+    surface: 'linear-gradient(145deg, #f9f5ee 0%, #f3e8d7 45%, #e8d6bc 100%)',
+    border: '#e6d8c5',
+    accent: '#0f766e',
+    accentHover: '#0d5f58',
+    accentSoft: 'rgba(15, 118, 110, 0.15)',
+    text: '#1f2937',
+    muted: '#475569',
+    chipBg: 'rgba(15, 118, 110, 0.12)',
+    chipText: '#0f4c45',
+  },
+  nursing: {
+    surface: 'linear-gradient(145deg, #f3faf8 0%, #e0f0ee 45%, #d0e4e1 100%)',
+    border: '#cde5df',
+    accent: '#0e7490',
+    accentHover: '#0b5c72',
+    accentSoft: 'rgba(14, 116, 144, 0.16)',
+    text: '#0f172a',
+    muted: '#43647a',
+    chipBg: 'rgba(14, 116, 144, 0.12)',
+    chipText: '#0e5160',
+  },
+  midwifery: {
+    surface: 'linear-gradient(145deg, #f7f2fe 0%, #e9dcfb 45%, #dec6f7 100%)',
+    border: '#dccdf6',
+    accent: '#7c3aed',
+    accentHover: '#6d28d9',
+    accentSoft: 'rgba(124, 58, 237, 0.16)',
+    text: '#312e81',
+    muted: '#514386',
+    chipBg: 'rgba(124, 58, 237, 0.12)',
+    chipText: '#5b21b6',
+  },
+  'public-health': {
+    surface: 'linear-gradient(145deg, #fdf5ec 0%, #f7e2c9 45%, #f2d1a4 100%)',
+    border: '#f0d8b7',
+    accent: '#d97706',
+    accentHover: '#b45309',
+    accentSoft: 'rgba(217, 119, 6, 0.16)',
+    text: '#92400e',
+    muted: '#a16207',
+    chipBg: 'rgba(217, 119, 6, 0.12)',
+    chipText: '#92400e',
+  },
+};
 
 const elements = {
   toast: document.querySelector('[data-role="toast"]'),
@@ -28,23 +80,17 @@ const elements = {
   regenerateBtn: document.querySelector('[data-role="regenerate-quiz"]'),
   resumeBtn: document.querySelector('[data-role="resume-quiz"]'),
   logoutBtn: document.querySelector('[data-role="logout"]'),
+  mobileLogout: document.querySelector('[data-role="mobile-logout"]'),
   userGreeting: document.querySelector('[data-role="user-greeting"]'),
   userEmail: document.querySelector('[data-role="user-email"]'),
   progressBar: document.querySelector('[data-role="progress-bar"]'),
   progressLabel: document.querySelector('[data-role="progress-label"]'),
   subscriptionCard: document.querySelector('[data-role="subscription-card"]'),
-  planStatusChip: document.querySelector('[data-role="plan-status-chip"]'),
-  planName: document.querySelector('[data-role="plan-name"]'),
-  planDescription: document.querySelector('[data-role="plan-description"]'),
-  planDays: document.querySelector('[data-role="plan-days"]'),
-  planRenewal: document.querySelector('[data-role="plan-renewal"]'),
-  planPrice: document.querySelector('[data-role="plan-price"]'),
-  planProgressBar: document.querySelector('[data-role="plan-progress-bar"]'),
-  planProgressLabel: document.querySelector('[data-role="plan-progress-label"]'),
-  planDates: document.querySelector('[data-role="plan-dates"]'),
-  planRenewBtn: document.querySelector('[data-role="plan-renew"]'),
-  planDailyLimit: document.querySelector('[data-role="plan-daily-limit"]'),
-};
+  planHeading: document.querySelector('[data-role="plan-heading"]'),
+  planSubheading: document.querySelector('[data-role="plan-subheading"]'),
+  planBrowseBtn: document.querySelector('[data-role="plan-browse"]'),
+  planCollection: document.querySelector('[data-role="plan-collection"]'),
+}; 
 
 const state = {
   supabase: null,
@@ -53,7 +99,8 @@ const state = {
   todayQuiz: null,
   history: [],
   scheduleHealth: null,
-  subscription: null,
+  subscriptions: [],
+  defaultSubscriptionId: null,
 };
 
 const NOTICE_TONE_CLASSES = {
@@ -72,41 +119,65 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const PLAN_STATUS_STYLES = {
   active: {
     label: 'Active',
-    classes: ['bg-emerald-100', 'text-emerald-700', 'border-emerald-200'],
+    badgeBg: 'rgba(16, 185, 129, 0.18)',
+    badgeText: '#047857',
+    badgeBorder: 'rgba(16, 185, 129, 0.32)',
   },
   trialing: {
     label: 'Trialing',
-    classes: ['bg-amber-100', 'text-amber-700', 'border-amber-200'],
+    badgeBg: 'rgba(14, 165, 233, 0.18)',
+    badgeText: '#0369a1',
+    badgeBorder: 'rgba(14, 165, 233, 0.28)',
   },
   past_due: {
     label: 'Past Due',
-    classes: ['bg-amber-100', 'text-amber-700', 'border-amber-200'],
+    badgeBg: 'rgba(251, 191, 36, 0.18)',
+    badgeText: '#b45309',
+    badgeBorder: 'rgba(251, 191, 36, 0.32)',
   },
   expired: {
     label: 'Expired',
-    classes: ['bg-rose-100', 'text-rose-700', 'border-rose-200'],
+    badgeBg: 'rgba(248, 113, 113, 0.22)',
+    badgeText: '#b91c1c',
+    badgeBorder: 'rgba(248, 113, 113, 0.32)',
   },
   canceled: {
     label: 'Cancelled',
-    classes: ['bg-slate-100', 'text-slate-500', 'border-slate-200'],
+    badgeBg: 'rgba(148, 163, 184, 0.16)',
+    badgeText: '#475569',
+    badgeBorder: 'rgba(148, 163, 184, 0.3)',
   },
   inactive: {
     label: 'Inactive',
-    classes: ['bg-slate-100', 'text-slate-500', 'border-slate-200'],
+    badgeBg: 'rgba(148, 163, 184, 0.12)',
+    badgeText: '#64748b',
+    badgeBorder: 'rgba(148, 163, 184, 0.24)',
   },
   pending_payment: {
     label: 'Pending',
-    classes: ['bg-amber-100', 'text-amber-700', 'border-amber-200'],
+    badgeBg: 'rgba(251, 191, 36, 0.18)',
+    badgeText: '#92400e',
+    badgeBorder: 'rgba(251, 191, 36, 0.28)',
   },
   none: {
     label: 'No Plan',
-    classes: ['bg-slate-100', 'text-slate-500', 'border-slate-200'],
+    badgeBg: 'rgba(148, 163, 184, 0.1)',
+    badgeText: '#475569',
+    badgeBorder: 'rgba(148, 163, 184, 0.2)',
   },
 };
 
-const PLAN_STATUS_CLASSNAMES = [
-  ...new Set(Object.values(PLAN_STATUS_STYLES).flatMap((entry) => entry.classes)),
-];
+const STATUS_SORT_WEIGHT = {
+  active: 0,
+  trialing: 0,
+  past_due: 1,
+  pending_payment: 2,
+  expired: 3,
+  canceled: 4,
+  cancelled: 4,
+  inactive: 5,
+  none: 6,
+};
 
 function showToast(message, type = 'info') {
   if (!elements.toast) return;
@@ -156,6 +227,688 @@ function formatCurrency(amount, currency = 'NGN') {
   } catch {
     return `${currency} ${numeric.toLocaleString()}`;
   }
+}
+
+function getSubscriptionStatus(subscription) {
+  if (!subscription) return 'none';
+  const now = new Date();
+  const normalized = (subscription.status || '').toLowerCase();
+  const expiresAt = parseDate(subscription.expires_at);
+  if (expiresAt && expiresAt.getTime() < now.getTime()) {
+    return 'expired';
+  }
+  return normalized || 'inactive';
+}
+
+function isSubscriptionActive(subscription) {
+  if (!subscription) return false;
+  const statusKey = getSubscriptionStatus(subscription);
+  if (!['active', 'trialing', 'past_due'].includes(statusKey)) {
+    return false;
+  }
+  const now = new Date();
+  const startsAt = parseDate(subscription.started_at);
+  const expiresAt = parseDate(subscription.expires_at);
+  if (startsAt && startsAt.getTime() > now.getTime()) {
+    return false;
+  }
+  if (expiresAt && expiresAt.getTime() < now.getTime()) {
+    return false;
+  }
+  return true;
+}
+
+function getPlanTimeline(subscription) {
+  const startedAt = parseDate(subscription?.started_at);
+  const expiresAt = parseDate(subscription?.expires_at);
+  const now = new Date();
+
+  const totalDays = startedAt && expiresAt ? Math.max(1, daysBetween(startedAt, expiresAt)) : null;
+  const daysRemaining = expiresAt
+    ? Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / DAY_IN_MS))
+    : null;
+  const usedDays =
+    totalDays !== null && daysRemaining !== null
+      ? clamp(totalDays - daysRemaining, 0, totalDays)
+      : startedAt
+      ? clamp(Math.round((now.getTime() - startedAt.getTime()) / DAY_IN_MS), 0, totalDays ?? 30)
+      : null;
+  const progressPercent =
+    totalDays && usedDays !== null
+      ? clamp(Math.round((usedDays / totalDays) * 100), 0, 100)
+      : daysRemaining === 0
+      ? 100
+      : 0;
+
+  return {
+    startedAt,
+    expiresAt,
+    totalDays,
+    daysRemaining,
+    usedDays,
+    progressPercent,
+  };
+}
+
+function compareSubscriptions(a, b) {
+  const aStatus = getSubscriptionStatus(a);
+  const bStatus = getSubscriptionStatus(b);
+  const aWeight = STATUS_SORT_WEIGHT[aStatus] ?? 10;
+  const bWeight = STATUS_SORT_WEIGHT[bStatus] ?? 10;
+  if (aWeight !== bWeight) {
+    return aWeight - bWeight;
+  }
+
+  const aExpires = parseDate(a?.expires_at)?.getTime() ?? Number.POSITIVE_INFINITY;
+  const bExpires = parseDate(b?.expires_at)?.getTime() ?? Number.POSITIVE_INFINITY;
+  if (aExpires !== bExpires) {
+    return aExpires - bExpires;
+  }
+
+  const aStarted = parseDate(a?.started_at)?.getTime() ?? 0;
+  const bStarted = parseDate(b?.started_at)?.getTime() ?? 0;
+  return bStarted - aStarted;
+}
+
+function getSelectedSubscription(subscriptions = state.subscriptions || []) {
+  if (!Array.isArray(subscriptions) || subscriptions.length === 0) {
+    return null;
+  }
+
+  const explicit = subscriptions.find((entry) => entry.id === state.defaultSubscriptionId);
+  if (explicit) return explicit;
+
+  const activeSubs = subscriptions.filter(isSubscriptionActive).sort(compareSubscriptions);
+  if (activeSubs.length) {
+    return activeSubs[0];
+  }
+
+  return subscriptions.slice().sort(compareSubscriptions)[0];
+}
+
+function updateHeroForSubscription(subscription, profileStatus = 'inactive') {
+  const headlineEl = elements.heroPlanHeadline;
+  const daysEl = elements.heroDaysRemaining;
+  const progressBarEl = elements.heroProgressBar;
+  const progressLabelEl = elements.heroProgressLabel;
+
+  if (!subscription) {
+    if (headlineEl) {
+      headlineEl.textContent =
+        profileStatus === 'pending_payment'
+          ? 'Finish your checkout to unlock today’s personalised drill.'
+          : 'Choose a plan to unlock daily personalised quizzes and analytics.';
+    }
+    if (daysEl) {
+      daysEl.textContent =
+        profileStatus === 'pending_payment' ? 'Pending activation' : 'No active plan yet';
+    }
+    if (progressBarEl) {
+      progressBarEl.style.width = '0%';
+    }
+    if (progressLabelEl) {
+      progressLabelEl.textContent =
+        profileStatus === 'pending_payment'
+          ? 'We are waiting for your payment confirmation.'
+          : 'Your streak begins as soon as you activate a plan.';
+    }
+    return;
+  }
+
+  const timeline = getPlanTimeline(subscription);
+  const plan = subscription.plan || {};
+  const statusKey = getSubscriptionStatus(subscription);
+  const hasEnded = statusKey === 'expired';
+
+  if (headlineEl) {
+    const label = timeline.daysRemaining !== null
+      ? `${timeline.daysRemaining} day${timeline.daysRemaining === 1 ? '' : 's'} left`
+      : timeline.expiresAt
+      ? `Renews ${formatDate(timeline.expiresAt.toISOString())}`
+      : statusKey === 'trialing'
+      ? 'Trial access is active'
+      : 'Ongoing access';
+    headlineEl.textContent = plan.name ? `${plan.name} • ${label}` : `Active plan • ${label}`;
+  }
+
+  if (daysEl) {
+    if (timeline.daysRemaining !== null) {
+      daysEl.textContent = `${timeline.daysRemaining} day${timeline.daysRemaining === 1 ? '' : 's'} remaining`;
+    } else if (timeline.expiresAt) {
+      daysEl.textContent = `Renews ${formatDate(timeline.expiresAt.toISOString())}`;
+    } else if (statusKey === 'trialing') {
+      daysEl.textContent = 'Trial in progress';
+    } else {
+      daysEl.textContent = 'Active access';
+    }
+  }
+
+  if (progressBarEl) {
+    const percent = timeline.progressPercent ?? (hasEnded ? 100 : 10);
+    progressBarEl.style.width = `${percent}%`;
+  }
+
+  if (progressLabelEl) {
+    if (timeline.totalDays && timeline.usedDays !== null && timeline.daysRemaining !== null) {
+      progressLabelEl.textContent = `${timeline.usedDays} of ${timeline.totalDays} days used · ${timeline.daysRemaining} to go`;
+    } else if (statusKey === 'trialing') {
+      progressLabelEl.textContent = 'Trial is underway. Upgrade any time to keep your streak going.';
+    } else if (hasEnded) {
+      progressLabelEl.textContent = 'Plan expired. Renew to continue your personalised drills.';
+    } else {
+      progressLabelEl.textContent = 'Your progress updates as you complete each day’s questions.';
+    }
+  }
+}
+
+function createPlanCard(subscription) {
+  const plan = subscription.plan || {};
+  const metadata =
+    plan && plan.metadata && typeof plan.metadata === 'object' ? plan.metadata : {};
+  const product = plan.product || {};
+  const department = product.department || {};
+  const timeline = getPlanTimeline(subscription);
+  const statusKey = getSubscriptionStatus(subscription);
+  const statusStyle = PLAN_STATUS_STYLES[statusKey] || PLAN_STATUS_STYLES.none;
+  const isSelected = subscription.id === state.defaultSubscriptionId;
+  const activeNow = isSubscriptionActive(subscription);
+  const now = new Date();
+  const startsInFuture = timeline.startedAt && timeline.startedAt.getTime() > now.getTime();
+
+  const themeColor =
+    department?.color_theme ||
+    department?.slug ||
+    product?.department_slug ||
+    'default';
+  const palette = CARD_PALETTES[themeColor] || CARD_PALETTES.default;
+  const accentColor = palette.accent || '#0f766e';
+  const accentHover = palette.accentHover || accentColor;
+  const accentSoft = palette.accentSoft || 'rgba(15, 118, 110, 0.16)';
+  const textColor = palette.text || '#1f2937';
+  const mutedColor = palette.muted || '#475569';
+  const borderColor = palette.border || 'rgba(148, 163, 184, 0.32)';
+  const chipBg = statusStyle.badgeBg || palette.chipBg || accentSoft;
+  const chipText = statusStyle.badgeText || palette.chipText || accentColor;
+  const chipBorder = statusStyle.badgeBorder || 'transparent';
+
+  const card = document.createElement('article');
+  card.dataset.subscriptionId = subscription.id;
+  card.className =
+    'flex flex-col gap-5 rounded-3xl p-5 sm:p-6 shadow-sm border transition-transform duration-300 hover:-translate-y-0.5 focus-within:-translate-y-0.5';
+  card.style.background = palette.surface || '#f8fafc';
+  card.style.borderColor = borderColor;
+  card.style.color = textColor;
+  card.style.boxShadow = '0 22px 48px -32px rgba(15, 23, 42, 0.35)';
+  if (isSelected) {
+    card.style.borderColor = accentColor;
+    card.style.boxShadow = `0 28px 56px -34px ${accentColor}55`;
+  } else if (statusKey === 'expired') {
+    card.style.opacity = '0.92';
+  }
+
+  const header = document.createElement('div');
+  header.className = 'flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between';
+
+  const headerContent = document.createElement('div');
+  headerContent.className = 'space-y-1';
+
+  const title = document.createElement('h3');
+  title.className = 'text-lg font-semibold';
+  title.style.color = textColor;
+  title.textContent = plan.name || 'Subscription';
+  headerContent.appendChild(title);
+
+  if (metadata?.tagline || metadata?.summary || plan.description) {
+    const subtitle = document.createElement('p');
+    subtitle.className = 'text-sm';
+    subtitle.style.color = mutedColor;
+    subtitle.textContent = metadata?.tagline || metadata?.summary || plan.description;
+    headerContent.appendChild(subtitle);
+  }
+
+  const badge = document.createElement('span');
+  badge.className = 'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide';
+  badge.style.backgroundColor = chipBg;
+  badge.style.color = chipText;
+  badge.style.borderColor = chipBorder;
+  badge.textContent = statusStyle.label;
+
+  header.appendChild(headerContent);
+  header.appendChild(badge);
+  card.appendChild(header);
+
+  const progressWrapper = document.createElement('div');
+  progressWrapper.className = 'mt-3 space-y-2';
+
+  const progressBar = document.createElement('div');
+  progressBar.className = 'h-2 w-full overflow-hidden rounded-full border border-white/40 bg-white/60 backdrop-blur-sm';
+
+  const progressFill = document.createElement('div');
+  progressFill.className = 'h-full rounded-full transition-all duration-500 ease-out';
+  progressFill.style.background = `linear-gradient(90deg, ${accentColor}, ${accentHover})`;
+  progressFill.style.width = `${timeline.progressPercent ?? (statusKey === 'expired' ? 100 : 10)}%`;
+  progressBar.appendChild(progressFill);
+
+  const progressMeta = document.createElement('div');
+  progressMeta.className = 'flex flex-wrap items-center justify-between text-xs';
+  progressMeta.style.color = mutedColor;
+  if (timeline.totalDays && timeline.usedDays !== null && timeline.daysRemaining !== null) {
+    progressMeta.textContent = `${timeline.usedDays} of ${timeline.totalDays} days used • ${timeline.daysRemaining} remaining`;
+  } else if (statusKey === 'expired' && timeline.expiresAt) {
+    progressMeta.textContent = `Expired ${formatDate(timeline.expiresAt.toISOString())}`;
+  } else if (startsInFuture && timeline.startedAt) {
+    progressMeta.textContent = `Activates on ${formatDate(timeline.startedAt.toISOString())}`;
+  } else {
+    progressMeta.textContent = 'Plan timeline updated';
+  }
+
+  progressWrapper.appendChild(progressBar);
+  progressWrapper.appendChild(progressMeta);
+  card.appendChild(progressWrapper);
+
+  const detailGrid = document.createElement('dl');
+  detailGrid.className = 'mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4';
+
+  const addDetail = (label, value) => {
+    const wrapper = document.createElement('div');
+    const dt = document.createElement('dt');
+    dt.className = 'text-xs font-semibold uppercase tracking-wide';
+    dt.style.color = mutedColor;
+    dt.textContent = label;
+    const dd = document.createElement('dd');
+    dd.className = 'mt-1 text-base font-semibold';
+    dd.style.color = textColor;
+    dd.textContent = value ?? '—';
+    wrapper.appendChild(dt);
+    wrapper.appendChild(dd);
+    detailGrid.appendChild(wrapper);
+  };
+
+  const daysLabel = timeline.daysRemaining !== null
+    ? `${timeline.daysRemaining} day${timeline.daysRemaining === 1 ? '' : 's'}`
+    : '—';
+  addDetail('Days left', daysLabel);
+
+  const renewLabel = timeline.expiresAt
+    ? formatDate(timeline.expiresAt.toISOString())
+    : 'Auto-renew';
+  addDetail('Renews on', renewLabel);
+
+  const priceLabel = formatCurrency(plan.price, plan.currency || 'NGN');
+  addDetail('Plan price', priceLabel);
+
+  const dailyLimit = plan.daily_question_limit || metadata?.dailyLimit;
+  addDetail('Daily limit', dailyLimit ? `${dailyLimit} questions` : 'Flexible');
+
+  addDetail('Department', department.name || product.name || '—');
+
+  card.appendChild(detailGrid);
+
+  const footer = document.createElement('div');
+  footer.className = 'mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between';
+
+  const note = document.createElement('p');
+  note.className = 'text-xs sm:text-sm';
+  note.style.color = mutedColor;
+  if (statusKey === 'expired' && timeline.expiresAt) {
+    note.textContent = `Expired on ${formatDate(timeline.expiresAt.toISOString())}. Renew to regain access.`;
+  } else if (startsInFuture && timeline.startedAt) {
+    note.textContent = `Activates on ${formatDate(timeline.startedAt.toISOString())}. We'll switch automatically.`;
+  } else if (subscription.purchased_at) {
+    note.textContent = `Purchased ${formatDate(subscription.purchased_at)}.`;
+  } else {
+    note.textContent = 'Subscription is synced with your dashboard.';
+  }
+  footer.appendChild(note);
+
+  const buttonRow = document.createElement('div');
+  buttonRow.className = 'flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end w-full';
+
+  const quizBtn = document.createElement('button');
+  quizBtn.type = 'button';
+  quizBtn.dataset.subscriptionId = subscription.id;
+  quizBtn.dataset.role = 'plan-quiz';
+  if (activeNow) {
+    quizBtn.dataset.action = 'start-quiz';
+    quizBtn.className = 'inline-flex w-full sm:w-auto items-center justify-center rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-1';
+    quizBtn.style.background = `linear-gradient(135deg, ${accentColor}, ${accentHover})`;
+    quizBtn.style.boxShadow = `0 14px 28px -18px ${accentColor}80`;
+    quizBtn.textContent = 'Start daily quiz';
+  } else {
+    quizBtn.className = 'inline-flex w-full sm:w-auto items-center justify-center rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wide cursor-not-allowed';
+    quizBtn.style.background = 'rgba(148, 163, 184, 0.25)';
+    quizBtn.style.color = '#64748b';
+    quizBtn.textContent = startsInFuture ? 'Activates soon' : 'Unavailable';
+    quizBtn.disabled = true;
+  }
+
+  const useBtn = document.createElement('button');
+  useBtn.type = 'button';
+  useBtn.dataset.subscriptionId = subscription.id;
+
+  if (isSelected) {
+    useBtn.textContent = 'In use for daily questions';
+    useBtn.className = 'inline-flex w-full sm:w-auto items-center justify-center gap-1 rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wide shadow-sm focus:outline-none';
+    useBtn.style.background = accentSoft;
+    useBtn.style.color = accentColor;
+    useBtn.style.border = `1px solid ${accentColor}`;
+    useBtn.disabled = true;
+  } else if (!activeNow) {
+    useBtn.textContent = statusKey === 'expired' ? 'Renew to reactivate' : 'Activates soon';
+    useBtn.className = 'inline-flex w-full sm:w-auto items-center justify-center rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wide cursor-not-allowed';
+    useBtn.style.background = 'rgba(148, 163, 184, 0.2)';
+    useBtn.style.color = '#64748b';
+    useBtn.disabled = true;
+  } else {
+    useBtn.dataset.action = 'set-default';
+    useBtn.className = 'inline-flex w-full sm:w-auto items-center justify-center rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wide transition focus:outline-none focus:ring-2 focus:ring-offset-1';
+    useBtn.style.background = 'rgba(255, 255, 255, 0.7)';
+    useBtn.style.color = accentColor;
+    useBtn.style.border = `1px solid ${accentColor}33`;
+    useBtn.textContent = 'Use for daily questions';
+  }
+
+  if (!useBtn.textContent) {
+    useBtn.textContent = 'Use for daily questions';
+  }
+
+  const manageBtn = document.createElement('button');
+  manageBtn.type = 'button';
+  manageBtn.dataset.subscriptionId = subscription.id;
+  manageBtn.dataset.action = 'renew';
+  manageBtn.className = 'inline-flex w-full sm:w-auto items-center justify-center rounded-full border px-5 py-2.5 text-xs font-semibold uppercase tracking-wide transition focus:outline-none focus:ring-2 focus:ring-offset-1';
+  manageBtn.style.background = 'rgba(255, 255, 255, 0.65)';
+  manageBtn.style.borderColor = borderColor;
+  manageBtn.style.color = mutedColor;
+  manageBtn.textContent = statusKey === 'expired' ? 'Renew plan' : 'Manage plan';
+  if (statusKey === 'expired') {
+    manageBtn.style.background = 'rgba(254, 242, 242, 0.75)';
+    manageBtn.style.borderColor = 'rgba(248, 113, 113, 0.45)';
+    manageBtn.style.color = '#b91c1c';
+  }
+
+  buttonRow.appendChild(quizBtn);
+  buttonRow.appendChild(useBtn);
+  buttonRow.appendChild(manageBtn);
+  footer.appendChild(buttonRow);
+  card.appendChild(footer);
+
+  return card;
+}
+
+function handlePlanCollectionClick(event) {
+  const target = event.target.closest('[data-action]');
+  if (!target || target.disabled) return;
+  const action = target.dataset.action;
+  const subscriptionId = target.dataset.subscriptionId;
+  if (!action || !subscriptionId) return;
+
+  if (action === 'set-default') {
+    setDefaultSubscription(subscriptionId);
+  } else if (action === 'renew') {
+    window.location.href = 'subscription-plans.html';
+  } else if (action === 'start-quiz') {
+    startDailyQuizForSubscription(subscriptionId);
+  } else if (action === 'locked') {
+    const activeQuiz = state.todayQuiz;
+    const activeSubscriptionId = activeQuiz?.subscription_id || state.defaultSubscriptionId;
+    const activePlan = state.subscriptions.find((entry) => entry.id === activeSubscriptionId);
+    const planName = activePlan?.plan?.name || 'current plan';
+    showToast(`Submit your ${planName} quiz before starting another plan.`, 'warning');
+  } else if (action === 'review-results') {
+    const quizId = target.dataset.quizId;
+    const assignedDate = target.dataset.assignedDate;
+    const isCached = target.dataset.cached === '1';
+    const url = new URL('result-face.html', window.location.href);
+
+    if (isCached) {
+      url.searchParams.set('cached', '1');
+      url.searchParams.set('subscription_id', subscriptionId);
+      if (assignedDate) {
+        url.searchParams.set('assigned_date', assignedDate);
+      }
+      if (quizId) {
+        url.searchParams.set('quiz_id', quizId);
+      }
+    } else if (quizId) {
+      url.searchParams.set('daily_quiz_id', quizId);
+      url.searchParams.set('subscription_id', subscriptionId);
+    }
+
+    window.location.href = `${url.pathname}${url.search}`;
+  }
+}
+
+async function setDefaultSubscription(subscriptionId) {
+  if (!subscriptionId || !state.supabase) {
+    return;
+  }
+
+  try {
+    const { data, error } = await state.supabase.rpc('set_default_subscription', {
+      p_subscription_id: subscriptionId,
+    });
+    if (error) throw error;
+
+    const resolvedId = data?.default_subscription_id || subscriptionId;
+    state.defaultSubscriptionId = resolvedId;
+    if (state.profile) {
+      state.profile.default_subscription_id = resolvedId;
+    }
+
+    showToast('Daily questions will now use the selected plan.', 'success');
+    renderSubscription();
+  } catch (error) {
+    console.error('[Dashboard] setDefaultSubscription failed', error);
+    showToast(error.message || 'Unable to switch plans. Please try again.', 'error');
+  }
+}
+
+async function startDailyQuizForSubscription(subscriptionId) {
+  if (!subscriptionId || !state.supabase) {
+    showToast('We could not determine which plan to use.', 'error');
+    return;
+  }
+
+  const subscription = state.subscriptions.find((entry) => entry.id === subscriptionId);
+  if (!subscription) {
+    showToast('Plan details were not found. Refresh and try again.', 'error');
+    return;
+  }
+
+  if (!isSubscriptionActive(subscription)) {
+    showToast('This plan is not currently active. Please renew it first.', 'error');
+    return;
+  }
+
+  updatePlanCollectionLabels();
+
+  try {
+    await checkTodayQuiz();
+    let existingQuiz = state.todayQuiz;
+    const activeSubscriptionId = existingQuiz?.subscription_id || state.defaultSubscriptionId;
+    const quizInProgress = existingQuiz && existingQuiz.status !== 'completed';
+    if (quizInProgress && activeSubscriptionId && subscriptionId !== activeSubscriptionId) {
+      const activePlan = state.subscriptions.find(
+        (entry) => entry.id === activeSubscriptionId,
+      );
+      const planName = activePlan?.plan?.name || 'current plan';
+      showToast(`Submit your ${planName} quiz before starting another plan.`, 'warning');
+      updatePlanCollectionLabels(existingQuiz);
+      return;
+    }
+
+    if (subscriptionId !== state.defaultSubscriptionId) {
+      const { data, error } = await state.supabase.rpc('set_default_subscription', {
+        p_subscription_id: subscriptionId,
+      });
+      if (error) throw error;
+      const resolvedId = data?.default_subscription_id || subscriptionId;
+      state.defaultSubscriptionId = resolvedId;
+      if (state.profile) {
+        state.profile.default_subscription_id = resolvedId;
+      }
+      await loadSubscriptions();
+      await checkTodayQuiz();
+      existingQuiz = state.todayQuiz;
+    }
+
+    const matchesUpdated = existingQuiz && (
+      existingQuiz.subscription_id === subscriptionId ||
+      (!existingQuiz.subscription_id && subscriptionId === state.defaultSubscriptionId)
+    );
+
+    if (existingQuiz && matchesUpdated) {
+      updatePlanCollectionLabels(existingQuiz);
+      if (existingQuiz.status === 'completed') {
+        window.location.href = `result-face.html?daily_quiz_id=${existingQuiz.id}`;
+      } else {
+        window.location.href = `exam-face.html?daily_quiz_id=${existingQuiz.id}`;
+      }
+      return;
+    }
+
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const cachedSnapshot = getQuizSnapshot(subscriptionId, todayIso);
+    if (cachedSnapshot && cachedSnapshot.quiz?.status === 'completed') {
+      updatePlanCollectionLabels(existingQuiz);
+      const url = new URL('result-face.html', window.location.href);
+      url.searchParams.set('cached', '1');
+      url.searchParams.set('subscription_id', subscriptionId);
+      if (cachedSnapshot.assignedDate) {
+        url.searchParams.set('assigned_date', cachedSnapshot.assignedDate);
+      }
+      if (cachedSnapshot.quiz?.id) {
+        url.searchParams.set('quiz_id', cachedSnapshot.quiz.id);
+      }
+      window.location.href = `${url.pathname}${url.search}`;
+      return;
+    }
+
+    showToast('Preparing your daily questions...', 'info');
+    const { data, error } = await state.supabase.rpc('generate_daily_quiz', {
+      p_subscription_id: subscriptionId,
+    });
+
+    if (error) {
+      const message = error.message || '';
+      if (message.includes('no active subscription')) {
+        showToast('You need an active subscription to access daily questions', 'error');
+        return;
+      }
+      if (message.includes('selected subscription is no longer active')) {
+        showToast('That plan is no longer active. Choose a different plan to continue.', 'error');
+        await loadSubscriptions();
+        return;
+      }
+      if (message.includes('no active study slot')) {
+        showToast('No active study slot for your department today', 'error');
+        return;
+      }
+      throw error;
+    }
+
+    const quizId = Array.isArray(data) ? data[0]?.daily_quiz_id : data?.daily_quiz_id;
+    if (!quizId) {
+      throw new Error('Failed to generate quiz');
+    }
+
+    await checkTodayQuiz();
+    updatePlanCollectionLabels(state.todayQuiz);
+
+    window.location.href = `exam-face.html?daily_quiz_id=${quizId}`;
+  } catch (error) {
+    console.error('[Dashboard] startDailyQuizForSubscription failed', error);
+    showToast(error.message || 'Unable to start quiz. Please try again.', 'error');
+  }
+}
+
+function updatePlanCollectionLabels(todayQuiz) {
+  const collection = elements.planCollection;
+  if (!collection) return;
+
+  const buttons = collection.querySelectorAll('[data-role="plan-quiz"]');
+  if (!buttons.length) return;
+
+  const quiz = todayQuiz || state.todayQuiz;
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const snapshots = listQuizSnapshots();
+  const activeSubscriptionId = quiz
+    ? quiz.subscription_id || state.defaultSubscriptionId
+    : null;
+  const quizInProgress = quiz && quiz.status !== 'completed';
+
+  buttons.forEach((btn) => {
+    const subscriptionId = btn.dataset.subscriptionId;
+    if (!subscriptionId) return;
+
+    btn.disabled = false;
+    delete btn.dataset.quizId;
+    delete btn.dataset.assignedDate;
+    delete btn.dataset.cached;
+    delete btn.dataset.reason;
+
+    if (
+      quizInProgress &&
+      activeSubscriptionId &&
+      subscriptionId !== activeSubscriptionId
+    ) {
+      btn.textContent = 'Finish current quiz first';
+      btn.dataset.action = 'locked';
+      btn.dataset.reason = 'active-quiz';
+      return;
+    }
+
+    const snapshot = snapshots.find(
+      (entry) =>
+        entry.subscriptionId === subscriptionId &&
+        entry.assignedDate === todayIso,
+    );
+
+    let nextLabel = 'Start daily quiz';
+    let nextAction = 'start-quiz';
+    let quizId = '';
+    let assignedDate = todayIso;
+    let cached = false;
+
+    const matchesSubscription =
+      quiz &&
+      (quiz.subscription_id === subscriptionId ||
+        (!quiz.subscription_id && subscriptionId === state.defaultSubscriptionId));
+
+    if (matchesSubscription) {
+      assignedDate = quiz.assigned_date || todayIso;
+      quizId = quiz.id || '';
+      if (quiz.status === 'completed') {
+        nextLabel = 'Review results';
+        nextAction = 'review-results';
+      } else {
+        nextLabel = 'Continue quiz';
+        nextAction = 'start-quiz';
+      }
+    } else if (snapshot && snapshot.quiz) {
+      assignedDate = snapshot.assignedDate || todayIso;
+      quizId = snapshot.quiz.id || '';
+      if (snapshot.quiz.status === 'completed') {
+        nextLabel = 'Review results';
+        nextAction = 'review-results';
+        cached = true;
+      }
+    }
+
+    btn.textContent = nextLabel;
+    btn.dataset.action = nextAction;
+
+    if (quizId) {
+      btn.dataset.quizId = quizId;
+    }
+    if (assignedDate) {
+      btn.dataset.assignedDate = assignedDate;
+    }
+    if (cached) {
+      btn.dataset.cached = '1';
+    }
+  });
 }
 
 function parseDate(value) {
@@ -271,248 +1024,73 @@ function updateScheduleNotice(health) {
   container.classList.remove('hidden');
 }
 
-function setPlanStatusChip(statusKey, customLabel) {
-  const chip = elements.planStatusChip;
-  if (!chip) return;
-  const normalized = (statusKey || '').toLowerCase();
-  const entry = PLAN_STATUS_STYLES[normalized] || PLAN_STATUS_STYLES.none;
-  chip.classList.remove(...PLAN_STATUS_CLASSNAMES);
-  chip.classList.add(...entry.classes);
-  chip.textContent = customLabel || entry.label;
-}
-
 function renderSubscription() {
   const card = elements.subscriptionCard;
-  if (!card) return;
+  const collection = elements.planCollection;
+  if (!card || !collection) return;
 
-  const {
-    planName,
-    planDescription,
-    planDays,
-    planRenewal,
-    planPrice,
-    planProgressBar,
-    planProgressLabel,
-    planDates,
-    planRenewBtn,
-  } = elements;
-
-  const subscription = state.subscription;
+  const planHeading = elements.planHeading;
+  const planSubheading = elements.planSubheading;
   const profileStatus = state.profile?.subscription_status || 'inactive';
+  const subscriptions = Array.isArray(state.subscriptions)
+    ? state.subscriptions.slice()
+    : [];
 
-  const showCard = () => {
-    card.classList.remove('hidden');
-  };
-
-  const attachRenewHandler = (href, label) => {
-    if (!planRenewBtn) return;
-    planRenewBtn.textContent = label;
-    planRenewBtn.onclick = () => {
-      window.location.href = href;
-    };
-  };
-
-  if (!subscription) {
-    showCard();
-    setPlanStatusChip(profileStatus);
-    if (planName) {
-      planName.textContent = 'No active subscription';
+  if (elements.planBrowseBtn) {
+    if (profileStatus === 'pending_payment') {
+      elements.planBrowseBtn.textContent = 'Resume checkout';
+      elements.planBrowseBtn.setAttribute('href', 'resume-registration.html');
+    } else {
+      elements.planBrowseBtn.textContent = 'Browse plans';
+      elements.planBrowseBtn.setAttribute('href', 'subscription-plans.html');
     }
-    if (planDescription) {
-      planDescription.textContent =
+  }
+
+  if (!subscriptions.length) {
+    card.classList.remove('hidden');
+    if (planHeading) {
+      planHeading.textContent =
+        profileStatus === 'pending_payment' ? 'Payment pending' : 'No plans yet';
+    }
+    if (planSubheading) {
+      planSubheading.textContent =
         profileStatus === 'pending_payment'
           ? 'We detected a pending payment. Finish checkout to unlock full access to daily quizzes.'
-          : 'Unlock personalised quizzes, analytics, and the full CBT bank by choosing a plan.';
+          : 'Choose a plan to unlock personalised quizzes, analytics, and study support.';
     }
-    if (planDays) planDays.textContent = '—';
-    if (planRenewal) planRenewal.textContent = '—';
-    if (planPrice) planPrice.textContent = '—';
-    if (planProgressBar) planProgressBar.style.width = '0%';
-    if (planProgressLabel) {
-      planProgressLabel.textContent =
-        profileStatus === 'pending_payment'
-          ? 'Awaiting payment confirmation.'
-          : 'No plan selected yet.';
-    }
-    if (planDates) {
-      planDates.textContent =
-        profileStatus === 'pending_payment'
-          ? 'Resume checkout to activate your plan.'
-          : '';
-    }
-    if (elements.planDailyLimit) {
-      elements.planDailyLimit.textContent = '—';
-    }
-    if (elements.heroPlanHeadline) {
-      elements.heroPlanHeadline.textContent =
-        profileStatus === 'pending_payment'
-          ? 'Finish your checkout to unlock today’s personalised drill.'
-          : 'Choose a plan to unlock daily personalised quizzes and analytics.';
-    }
-    if (elements.heroDaysRemaining) {
-      elements.heroDaysRemaining.textContent =
-        profileStatus === 'pending_payment' ? 'Pending activation' : 'No active plan yet';
-    }
-    if (elements.heroProgressBar) {
-      elements.heroProgressBar.style.width = '0%';
-    }
-    if (elements.heroProgressLabel) {
-      elements.heroProgressLabel.textContent =
-        profileStatus === 'pending_payment'
-          ? 'We are waiting for your payment confirmation.'
-          : 'Your streak begins as soon as you activate a plan.';
-    }
-    attachRenewHandler(
-      profileStatus === 'pending_payment' ? 'resume-registration.html' : 'subscription-plans.html',
-      profileStatus === 'pending_payment' ? 'Resume checkout' : 'Browse plans'
-    );
+    collection.innerHTML = `
+      <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600">
+        ${profileStatus === 'pending_payment'
+          ? 'Resume your checkout to activate the plan you selected.'
+          : 'Explore the catalogue to add a plan to your dashboard.'}
+      </div>
+    `;
+    updateHeroForSubscription(null, profileStatus);
     return;
   }
 
-  const normalizedStatus = (subscription.status || '').toLowerCase();
-  const plan = subscription.plan || subscription.subscription_plans || {};
-  const startedAt = parseDate(subscription.started_at);
-  const expiresAt = parseDate(subscription.expires_at);
-  const now = new Date();
-  const hasEnded = Boolean(expiresAt && expiresAt.getTime() < now.getTime());
-  const statusKey = hasEnded ? 'expired' : normalizedStatus || 'active';
+  const sorted = subscriptions.sort(compareSubscriptions);
+  const selected = getSelectedSubscription(sorted);
 
-  const totalDays = startedAt && expiresAt ? Math.max(1, daysBetween(startedAt, expiresAt)) : null;
-  const daysRemaining = expiresAt
-    ? Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / DAY_IN_MS))
-    : null;
-  const usedDays =
-    totalDays !== null && daysRemaining !== null
-      ? clamp(totalDays - daysRemaining, 0, totalDays)
-      : startedAt
-      ? clamp(Math.round((now.getTime() - startedAt.getTime()) / DAY_IN_MS), 0, totalDays ?? 30)
-      : null;
-  const progressPercent =
-    totalDays && usedDays !== null
-      ? clamp(Math.round((usedDays / totalDays) * 100), 0, 100)
-      : hasEnded
-      ? 100
-      : normalizedStatus === 'active'
-      ? 10
-      : 0;
-
-  showCard();
-  setPlanStatusChip(statusKey);
-
-  if (planName) {
-    planName.textContent = plan.name || 'Active subscription';
-  }
-  if (planDescription) {
-    const planMetadata =
-      plan && typeof plan.metadata === 'object' && plan.metadata !== null ? plan.metadata : null;
-    const copy =
-      planMetadata?.tagline ||
-      planMetadata?.description ||
-      planMetadata?.summary ||
-      plan.description;
-    planDescription.textContent =
-      copy || 'Personalised drills, analytics, and curated study support for your exam.';
-  }
-  if (planDays) {
-    planDays.textContent =
-      daysRemaining !== null
-        ? `${daysRemaining} day${daysRemaining === 1 ? '' : 's'}`
-        : '—';
-  }
-  if (planRenewal) {
-    planRenewal.textContent = expiresAt ? formatDate(expiresAt.toISOString()) : '—';
-  }
-  if (planPrice) {
-    planPrice.textContent = formatCurrency(plan.price, plan.currency || 'NGN');
-  }
-  if (elements.planDailyLimit) {
-    const limit = plan.daily_question_limit;
-    elements.planDailyLimit.textContent = limit
-      ? `${limit} questions / day`
-      : plan?.metadata?.dailyLimit
-      ? `${plan.metadata.dailyLimit} questions / day`
-      : '—';
-  }
-  if (planProgressBar) {
-    planProgressBar.style.width = `${progressPercent}%`;
-  }
-  if (planProgressLabel) {
-    if (totalDays && usedDays !== null && daysRemaining !== null) {
-      planProgressLabel.textContent = `${usedDays} of ${totalDays} days used • ${daysRemaining} left`;
-    } else if (normalizedStatus === 'trialing') {
-      planProgressLabel.textContent = 'Trial access is active.';
-    } else if (hasEnded) {
-      planProgressLabel.textContent = 'Plan expired. Renew to keep access.';
-    } else {
-      planProgressLabel.textContent = 'Plan status updated.';
-    }
-  }
-  if (planDates) {
-    if (startedAt && expiresAt) {
-      planDates.textContent = `${formatDate(startedAt.toISOString())} – ${formatDate(
-        expiresAt.toISOString(),
-      )}`;
-    } else if (startedAt) {
-      planDates.textContent = `Started ${formatDate(startedAt.toISOString())}`;
-    } else if (expiresAt) {
-      planDates.textContent = `Renews ${formatDate(expiresAt.toISOString())}`;
-    } else {
-      planDates.textContent = '';
-    }
+  if (selected && selected.id !== state.defaultSubscriptionId) {
+    state.defaultSubscriptionId = selected.id;
   }
 
-  if (planRenewBtn) {
-    if (hasEnded || (daysRemaining !== null && daysRemaining <= 7)) {
-      attachRenewHandler('subscription-plans.html', hasEnded ? 'Renew now' : 'Renew plan');
-    } else if (normalizedStatus === 'trialing') {
-      attachRenewHandler('subscription-plans.html', 'Upgrade plan');
-    } else {
-      attachRenewHandler('subscription-plans.html', 'Manage plan');
-    }
+  const hasActive = sorted.some(isSubscriptionActive);
+  if (planHeading) {
+    planHeading.textContent = 'Manage your subscriptions';
+  }
+  if (planSubheading) {
+    planSubheading.textContent = hasActive
+      ? 'Select which plan should power your daily questions.'
+      : 'Renew a plan to restore access to daily questions.';
   }
 
-  if (elements.heroPlanHeadline) {
-    const daysLabel =
-      daysRemaining !== null
-        ? `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left`
-        : expiresAt
-        ? `Renews ${formatDate(expiresAt.toISOString())}`
-        : normalizedStatus === 'trialing'
-        ? 'Trial access is active'
-        : 'Ongoing access';
+  collection.replaceChildren(...sorted.map(createPlanCard));
 
-    elements.heroPlanHeadline.textContent = plan.name
-      ? `${plan.name} • ${daysLabel}`
-      : `Active plan • ${daysLabel}`;
-  }
-
-  if (elements.heroDaysRemaining) {
-    if (daysRemaining !== null) {
-      elements.heroDaysRemaining.textContent = `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining`;
-    } else if (expiresAt) {
-      elements.heroDaysRemaining.textContent = `Renews ${formatDate(expiresAt.toISOString())}`;
-    } else if (normalizedStatus === 'trialing') {
-      elements.heroDaysRemaining.textContent = 'Trial in progress';
-    } else {
-      elements.heroDaysRemaining.textContent = 'Active access';
-    }
-  }
-
-  if (elements.heroProgressBar) {
-    elements.heroProgressBar.style.width = `${progressPercent}%`;
-  }
-
-  if (elements.heroProgressLabel) {
-    if (totalDays && usedDays !== null && daysRemaining !== null) {
-      elements.heroProgressLabel.textContent = `${usedDays} of ${totalDays} days used · ${daysRemaining} to go`;
-    } else if (normalizedStatus === 'trialing') {
-      elements.heroProgressLabel.textContent = 'Trial is underway. Upgrade any time to keep your streak going.';
-    } else if (hasEnded) {
-      elements.heroProgressLabel.textContent = 'Plan expired. Renew to continue your personalised drills.';
-    } else {
-      elements.heroProgressLabel.textContent = 'Your progress updates as you complete each day’s questions.';
-    }
-  }
+  card.classList.remove('hidden');
+  updateHeroForSubscription(selected, profileStatus);
+  updatePlanCollectionLabels();
 }
 
 function updateHeader() {
@@ -879,7 +1457,7 @@ async function checkTodayQuiz() {
   try {
     const { data: quiz, error } = await state.supabase
       .from('daily_quizzes')
-      .select('id, status, total_questions, correct_answers, started_at, completed_at, assigned_date')
+      .select('id, status, total_questions, correct_answers, started_at, completed_at, assigned_date, subscription_id')
       .eq('user_id', state.user.id)
       .eq('assigned_date', today)
       .maybeSingle();
@@ -887,6 +1465,7 @@ async function checkTodayQuiz() {
     if (error) throw error;
     state.todayQuiz = quiz;
     updateQuizSection();
+    updatePlanCollectionLabels(state.todayQuiz);
   } catch (error) {
     console.error('[Dashboard] checkTodayQuiz failed', error);
     showToast('Unable to check today\'s quiz status', 'error');
@@ -895,19 +1474,36 @@ async function checkTodayQuiz() {
 
 async function startOrResumeQuiz() {
   try {
+    const selectedSubscription = getSelectedSubscription();
+    if (!selectedSubscription || !isSubscriptionActive(selectedSubscription)) {
+      showToast('Select an active plan to generate your daily questions.', 'error');
+      renderSubscription();
+      return;
+    }
+    const rpcArgs = { p_subscription_id: selectedSubscription.id };
+
     if (!state.todayQuiz) {
       // Generate new quiz first
       showToast('Generating your daily questions...', 'info');
-      const { data: generated, error: generateError } = await state.supabase.rpc('generate_daily_quiz');
+      const { data: generated, error: generateError } = await state.supabase.rpc(
+        'generate_daily_quiz',
+        rpcArgs,
+      );
       if (generateError) {
         // Handle specific error messages
         const message = generateError.message || '';
         if (message.includes('no active subscription')) {
           showToast('You need an active subscription to access daily questions', 'error');
+          await loadSubscriptions();
           return;
         }
         if (message.includes('no active study slot')) {
           showToast('No active study slot for your department today', 'error');
+          return;
+        }
+        if (message.includes('selected subscription is no longer active')) {
+          showToast('That plan is no longer active. Choose a different plan to continue.', 'error');
+          await loadSubscriptions();
           return;
         }
         throw generateError;
@@ -939,9 +1535,26 @@ async function regenerateQuiz() {
   }
   
   try {
+    const selectedSubscription = getSelectedSubscription();
+    if (!selectedSubscription || !isSubscriptionActive(selectedSubscription)) {
+      showToast('Select an active plan before regenerating questions.', 'error');
+      renderSubscription();
+      return;
+    }
+
     showToast('Generating new questions...', 'info');
-    const { error: genError } = await state.supabase.rpc('generate_daily_quiz');
-    if (genError) throw genError;
+    const { error: genError } = await state.supabase.rpc('generate_daily_quiz', {
+      p_subscription_id: selectedSubscription.id,
+    });
+    if (genError) {
+      const message = genError.message || '';
+      if (message.includes('selected subscription is no longer active')) {
+        showToast('That plan is no longer active. Choose a different plan to continue.', 'error');
+        await loadSubscriptions();
+        return;
+      }
+      throw genError;
+    }
     
     await checkTodayQuiz();
     await refreshHistory();
@@ -964,44 +1577,67 @@ async function refreshHistory() {
 
     state.history = data || [];
     renderHistory();
+    updatePlanCollectionLabels(state.todayQuiz);
   } catch (error) {
     console.error('[Dashboard] refreshHistory failed', error);
     showToast('Unable to load history', 'error');
   }
 }
 
-async function loadActiveSubscription() {
+async function loadSubscriptions() {
   if (!state.supabase || !state.user) return;
+
   try {
+    if (!state.defaultSubscriptionId && state.profile?.default_subscription_id) {
+      state.defaultSubscriptionId = state.profile.default_subscription_id;
+    }
+
     const { data, error } = await state.supabase
       .from('user_subscriptions')
       .select(
-        `id, status, started_at, expires_at, plan:subscription_plans (
-          id,
-          name,
-          duration_days,
-          price,
-          currency,
-          daily_question_limit,
-          plan_tier,
-          metadata
-        )`
+        `id, status, started_at, expires_at, purchased_at, quantity, renewed_from_subscription_id,
+         plan:subscription_plans (
+           id,
+           name,
+           duration_days,
+           price,
+           currency,
+           daily_question_limit,
+           plan_tier,
+           metadata,
+           product:subscription_products (
+             id,
+             name,
+             department_id,
+             department:departments (
+               id,
+               name,
+               slug,
+               color_theme
+             )
+           )
+         )`
       )
       .eq('user_id', state.user.id)
-      .in('status', ['active', 'trialing', 'past_due'])
-      .order('expires_at', { ascending: false, nullsLast: false })
-      .limit(1)
-      .maybeSingle();
+      .order('expires_at', { ascending: true, nullsLast: true })
+      .order('started_at', { ascending: true });
 
-    if (error && error.code !== 'PGRST116') {
-      throw error;
+    if (error) throw error;
+
+    state.subscriptions = Array.isArray(data) ? data : [];
+
+    const hasActive = state.subscriptions.some(isSubscriptionActive);
+    if (state.profile && state.profile.subscription_status !== 'pending_payment') {
+      state.profile.subscription_status = hasActive
+        ? 'active'
+        : state.subscriptions.length
+        ? 'expired'
+        : 'inactive';
     }
-
-    state.subscription = data || null;
   } catch (error) {
-    console.error('[Dashboard] loadActiveSubscription failed', error);
+    console.error('[Dashboard] loadSubscriptions failed', error);
     showToast('Unable to load subscription details', 'error');
-    state.subscription = null;
+    state.subscriptions = [];
   }
 
   renderSubscription();
@@ -1012,7 +1648,7 @@ async function ensureProfile() {
   try {
     const { data, error } = await state.supabase
       .from('profiles')
-      .select('id, full_name, role, last_seen_at, subscription_status')
+      .select('id, full_name, role, last_seen_at, subscription_status, default_subscription_id')
       .eq('id', state.user.id)
       .maybeSingle();
     if (error) throw error;
@@ -1026,7 +1662,7 @@ async function ensureProfile() {
           role: 'learner',
           last_seen_at: new Date().toISOString(),
         })
-        .select('id, full_name, role, last_seen_at, subscription_status')
+        .select('id, full_name, role, last_seen_at, subscription_status, default_subscription_id')
         .single();
       if (insertError) throw insertError;
       state.profile = inserted;
@@ -1035,7 +1671,7 @@ async function ensureProfile() {
         .from('profiles')
         .update({ last_seen_at: new Date().toISOString() })
         .eq('id', state.user.id)
-        .select('id, full_name, role, last_seen_at, subscription_status')
+        .select('id, full_name, role, last_seen_at, subscription_status, default_subscription_id')
         .single();
       if (!updateError && updated) {
         state.profile = updated;
@@ -1043,21 +1679,76 @@ async function ensureProfile() {
         state.profile = data;
       }
     }
+
+    state.defaultSubscriptionId = state.profile?.default_subscription_id || null;
   } catch (error) {
     console.error('[Dashboard] ensureProfile failed', error);
     showToast('Unable to load profile', 'error');
-    state.profile = { full_name: fallbackName, subscription_status: 'inactive' };
+    state.profile = {
+      full_name: fallbackName,
+      subscription_status: 'inactive',
+      default_subscription_id: null,
+    };
+    state.defaultSubscriptionId = null;
   }
 }
 
 async function handleLogout() {
+  closeMobileMenu();
   try {
     await state.supabase.auth.signOut();
+    clearSessionFingerprint();
     window.location.replace('login.html');
   } catch (error) {
     console.error('[Dashboard] signOut failed', error);
     showToast('Unable to sign out. Please try again.', 'error');
   }
+}
+
+function toggleMobileMenu(force) {
+  const menu = elements.mobileMenu;
+  const toggle = elements.mobileMenuToggle;
+  if (!menu || !toggle) return;
+  const isOpen = !menu.classList.contains('hidden');
+  const shouldOpen = force ?? !isOpen;
+  if (shouldOpen) {
+    menu.classList.remove('hidden');
+    toggle.setAttribute('aria-expanded', 'true');
+  } else {
+    menu.classList.add('hidden');
+    toggle.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function closeMobileMenu() {
+  toggleMobileMenu(false);
+}
+
+function handleMobileClick(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  toggleMobileMenu();
+}
+
+function handleMobileTouch(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  toggleMobileMenu();
+}
+
+function handleMobileMenuOutsideClick(event) {
+  const menu = elements.mobileMenu;
+  const wrapper = elements.mobileMenuWrapper;
+  if (!menu || menu.classList.contains('hidden')) return;
+  if (wrapper && wrapper.contains(event.target)) {
+    if (elements.mobileMenuToggle?.contains(event.target)) {
+      return;
+    }
+    if (menu.contains(event.target)) {
+      return;
+    }
+  }
+  closeMobileMenu();
 }
 
 async function initialise() {
@@ -1077,13 +1768,29 @@ async function initialise() {
     });
 
     await ensureProfile();
-    await loadActiveSubscription();
+    await loadSubscriptions();
     updateHeader();
 
     // Bind event listeners
     elements.resumeBtn?.addEventListener('click', startOrResumeQuiz);
     elements.regenerateBtn?.addEventListener('click', regenerateQuiz);
     elements.logoutBtn?.addEventListener('click', handleLogout);
+    elements.mobileMenuToggle?.addEventListener('click', handleMobileClick);
+    elements.mobileMenuToggle?.addEventListener('touchend', handleMobileTouch, {
+      passive: false,
+    });
+    elements.mobileHome?.addEventListener('click', () => {
+      closeMobileMenu();
+      window.location.href = 'admin-board.html';
+    });
+    elements.mobileLogout?.addEventListener('click', handleLogout);
+    elements.planCollection?.addEventListener('click', handlePlanCollectionClick);
+
+    if (elements.mobileMenu) {
+      document.addEventListener('click', handleMobileMenuOutsideClick);
+      document.addEventListener('keydown', handleEscapeKey);
+      window.addEventListener('resize', closeMobileMenu);
+    }
 
     // Load data without auto-generating quiz
     await loadScheduleHealth();
@@ -1094,5 +1801,23 @@ async function initialise() {
     showToast('Something went wrong while loading the dashboard.', 'error');
   }
 }
+
+function handleEscapeKey(event) {
+  if (event.key === 'Escape') {
+    closeMobileMenu();
+  }
+}
+
+function cleanup() {
+  if (elements.mobileMenu) {
+    document.removeEventListener('click', handleMobileMenuOutsideClick);
+    document.removeEventListener('keydown', handleEscapeKey);
+    window.removeEventListener('resize', closeMobileMenu);
+    elements.mobileMenuToggle?.removeEventListener('click', handleMobileClick);
+    elements.mobileMenuToggle?.removeEventListener('touchend', handleMobileTouch);
+  }
+}
+
+window.addEventListener('beforeunload', cleanup);
 
 initialise();

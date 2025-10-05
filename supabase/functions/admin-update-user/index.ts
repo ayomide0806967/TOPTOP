@@ -235,12 +235,16 @@ serve(async (req) => {
       if (subscriptionError) throw subscriptionError;
       planResult = createdSubscription;
 
-      // Mark profile active if plan assigned
-      const { error: statusError } = await supabaseAdmin
+      const { error: defaultUpdateError } = await supabaseAdmin
         .from('profiles')
-        .update({ subscription_status: 'active' })
+        .update({
+          default_subscription_id: createdSubscription.id,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', userId);
-      if (statusError) throw statusError;
+      if (defaultUpdateError) throw defaultUpdateError;
+
+      await supabaseAdmin.rpc('refresh_profile_subscription_status', { p_user_id: userId });
     } else if (body.planExpiresAt) {
       const overrideDate = new Date(body.planExpiresAt);
       if (Number.isNaN(overrideDate.getTime())) {
@@ -282,12 +286,7 @@ serve(async (req) => {
 
       if (expiryUpdateError) throw expiryUpdateError;
 
-      const { error: statusError } = await supabaseAdmin
-        .from('profiles')
-        .update({ subscription_status: 'active' })
-        .eq('id', userId);
-
-      if (statusError) throw statusError;
+      await supabaseAdmin.rpc('refresh_profile_subscription_status', { p_user_id: userId });
     }
 
     const { data: profile, error: profileFetchError } = await supabaseAdmin
@@ -296,11 +295,24 @@ serve(async (req) => {
         `
         *,
         departments (name),
-        user_subscriptions (
+        user_subscriptions!user_subscriptions_user_id_fkey (
+          id,
           status,
           started_at,
           expires_at,
-          subscription_plans (name)
+          purchased_at,
+          quantity,
+          renewed_from_subscription_id,
+          subscription_plans (
+            id,
+            name,
+            code,
+            price,
+            currency,
+            daily_question_limit,
+            duration_days,
+            plan_tier
+          )
         )
       `
       )

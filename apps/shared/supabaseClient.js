@@ -65,7 +65,24 @@ export async function getSupabaseClient() {
       console.log('[SupabaseClient] Loading Supabase library...');
       const lib = await loadSupabaseLibrary();
       console.log('[SupabaseClient] Library loaded, creating client...');
-      const client = lib.createClient(url, anonKey, options);
+      const defaultOptions = {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          storageKey: 'an.supabase.auth',
+        },
+      };
+      const mergedOptions = {
+        ...defaultOptions,
+        ...(options || {}),
+        auth: {
+          ...defaultOptions.auth,
+          ...(options?.auth || {}),
+        },
+      };
+
+      const client = lib.createClient(url, anonKey, mergedOptions);
       console.log('[SupabaseClient] Client created successfully');
       return client;
     } catch (error) {

@@ -1,4 +1,8 @@
 import { getSupabaseClient } from '../../shared/supabaseClient.js';
+import {
+  getQuizSnapshot,
+  saveQuizSnapshot,
+} from '../../shared/quizSnapshotStore.js';
 
 function $(id) {
   return document.getElementById(id);
@@ -554,44 +558,128 @@ async function initialise() {
   }
 
   const dailyQuizId = url.searchParams.get('daily_quiz_id');
-  if (!dailyQuizId) {
-    window.location.replace('admin-board.html');
-    return;
+  const requestedSubscription = url.searchParams.get('subscription_id');
+  const assignedDateParam = url.searchParams.get('assigned_date');
+  const useCached = url.searchParams.get('cached') === '1';
+
+  let quiz = null;
+  let questions = null;
+  let usingSnapshot = false;
+  const snapshot = requestedSubscription
+    ? getQuizSnapshot(requestedSubscription, assignedDateParam || undefined)
+    : null;
+
+  if (!useCached) {
+    if (!dailyQuizId) {
+      if (snapshot) {
+        ({ quiz, questions } = snapshot);
+        usingSnapshot = true;
+      } else {
+        window.location.replace('admin-board.html');
+        return;
+      }
+    } else {
+      try {
+        const { data: quizData, error: quizError } = await supabase
+          .from('daily_quizzes')
+          .select(
+            'id, assigned_date, status, total_questions, correct_answers, time_limit_seconds, started_at, completed_at, subscription_id'
+          )
+          .eq('id', dailyQuizId)
+          .single();
+        if (quizError) throw quizError;
+        quiz = quizData;
+
+        const { data: questionRows, error: qError } = await supabase
+          .from('daily_quiz_questions')
+          .select(
+            `
+            id,
+            selected_option_id,
+            is_correct,
+            question:question_id (
+              id,
+              stem,
+              explanation,
+              question_options (
+                id,
+                label,
+                content,
+                is_correct,
+                order_index
+              )
+            )
+          `
+          )
+          .eq('daily_quiz_id', dailyQuizId)
+          .order('order_index', { ascending: true });
+        if (qError) throw qError;
+        questions = questionRows || [];
+      } catch (error) {
+        if (snapshot) {
+          ({ quiz, questions } = snapshot);
+          usingSnapshot = true;
+        } else {
+          throw error;
+        }
+      }
+    }
+  } else {
+    if (snapshot) {
+      ({ quiz, questions } = snapshot);
+      usingSnapshot = true;
+    } else if (dailyQuizId) {
+      const { data: quizData, error: quizError } = await supabase
+        .from('daily_quizzes')
+        .select(
+          'id, assigned_date, status, total_questions, correct_answers, time_limit_seconds, started_at, completed_at, subscription_id'
+        )
+        .eq('id', dailyQuizId)
+        .single();
+      if (quizError) throw quizError;
+      const { data: questionRows, error: qError } = await supabase
+        .from('daily_quiz_questions')
+        .select(
+          `
+          id,
+          selected_option_id,
+          is_correct,
+          question:question_id (
+            id,
+            stem,
+            explanation,
+            question_options (
+              id,
+              label,
+              content,
+              is_correct,
+              order_index
+            )
+          )
+        `
+        )
+        .eq('daily_quiz_id', dailyQuizId)
+        .order('order_index', { ascending: true });
+      if (qError) throw qError;
+      quiz = quizData;
+      questions = questionRows || [];
+    } else {
+      throw new Error('Stored quiz results are no longer available.');
+    }
   }
 
-  const { data: quiz, error: quizError } = await supabase
-    .from('daily_quizzes')
-    .select(
-      'id, assigned_date, status, total_questions, correct_answers, time_limit_seconds, started_at, completed_at'
-    )
-    .eq('id', dailyQuizId)
-    .single();
-  if (quizError) throw quizError;
+  if (!quiz || !questions) {
+    throw new Error('Unable to load quiz details.');
+  }
 
-  const { data: questions, error: qError } = await supabase
-    .from('daily_quiz_questions')
-    .select(
-      `
-      id,
-      selected_option_id,
-      is_correct,
-      question:question_id (
-        id,
-        stem,
-        explanation,
-        question_options (
-          id,
-          label,
-          content,
-          is_correct,
-          order_index
-        )
-      )
-    `
-    )
-    .eq('daily_quiz_id', dailyQuizId)
-    .order('order_index', { ascending: true });
-  if (qError) throw qError;
+  if (!usingSnapshot && quiz.subscription_id && quiz.assigned_date) {
+    saveQuizSnapshot({
+      subscriptionId: quiz.subscription_id,
+      assignedDate: quiz.assigned_date,
+      quiz,
+      questions,
+    });
+  }
 
   const correct = Number(quiz.correct_answers ?? 0);
   const total = Number(quiz.total_questions ?? (questions?.length || 0));

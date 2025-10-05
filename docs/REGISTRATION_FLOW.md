@@ -33,11 +33,12 @@ User Journey:
   - Password + confirmation (minimum 8 characters)
 - **System Output**: Auto-generated, non-editable username (short + memorable)
 - **Backend Call**: `create-pending-user`
-  - Creates or updates the auth user with the supplied password
-  - Reserves the generated username in both auth metadata and `profiles`
+  - Only accepts requests from whitelisted domains (`REGISTRATION_ALLOWED_ORIGINS`)
+  - Creates a new auth user with the supplied password (existing accounts throw 409)
+  - Reserves the generated username in auth metadata and the `profiles` table
   - Persists `subscription_status: 'pending_payment'`
-  - Returns `{ userId, username }`
-- **Data Stored**: `registrationContact` snapshot (no password) for resilience during checkout
+  - Generates a one-hour `registrationToken`, stores its SHA-256 hash+expiry on the profile, and returns the raw token alongside `{ userId, username }`
+- **Data Stored**: `registrationContact` snapshot (no password) plus the `registrationToken` (kept in memory for finalize step)
 - **Next**: Launches Paystack checkout inline (no intermediate page)
 
 ### Step 3: Paystack Payment
@@ -58,7 +59,8 @@ User Journey:
 - **Frontend Actions**:
   - Shows an activation success message with the reserved username
   - Attempts automatic sign-in using the stored password
-  - Prompts the learner to save their username/password securely; provides a copy shortcut
+ - Prompts the learner to save their username/password securely; provides a copy shortcut
+  - Calls `finalize-registration` with `{ userId, username, password, registrationToken, ... }` so the backend validates the registration token, sets the final password, and clears the token
 - **Next**: Redirects to `admin-board.html` if auto sign-in works, otherwise instructs the learner to sign in manually
 
 ### Step 5: Login (Future Sessions)
@@ -89,6 +91,7 @@ User Journey:
 - full_name (text)
 - phone (text)
 - subscription_status (text: 'pending_payment', 'active', 'trialing', 'cancelled')
+- default_subscription_id (uuid, references user_subscriptions, nullable)
 - role (text: 'learner', 'admin')
 - department_id (uuid, nullable)
 - created_at (timestamp)
@@ -108,6 +111,7 @@ User Journey:
 - paid_at (timestamp)
 - metadata (jsonb)
 - raw_response (jsonb)
+- subscription_id (uuid, references user_subscriptions, nullable)
 ```
 
 ### user_subscriptions table
@@ -115,52 +119,62 @@ User Journey:
 - id (uuid, primary key)
 - user_id (uuid, references profiles)
 - plan_id (uuid, references subscription_plans)
-- status (text: 'active', 'cancelled', 'expired')
+- status (text: 'active', 'trialing', 'past_due', 'cancelled', 'expired')
 - started_at (timestamp)
 - expires_at (timestamp, nullable)
+- purchased_at (timestamp)
+- payment_transaction_id (uuid, references payment_transactions, nullable)
+- quantity (integer, defaults to 1)
+- renewed_from_subscription_id (uuid, references user_subscriptions, nullable)
 - price (numeric)
 - currency (text)
 ```
+
+### Subscription stacking & default plan selection
+
+- Every successful payment now either extends an existing active subscription (same plan) by the plan duration or creates a fresh row when none is active. The Paystack metadata `quantity` is no longer honored, preventing users from claiming extra months client-side.
+- `profiles.default_subscription_id` records the learner’s preferred plan for daily question generation. The new RPC `set_default_subscription(subscription_id uuid)` lets clients update this preference (and clears it when `null`).
+- `generate_daily_quiz(p_subscription_id uuid default null, p_limit integer default null)` uses the selected subscription (or the default fallback) and will surface clear errors when the plan is expired, pending activation, or lacks a configured schedule.
+- `refresh_profile_subscription_status` derives the profile-level `subscription_status` whenever subscriptions change, while preserving `pending_payment` until a plan activates.
+- `payment_transactions.subscription_id` and `user_subscriptions.payment_transaction_id` link billing records for easier auditing.
+- Logged-in learners who open the pricing page stay authenticated; plan selection launches Paystack checkout directly using their saved profile details, while new visitors still follow the pre-payment registration flow.
+- `profiles.session_fingerprint` persists the learner's active session signature. Logging in on a new device overwrites this fingerprint, forcing previously signed-in browsers to re-authenticate.
 
 ## Edge Functions
 
 ### 1. create-pending-user
 - **Path**: `supabase/functions/create-pending-user/index.ts`
-- **Purpose**: Create/update pending learner accounts (with credentials) before payment
+- **Purpose**: Issue pending accounts and registration tokens prior to payment
 - **Input**: `{ email, firstName, lastName, phone, username, password }`
-- **Output**: `{ userId, username }`
+- **Output**: `{ userId, username, registrationToken }`
 - **Actions**:
-  - Validates username/password, ensuring uniqueness across profiles
-  - Creates or updates the auth user with password + metadata (first/last name, phone, username)
-  - Upserts the profile with `subscription_status: 'pending_payment'`
-  - Prevents conflicts with active subscriptions (email/phone/username)
+  - Allows requests only from whitelisted origins (`REGISTRATION_ALLOWED_ORIGINS`)
+  - Validates username/password uniqueness
+  - Creates a new auth user (existing accounts now reject with 409)
+  - Upserts the profile as `pending_payment`
+  - Generates a random registration token, stores its SHA-256 hash + expiry on the profile
+  - Returns the raw token to the client (must be stored temporarily for finalize step)
 
 ### 2. paystack-initiate
-- **Path**: `supabase/functions/paystack-initiate/` (referenced but not shown)
-- **Purpose**: Initialize Paystack payment
-- **Input**: `{ planId, userId, registration: { first_name, last_name, phone, username } }`
-- **Output**: `{ reference, amount, currency, publicKey, metadata }`
+- **Path**: `supabase/functions/paystack-initiate/`
+- **Purpose**: Initialize Paystack payment (unchanged)
+- **Input/Output**: `{ planId, userId, registration: { first_name, last_name, phone, username } }` → `{ reference, amount, currency, publicKey, metadata }`
 
 ### 3. paystack-verify
 - **Path**: `supabase/functions/paystack-verify/index.ts`
-- **Purpose**: Verify payment with Paystack
-- **Input**: `{ reference }`
 - **Output**: `{ status: 'success', subscription_id, transaction_id }`
-- **Actions**:
-  - Calls Paystack API to verify transaction
-  - Records payment in payment_transactions
-  - Creates/updates user_subscriptions
-  - Updates profile status to active in `_shared/paystack.ts`
+- **Actions changes**:
+  - `_shared/paystack.ts` now rejects underpayments, enforces `status === 'success'`, and treats quantity as 1 to prevent tampering.
 
-### 5. find-pending-registration
-- **Path**: `supabase/functions/find-pending-registration/index.ts`
-- **Purpose**: Find incomplete registrations
-- **Input**: `{ email, firstName, lastName, phone }`
-- **Output**: `{ reference, userId }`
+### 4. finalize-registration (secured)
+- **Path**: `supabase/functions/finalize-registration/index.ts`
+- **Input**: `{ userId, username, password, registrationToken, firstName?, lastName?, email?, phone? }`
+- **Output**: `{ success: true }`
 - **Actions**:
-  - Looks up profile by contact details
-  - Finds successful payment
-  - Returns reference for resume flow
+  - Validates allowed origin and required fields
+  - Hashes the provided `registrationToken` and compares it with the stored profile hash/expiry
+  - Updates auth password + metadata, clears the stored token fields, refreshes subscription status
+  - Rejects invalid or expired tokens, preventing account hijack
 
 ## Error Handling
 
@@ -201,12 +215,13 @@ User Journey:
 
 ## Security Considerations
 
-1. **Password Requirements**: Minimum 6 characters (enforced in frontend and Supabase)
-2. **Username Validation**: Alphanumeric with hyphens/underscores only
-3. **Email Confirmation**: Set to true during user creation
-4. **Service Role Key**: Used only in Edge Functions, never exposed to client
-5. **Payment Verification**: Always verified server-side with Paystack API
-6. **Session Management**: Handled by Supabase Auth with secure tokens
+1. **Password Requirements**: Minimum 8 characters (enforced client + server).
+2. **Registration Token**: Pending accounts are finalized only when the hashed token matches and hasn’t expired (1 hour default).
+3. **Origin Enforcement**: `REGISTRATION_ALLOWED_ORIGINS` limits where edge functions accept requests from.
+4. **Service Role Key**: Still confined to edge functions; all endpoints now require either the registration token or full Paystack verification.
+5. **Payment Verification**: Underpayments or non-success statuses cause hard failure; client metadata is ignored for quantity.
+6. **Session Management**: Supabase Auth continues to manage JWTs; auto-login after payment remains, but tokens are cleared if sign-in fails.
+7. **Allowed Origins**: `REGISTRATION_ALLOWED_ORIGINS` environment variable restricts which web origins may invoke `create-pending-user` or `finalize-registration`.
 
 ## Future Improvements
 
@@ -218,3 +233,4 @@ User Journey:
 6. Add payment history page
 7. Add receipt generation and email
 8. Add webhook for Paystack events
+9. Automate rotation / invalidation of registration tokens after multiple failed finalization attempts

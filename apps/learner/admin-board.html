@@ -9,11 +9,14 @@
     <style>
       body {
         font-family: 'Segoe UI', 'Tahoma', 'Geneva', 'Verdana', sans-serif;
+        background-color: #f7f3ec;
+        color: #1f2937;
       }
       .card {
-        background-color: #ffffff;
+        background-color: rgba(255, 255, 255, 0.85);
         border-radius: 1rem;
-        box-shadow: 0 10px 30px -12px rgba(15, 118, 110, 0.2);
+        box-shadow: 0 16px 40px -28px rgba(30, 41, 59, 0.25);
+        border: 1px solid rgba(250, 204, 21, 0.12);
       }
       .badge {
         display: inline-flex;
@@ -57,47 +60,87 @@
       }
     </style>
   </head>
-  <body class="bg-slate-100 text-slate-900 antialiased">
+  <body class="text-slate-900 antialiased">
     <div class="min-h-screen">
-      <header class="bg-white border-b border-slate-200/60">
+      <header class="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-50">
         <div
           class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8"
         >
-          <div class="flex items-center gap-3">
-            <svg
-              class="h-9 w-9 text-cyan-700"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M12.312 2.969c.943 0 1.844.297 2.61.859l-1.032 1.031a2.999 2.999 0 10-4.242 4.243L8.617 8.07A4.482 4.482 0 0112.312 6.5c.995 0 1.93.324 2.688.875l-1.047 1.047a1.5 1.5 0 102.121 2.121l1.047-1.047c.55 1.054.55 2.296 0 3.35l-1.047 1.047a1.5 1.5 0 102.121 2.121l1.047-1.047c.55.758.875 1.693.875 2.688a4.482 4.482 0 01-1.57 3.695l-1.031-1.032a2.999 2.999 0 10-4.243-4.242l1.032-1.031a4.482 4.482 0 01-3.695 1.57c-.995 0-1.93-.324-2.688-.875l1.047-1.047a1.5 1.5 0 10-2.121-2.121L6.72 15.15c-.55-1.054-.55-2.296 0-3.35l1.047-1.047a1.5 1.5 0 10-2.121-2.121L4.695 9.68A4.482 4.482 0 016.266 6c0-1.23.492-2.35 1.305-3.164L6.54 1.805A6.002 6.002 0 00.75 6.266c-1 2.387.104 5.234 2.227 7.357a1.5 1.5 0 002.121 0l1.016-1.016c.33-.33.33-.865 0-1.195l-1.047-1.047a2.983 2.983 0 010-4.218l1.047-1.047a1.5 1.5 0 000-2.121L5.11 2.227A6.024 6.024 0 006.266.75c2.515-1.104 5.362-.001 7.357 2.122l-1.31 1.31a4.48 4.48 0 01-2.61-.858z"
-                clip-rule="evenodd"
-              ></path>
-            </svg>
+          <div class="flex items-center gap-3 relative">
+            <!-- Logo -->
+            <div class="relative">
+              <div class="w-10 h-10 bg-gradient-to-br from-cyan-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
+                <svg
+                  class="h-6 w-6 text-white"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <div class="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white"></div>
+            </div>
+
             <div>
-              <p class="text-sm uppercase tracking-wide text-slate-500">
+              <p class="text-xs font-medium text-slate-500 sm:text-sm">
                 Academic Nightingale
               </p>
               <h1
-                class="text-xl font-semibold text-slate-800"
+                class="text-lg font-bold text-slate-900 sm:text-xl"
                 data-role="user-greeting"
               >
                 Welcome back
               </h1>
             </div>
           </div>
+
           <div class="flex items-center gap-3">
-            <span
-              class="hidden text-sm text-slate-500 sm:block"
-              data-role="user-email"
-            ></span>
+            <!-- User info (hidden on small screens) -->
+            <div class="hidden sm:flex items-center gap-3">
+              <span
+                class="text-sm text-slate-600 truncate max-w-[150px]"
+                data-role="user-email"
+              ></span>
+              <div class="w-8 h-8 bg-gradient-to-br from-slate-200 to-slate-300 rounded-full flex items-center justify-center">
+                <svg class="w-4 h-4 text-slate-600" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Mobile Home button -->
+            <a
+              href="admin-board.html"
+              class="sm:hidden flex items-center gap-2 p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              title="Home"
+            >
+              <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9.75L12 4l9 5.75M5 10.75V20h5v-4h4v4h5v-9.25"/>
+              </svg>
+            </a>
+
+            <!-- Mobile Sign out button -->
             <button
               type="button"
-              class="rounded-full bg-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-cyan-700 focus:outline-none focus:ring focus:ring-cyan-300"
+              class="sm:hidden flex items-center gap-2 p-2 rounded-lg hover:bg-rose-50 transition-colors"
+              title="Sign out"
+              data-role="mobile-logout"
+            >
+              <svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H9m4 4v1a2 2 0 01-2 2H7a2 2 0 01-2-2V7a2 2 0 012-2h4a2 2 0 012 2v1"/>
+              </svg>
+            </button>
+
+            <!-- Desktop Sign out button -->
+            <button
+              type="button"
+              class="hidden sm:flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-300 transition-all hover:shadow-lg"
               data-role="logout"
             >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+              </svg>
               Sign out
             </button>
           </div>
@@ -111,66 +154,112 @@
           data-role="toast"
         ></div>
 
-        <section class="card hero-card mb-6 px-6 py-6" data-role="hero-card">
-          <div class="hero-grid">
-            <div class="space-y-5">
-              <p class="text-xs font-semibold uppercase tracking-wide text-cyan-600">
-                Welcome back
-              </p>
-              <h1 class="text-3xl font-bold text-slate-900" data-role="hero-name">
-                Ready to learn
-              </h1>
-              <p class="text-sm text-slate-600" data-role="hero-plan-headline">
-                Let’s get your personalised drills ready.
-              </p>
-              <div class="space-y-3">
-                <div class="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <span>Plan progress</span>
-                  <span data-role="hero-days-remaining">—</span>
+        <!-- Hero Section -->
+        <section class="relative mb-8">
+          <!-- Background gradient -->
+          <div class="absolute inset-0 bg-gradient-to-br from-cyan-50 via-emerald-50 to-sky-50 rounded-3xl"></div>
+          <div class="absolute top-0 right-0 w-32 h-32 bg-cyan-200 rounded-full filter blur-2xl opacity-30"></div>
+          <div class="absolute bottom-0 left-0 w-24 h-24 bg-emerald-200 rounded-full filter blur-2xl opacity-30"></div>
+
+          <div class="relative bg-white/60 backdrop-blur-sm rounded-3xl p-6 sm:p-8 shadow-sm border border-white/50">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+              <!-- Left: Welcome content -->
+              <div class="lg:col-span-2 space-y-6">
+                <!-- Badge -->
+                <div class="inline-flex items-center gap-2 bg-cyan-100 text-cyan-700 px-3 py-1.5 rounded-full text-sm font-semibold">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                  Welcome back
                 </div>
-                <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500 transition-all"
-                    style="width: 0%"
-                    data-role="hero-progress-bar"
-                  ></div>
+
+                <!-- Name and greeting -->
+                <div>
+                  <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 mb-3" data-role="hero-name">
+                    Ready to crush today's goals
+                  </h1>
+                  <p class="text-lg text-slate-600" data-role="hero-plan-headline">
+                    Let's get your personalized learning session started.
+                  </p>
                 </div>
-                <p class="text-xs text-slate-500" data-role="hero-progress-label">
-                  We’ll update your streak once your plan is confirmed.
-                </p>
+
+                <!-- Progress section -->
+                <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-slate-100">
+                  <div class="flex items-center justify-between text-sm font-semibold text-slate-600 mb-3">
+                    <span>Your Progress</span>
+                    <span data-role="hero-days-remaining" class="text-cyan-600">Keep going!</span>
+                  </div>
+                  <div class="h-3 w-full bg-slate-100 rounded-full overflow-hidden mb-3">
+                    <div
+                      class="h-full bg-gradient-to-r from-cyan-500 to-emerald-500 rounded-full transition-all duration-700 ease-out"
+                      style="width: 0%"
+                      data-role="hero-progress-bar"
+                    ></div>
+                  </div>
+                  <p class="text-xs text-slate-500" data-role="hero-progress-label">
+                    Complete today's questions to maintain your streak
+                  </p>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    class="group relative bg-gradient-to-r from-cyan-600 to-emerald-600 text-white font-semibold px-6 py-3.5 rounded-2xl shadow-lg shadow-cyan-600/25 hover:shadow-cyan-600/30 transition-all duration-300 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-cyan-300"
+                    data-role="resume-quiz"
+                  >
+                    <span class="flex items-center justify-center gap-2">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                      Start Today's Questions
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
-            <div class="flex flex-col gap-4">
-              <button
-                type="button"
-                class="rounded-full bg-cyan-600 px-6 py-3 text-base font-semibold text-white shadow-lg shadow-cyan-600/20 transition hover:bg-cyan-700 focus:outline-none focus:ring focus:ring-cyan-200"
-                data-role="resume-quiz"
-              >
-                Start today’s exam
-              </button>
-              <button
-                type="button"
-                class="rounded-full border border-cyan-200 px-6 py-3 text-sm font-semibold text-cyan-600 hover:border-cyan-300 hover:text-cyan-700 focus:outline-none focus:ring focus:ring-cyan-100"
-                data-role="regenerate-quiz"
-              >
-                New question set
-              </button>
-              <div class="hero-stats-grid text-sm text-slate-600">
-                <div class="hero-stat-card p-3">
-                  <p class="text-xs uppercase tracking-wide text-slate-500">Status</p>
-                  <p class="mt-1 text-base font-semibold text-slate-900" data-role="stat-status">—</p>
+
+              <!-- Right: Stats cards -->
+              <div class="grid grid-cols-2 lg:grid-cols-1 gap-4">
+                <div class="bg-white/90 backdrop-blur-sm rounded-2xl p-4 text-center border border-slate-100">
+                  <div class="w-12 h-12 bg-cyan-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-cyan-600" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                  </div>
+                  <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</p>
+                  <p class="text-lg font-bold text-slate-900" data-role="stat-status">Ready</p>
                 </div>
-                <div class="hero-stat-card p-3">
-                  <p class="text-xs uppercase tracking-wide text-slate-500">Answered</p>
-                  <p class="mt-1 text-base font-semibold text-slate-900" data-role="stat-progress">—</p>
+
+                <div class="bg-white/90 backdrop-blur-sm rounded-2xl p-4 text-center border border-slate-100">
+                  <div class="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-emerald-600" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                  </div>
+                  <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Progress</p>
+                  <p class="text-lg font-bold text-slate-900" data-role="stat-progress">0/0</p>
                 </div>
-                <div class="hero-stat-card p-3">
-                  <p class="text-xs uppercase tracking-wide text-slate-500">Score</p>
-                  <p class="mt-1 text-base font-semibold text-slate-900" data-role="stat-score">—</p>
+
+                <div class="bg-white/90 backdrop-blur-sm rounded-2xl p-4 text-center border border-slate-100">
+                  <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-amber-600" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                  </div>
+                  <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Score</p>
+                  <p class="text-lg font-bold text-slate-900" data-role="stat-score">—</p>
                 </div>
-                <div class="hero-stat-card p-3">
-                  <p class="text-xs uppercase tracking-wide text-slate-500">Streak</p>
-                  <p class="mt-1 text-base font-semibold text-slate-900" data-role="stat-streak">—</p>
+
+                <div class="bg-white/90 backdrop-blur-sm rounded-2xl p-4 text-center border border-slate-100">
+                  <div class="w-12 h-12 bg-rose-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-rose-600" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/>
+                      <path d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/>
+                    </svg>
+                  </div>
+                  <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Streak</p>
+                  <p class="text-lg font-bold text-slate-900" data-role="stat-streak">0 days</p>
                 </div>
               </div>
             </div>
@@ -311,106 +400,152 @@
         </section>
 
         <section
-          class="mt-10 hidden space-y-6 rounded-2xl border border-slate-200 bg-white px-6 py-6"
+          class="mt-10 hidden space-y-6 rounded-3xl border border-amber-100 bg-amber-50 px-5 py-6 shadow-sm"
           data-role="subscription-card"
         >
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div class="space-y-2">
-              <span class="badge bg-slate-100 text-slate-600">Plan details</span>
-              <h2 class="text-2xl font-semibold text-slate-900" data-role="plan-name">
-                Loading plan…
+              <span class="badge bg-emerald-100 text-emerald-700">Your plans</span>
+              <h2 class="text-2xl font-semibold text-slate-900" data-role="plan-heading">
+                Loading plans…
               </h2>
-              <p class="text-sm text-slate-500" data-role="plan-description">
-                Hold on while we fetch your subscription details.
+              <p class="text-sm text-slate-500" data-role="plan-subheading">
+                Hold on while we fetch the subscriptions linked to your dashboard.
               </p>
             </div>
-            <span
-              class="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500"
-              data-role="plan-status-chip"
+            <a
+              href="subscription-plans.html"
+              class="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-700 transition hover:bg-emerald-50 hover:border-emerald-300"
+              data-role="plan-browse"
             >
-              Checking…
-            </span>
+              Browse plans
+            </a>
           </div>
 
-          <div class="space-y-3">
-            <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-              <div
-                class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500 transition-all"
-                style="width: 0%"
-                data-role="plan-progress-bar"
-              ></div>
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" data-role="plan-collection">
+            <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+              Loading plan details…
             </div>
-            <div class="flex flex-wrap items-center justify-between text-xs text-slate-500">
-              <span data-role="plan-progress-label">Updating plan timeline…</span>
-              <span data-role="plan-dates"></span>
-            </div>
-          </div>
-
-          <dl class="grid grid-cols-1 gap-4 text-sm text-slate-600 sm:grid-cols-4">
-            <div>
-              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Days left</dt>
-              <dd class="mt-1 text-base font-semibold text-slate-900" data-role="plan-days">—</dd>
-            </div>
-            <div>
-              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Renews on</dt>
-              <dd class="mt-1 text-base font-semibold text-slate-900" data-role="plan-renewal">—</dd>
-            </div>
-            <div>
-              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Plan price</dt>
-              <dd class="mt-1 text-base font-semibold text-slate-900" data-role="plan-price">—</dd>
-            </div>
-            <div>
-              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Daily limit</dt>
-              <dd class="mt-1 text-base font-semibold text-slate-900" data-role="plan-daily-limit">—</dd>
-            </div>
-          </dl>
-
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <p class="text-xs text-slate-500">
-              Need help? <a href="help-center.html" class="font-semibold text-cyan-600 hover:text-cyan-700">Visit the help center</a>
-            </p>
-            <button
-              type="button"
-              class="inline-flex items-center justify-center rounded-full bg-cyan-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700 focus:outline-none focus:ring focus:ring-cyan-200"
-              data-role="plan-renew"
-            >
-              Manage plan
-            </button>
           </div>
         </section>
 
-        <section class="mt-10 card px-4 py-6 sm:px-6 sm:py-6">
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div class="max-w-xl">
-              <p class="text-xs font-semibold uppercase tracking-wide text-cyan-600">Stay connected</p>
-              <h3 class="mt-1 text-xl font-semibold text-slate-900">Join our learning community</h3>
-              <p class="mt-2 text-sm text-slate-600">
+        <!-- Community Connection Section -->
+        <section class="mt-12 relative overflow-hidden">
+          <!-- Background decoration -->
+          <div class="absolute inset-0 bg-gradient-to-br from-emerald-50 via-cyan-50 to-sky-50 opacity-60"></div>
+          <div class="absolute top-0 right-0 w-64 h-64 bg-emerald-200 rounded-full filter blur-3xl opacity-20"></div>
+          <div class="absolute bottom-0 left-0 w-48 h-48 bg-cyan-200 rounded-full filter blur-3xl opacity-20"></div>
+
+          <div class="relative px-6 py-12 sm:px-8 sm:py-16">
+            <div class="text-center max-w-2xl mx-auto">
+              <!-- Badge -->
+              <div class="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full text-sm font-semibold mb-6">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+                Stay Connected
+              </div>
+
+              <!-- Main heading -->
+              <h2 class="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">
+                Join Our Learning Community
+              </h2>
+
+              <!-- Description -->
+              <p class="text-lg text-slate-600 mb-10 leading-relaxed">
                 Get daily reminders, study tips, and live session alerts straight from our team on the channels you already use.
               </p>
-            </div>
-            <div class="flex flex-col gap-3 sm:flex-row">
-              <a
-                href="https://whatsapp.com/channel/0029VaW2i4qJuyAIGj7CRb0W"
-                target="_blank"
-                rel="noopener"
-                class="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring focus:ring-emerald-200"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M12.04 2c-5.02 0-9.1 3.99-9.1 8.91 0 1.57.43 3.08 1.25 4.43L2.03 22l6.87-2.19c1.13.31 2.3.47 3.47.47 5.02 0 9.1-3.99 9.1-8.91S17.06 2 12.04 2zm0 1.8c3.98 0 7.22 3.15 7.22 7.04 0 3.9-3.24 7.05-7.22 7.05-1.09 0-2.16-.24-3.17-.58l-.23-.08-4.07 1.3 1.3-3.86-.12-.2c-.76-1.21-1.15-2.6-1.15-4.05 0-3.88 3.24-7.03 7.22-7.03zm-3.23 3.7c-.2 0-.53.08-.82.37-.28.29-1.08 1.03-1.08 2.5 0 1.47 1.11 2.9 1.26 3.1.16.21 2.17 3.32 5.3 4.41.74.26 1.32.41 1.77.53.74.19 1.42.16 1.95.1.6-.06 1.84-.75 2.1-1.48.26-.74.26-1.36.18-1.48-.08-.13-.29-.21-.6-.37-.32-.16-1.9-.93-2.19-1.04-.29-.1-.5-.16-.71.16-.21.32-.82 1.04-1.01 1.25-.18.21-.37.24-.69.08-.32-.16-1.35-.5-2.58-1.58-.95-.83-1.6-1.86-1.79-2.18-.19-.32-.02-.5.14-.66.15-.15.32-.4.48-.6.16-.21.21-.37.32-.61.11-.24.05-.45-.03-.61-.08-.16-.71-1.7-.99-2.32-.29-.63-.58-.5-.77-.5z" />
-                </svg>
-                WhatsApp Channel
-              </a>
-              <a
-                href="https://t.me/AcademicNightingale"
-                target="_blank"
-                rel="noopener"
-                class="inline-flex items-center justify-center gap-2 rounded-full bg-sky-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 focus:outline-none focus:ring focus:ring-sky-200"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M20.498 3.554c-.34-.288-.81-.332-1.19-.11L3.53 12.17c-.33.19-.53.53-.52.9.01.38.22.71.56.88l3.64 1.79 1.43 4.29c.13.38.45.66.84.73.06.01.12.02.18.02.34 0 .66-.16.87-.44l2.32-3.08 3.74 2.12c.18.1.37.15.57.15.16 0 .33-.03.48-.1.31-.14.54-.41.63-.74l3.27-12.55c.11-.41-.03-.85-.35-1.13zM9.53 15.53l-.25 2.23-.84-2.54 8.49-7.58-7.4 7.89z" />
-                </svg>
-                Telegram Channel
-              </a>
+
+              <!-- Community channels grid -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+                <!-- WhatsApp Channel -->
+                <a
+                  href="https://whatsapp.com/channel/0029VaW2i4qJuyAIGj7CRb0W"
+                  target="_blank"
+                  rel="noopener"
+                  class="group relative bg-white rounded-2xl p-8 shadow-sm border border-emerald-100 hover:shadow-emerald-200 hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                >
+                  <!-- Icon background -->
+                  <div class="absolute inset-0 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+                  <!-- Content -->
+                  <div class="relative">
+                    <!-- Icon -->
+                    <div class="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center mb-6 mx-auto group-hover:scale-110 transition-transform duration-300">
+                      <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12.04 2c-5.02 0-9.1 3.99-9.1 8.91 0 1.57.43 3.08 1.25 4.43L2.03 22l6.87-2.19c1.13.31 2.3.47 3.47.47 5.02 0 9.1-3.99 9.1-8.91S17.06 2 12.04 2zm0 1.8c3.98 0 7.22 3.15 7.22 7.04 0 3.9-3.24 7.05-7.22 7.05-1.09 0-2.16-.24-3.17-.58l-.23-.08-4.07 1.3 1.3-3.86-.12-.2c-.76-1.21-1.15-2.6-1.15-4.05 0-3.88 3.24-7.03 7.22-7.03zm-3.23 3.7c-.2 0-.53.08-.82.37-.28.29-1.08 1.03-1.08 2.5 0 1.47 1.11 2.9 1.26 3.1.16.21 2.17 3.32 5.3 4.41.74.26 1.32.41 1.77.53.74.19 1.42.16 1.95.1.6-.06 1.84-.75 2.1-1.48.26-.74.26-1.36.18-1.48-.08-.13-.29-.21-.6-.37-.32-.16-1.9-.93-2.19-1.04-.29-.1-.5-.16-.71.16-.21.32-.82 1.04-1.01 1.25-.18.21-.37.24-.69.08-.32-.16-1.35-.5-2.58-1.58-.95-.83-1.6-1.86-1.79-2.18-.19-.32-.02-.5.14-.66.15-.15.32-.4.48-.6.16-.21.21-.37.32-.61.11-.24.05-.45-.03-.61-.08-.16-.71-1.7-.99-2.32-.29-.63-.58-.5-.77-.5z"/>
+                      </svg>
+                    </div>
+
+                    <!-- Text content -->
+                    <h3 class="text-xl font-bold text-slate-900 mb-2">WhatsApp Channel</h3>
+                    <p class="text-sm text-slate-600 mb-4">Daily study reminders and exam tips</p>
+
+                    <!-- Arrow indicator -->
+                    <div class="flex items-center justify-center text-emerald-600 font-semibold text-sm group-hover:text-emerald-700 transition-colors">
+                      <span>Join Channel</span>
+                      <svg class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                      </svg>
+                    </div>
+                  </div>
+                </a>
+
+                <!-- Telegram Channel -->
+                <a
+                  href="https://t.me/AcademicNightingale"
+                  target="_blank"
+                  rel="noopener"
+                  class="group relative bg-white rounded-2xl p-8 shadow-sm border border-sky-100 hover:shadow-sky-200 hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                >
+                  <!-- Icon background -->
+                  <div class="absolute inset-0 bg-gradient-to-br from-sky-50 to-sky-100 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+                  <!-- Content -->
+                  <div class="relative">
+                    <!-- Icon -->
+                    <div class="w-16 h-16 bg-sky-500 rounded-2xl flex items-center justify-center mb-6 mx-auto group-hover:scale-110 transition-transform duration-300">
+                      <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20.498 3.554c-.34-.288-.81-.332-1.19-.11L3.53 12.17c-.33.19-.53.53-.52.9.01.38.22.71.56.88l3.64 1.79 1.43 4.29c.13.38.45.66.84.73.06.01.12.02.18.02.34 0 .66-.16.87-.44l2.32-3.08 3.74 2.12c.18.1.37.15.57.15.16 0 .33-.03.48-.1.31-.14.54-.41.63-.74l3.27-12.55c.11-.41-.03-.85-.35-1.13zM9.53 15.53l-.25 2.23-.84-2.54 8.49-7.58-7.4 7.89z"/>
+                      </svg>
+                    </div>
+
+                    <!-- Text content -->
+                    <h3 class="text-xl font-bold text-slate-900 mb-2">Telegram Channel</h3>
+                    <p class="text-sm text-slate-600 mb-4">Live sessions and community support</p>
+
+                    <!-- Arrow indicator -->
+                    <div class="flex items-center justify-center text-sky-600 font-semibold text-sm group-hover:text-sky-700 transition-colors">
+                      <span>Join Channel</span>
+                      <svg class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                      </svg>
+                    </div>
+                  </div>
+                </a>
+              </div>
+
+              <!-- Trust indicators -->
+              <div class="mt-12 flex flex-wrap justify-center items-center gap-8 text-sm text-slate-500">
+                <div class="flex items-center gap-2">
+                  <svg class="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span>Free to join</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <svg class="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span>Daily updates</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <svg class="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                  </svg>
+                  <span>Active community</span>
+                </div>
+              </div>
             </div>
           </div>
         </section>

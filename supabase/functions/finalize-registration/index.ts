@@ -1,16 +1,76 @@
 import { serve } from 'https://deno.land/std@0.223.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+const ALLOWED_ORIGINS = (Deno.env.get('REGISTRATION_ALLOWED_ORIGINS') || '')
+  .split(',')
+  .map((entry) => entry.trim())
+  .filter(Boolean);
+
+const BASE_CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+  Vary: 'Origin',
+} as const;
 
 const USERNAME_PATTERN = /^[a-z0-9_-]{3,}$/;
 const MIN_PASSWORD_LENGTH = 8;
 
+function resolveOrigin(origin: string | null): string | null {
+  if (!ALLOWED_ORIGINS.length) {
+    return origin ?? '*';
+  }
+  if (!origin) return null;
+  return ALLOWED_ORIGINS.includes(origin) ? origin : null;
+}
+
+function buildCorsHeaders(origin: string | null) {
+  const resolved = resolveOrigin(origin);
+  if (!resolved) return null;
+  return {
+    ...BASE_CORS_HEADERS,
+    'Access-Control-Allow-Origin': resolved,
+  } as const;
+}
+
+function jsonResponse(
+  status: number,
+  origin: string | null,
+  payload: Record<string, unknown>,
+) {
+  const headers = buildCorsHeaders(origin);
+  if (!headers) {
+    return new Response(JSON.stringify({ error: 'Origin not allowed' }), {
+      status: 403,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': 'null',
+        Vary: 'Origin',
+      },
+    });
+  }
+
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...headers, 'Content-Type': 'application/json' },
+  });
+}
+
+async function hashToken(token: string) {
+  const encoder = new TextEncoder();
+  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(token));
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 serve(async (req) => {
+  const origin = req.headers.get('origin') || req.headers.get('Origin');
+  const corsHeaders = buildCorsHeaders(origin);
+
+  if (!corsHeaders) {
+    return jsonResponse(403, null, { error: 'Origin not allowed' });
+  }
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -24,12 +84,13 @@ serve(async (req) => {
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
-    
+
     const payload = await req.json();
     const userId = String(payload.userId || '').trim();
     const rawUsername = String(payload.username || '').trim();
     const normalizedUsername = rawUsername.toLowerCase();
     const password = String(payload.password || '');
+    const registrationToken = String(payload.registrationToken || '').trim();
     const sanitizedFirstName =
       typeof payload.firstName === 'string' ? payload.firstName.trim() : null;
     const sanitizedLastName =
@@ -39,82 +100,77 @@ serve(async (req) => {
     const sanitizedPhone =
       typeof payload.phone === 'string' ? payload.phone.trim() : null;
 
-    if (!userId || !normalizedUsername || !password) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (!userId || !normalizedUsername || !password || !registrationToken) {
+      return jsonResponse(400, origin, { error: 'Missing required fields' });
     }
 
     if (!USERNAME_PATTERN.test(normalizedUsername)) {
-      return new Response(
-        JSON.stringify({
-          error:
-            'Username must be at least 3 characters and use only letters, numbers, hyphens, or underscores.',
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      return jsonResponse(400, origin, {
+        error:
+          'Username must be at least 3 characters and use only letters, numbers, hyphens, or underscores.',
+      });
     }
 
     if (password.length < MIN_PASSWORD_LENGTH) {
-      return new Response(
-        JSON.stringify({
-          error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      return jsonResponse(400, origin, {
+        error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
+      });
     }
 
-    console.log('[finalize-registration] Finalizing registration for user:', userId);
-
-    // Check if username is available (normalized to lowercase)
-    const { data: existingUser, error: checkError } = await supabaseAdmin
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('id')
-      .eq('username', normalizedUsername)
+      .select('id, registration_token, registration_token_expires_at, username')
+      .eq('id', userId)
       .maybeSingle();
 
-    if (checkError) throw checkError;
-
-    if (existingUser && existingUser.id !== userId) {
-      return new Response(
-        JSON.stringify({ error: 'This username is already taken. Please choose another.' }),
-        {
-          status: 409,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+    if (profileError && profileError.code !== 'PGRST116') {
+      throw profileError;
     }
 
-    // Update user password and metadata
-    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-      userId,
-      {
-        password,
-        user_metadata: {
-          username: normalizedUsername,
-          first_name: sanitizedFirstName,
-          last_name: sanitizedLastName,
-          phone: sanitizedPhone,
-        },
+    if (!profile) {
+      return jsonResponse(404, origin, { error: 'Profile not found for this user' });
+    }
+
+    if (!profile.registration_token) {
+      return jsonResponse(409, origin, {
+        error: 'Registration has already been finalized or the token is missing.',
+      });
+    }
+
+    const hashedProvidedToken = await hashToken(registrationToken);
+    if (hashedProvidedToken !== profile.registration_token) {
+      return jsonResponse(403, origin, { error: 'Invalid registration token.' });
+    }
+
+    if (profile.registration_token_expires_at) {
+      const expiresAt = new Date(profile.registration_token_expires_at);
+      if (Number.isFinite(expiresAt.getTime()) && Date.now() > expiresAt.getTime()) {
+        return jsonResponse(410, origin, {
+          error: 'Registration token has expired. Restart the registration process.',
+        });
       }
-    );
+    }
 
-    if (updateError) throw updateError;
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      password,
+      user_metadata: {
+        username: normalizedUsername,
+        first_name: sanitizedFirstName,
+        last_name: sanitizedLastName,
+        phone: sanitizedPhone,
+      },
+    });
 
-    // Update profile
+    if (updateError) {
+      throw updateError;
+    }
+
     const fullName = [sanitizedFirstName, sanitizedLastName]
       .filter(Boolean)
       .join(' ')
       .trim();
 
-    const { error: profileError } = await supabaseAdmin
+    const { error: profileUpsertError } = await supabaseAdmin
       .from('profiles')
       .upsert(
         {
@@ -125,28 +181,26 @@ serve(async (req) => {
           last_name: sanitizedLastName || null,
           phone: sanitizedPhone || null,
           email: normalizedEmail || null,
-          subscription_status: 'active',
+          registration_token: null,
+          registration_token_expires_at: null,
         },
-        { onConflict: 'id' }
+        { onConflict: 'id' },
       );
 
-    if (profileError) throw profileError;
+    if (profileUpsertError) {
+      throw profileUpsertError;
+    }
 
-    console.log('[finalize-registration] Registration finalized successfully');
-
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    await supabaseAdmin.rpc('refresh_profile_subscription_status', {
+      p_user_id: userId,
     });
 
+    return jsonResponse(200, origin, { success: true });
   } catch (error) {
     console.error('[finalize-registration] Error:', error);
-    return new Response(JSON.stringify({ 
+    return jsonResponse(500, origin, {
       error: error.message || 'Unknown error occurred',
       details: error.toString(),
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
