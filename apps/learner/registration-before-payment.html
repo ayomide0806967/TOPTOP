@@ -112,6 +112,7 @@
         cursor: not-allowed;
       }
 
+
       .pill {
         display: inline-flex;
         align-items: center;
@@ -288,13 +289,13 @@
                       name="username"
                       type="text"
                       readonly
-                    class="form-input block w-full rounded-md border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-900"
+                    class="form-input block w-full rounded-lg border border-slate-300 bg-white px-4 py-4 text-base font-medium text-slate-900 transition"
                       aria-describedby="username-feedback"
                     />
                     <button
                       type="button"
                       data-role="copy-username"
-                      class="inline-flex items-center justify-center rounded-md border border-slate-200 px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+                      class="inline-flex items-center justify-center rounded-md border border-amber-600 bg-amber-600 px-4 text-sm font-semibold text-white transition hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-200"
                     >
                       Copy
                     </button>
@@ -458,26 +459,26 @@
             data-role="success-reference"
           ></p>
           <div
-            class="mt-6 hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-left"
+            class="mt-6 hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-left"
             data-role="success-credentials"
           >
-            <p class="text-xs font-semibold uppercase text-emerald-700">
+            <p class="text-xs font-semibold uppercase text-amber-700">
               Your username
             </p>
             <div class="mt-2 flex items-center justify-between gap-2">
               <span
                 data-role="success-username"
-                class="truncate text-lg font-semibold text-emerald-900"
+                class="truncate text-2xl font-bold text-amber-800"
               ></span>
               <button
                 type="button"
                 data-role="success-copy-username"
-                class="rounded-md border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                class="rounded-md border border-amber-600 bg-amber-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-200"
               >
                 Copy
               </button>
             </div>
-            <p class="mt-2 text-xs text-emerald-700">
+            <p class="mt-2 text-xs text-amber-700">
               Save this together with the password you chose. You’ll need both
               next time you sign in.
             </p>
@@ -496,6 +497,7 @@
           >
             Retry verification
           </button>
+
         </div>
       </div>
 

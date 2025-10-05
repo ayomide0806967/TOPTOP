@@ -1299,6 +1299,14 @@ async function initialise() {
     }
     await loadQuestions();
 
+    if (state.mode !== 'free' && state.dailyQuiz.status === 'assigned') {
+      try {
+        await ensureStarted();
+      } catch (startError) {
+        console.error('[Exam Face] Unable to mark quiz as started immediately', startError);
+      }
+    }
+
     let storedFreeProgress = null;
     if (state.mode === 'free') {
       storedFreeProgress = loadFreeQuizProgress();

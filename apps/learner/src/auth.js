@@ -285,6 +285,7 @@ async function handleLogin(event, supabase) {
       error: lookupError,
       pendingRegistration,
       needsSupport,
+      userId,
     } = await getEmailFromUsername(supabase, username);
 
     if (!email) {
@@ -321,6 +322,20 @@ async function handleLogin(event, supabase) {
       showFeedback(signInError || 'Unable to sign in.');
       setLoading(false);
       return;
+    }
+
+    try {
+      window.sessionStorage.setItem(
+        'welcome_credentials',
+        JSON.stringify({
+          username,
+          password,
+          userId,
+          savedAt: new Date().toISOString(),
+        })
+      );
+    } catch (storageError) {
+      console.warn('[Auth] Unable to store welcome credentials', storageError);
     }
 
     // Success - show feedback and redirect

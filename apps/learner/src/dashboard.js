@@ -798,7 +798,7 @@ function renderHistory() {
           : '—';
 
         const reviewBtn = item.status === 'completed' 
-          ? `<button onclick="window.location.href='result-face.html?daily_quiz_id=${item.id}'" class="text-cyan-600 hover:text-cyan-700 text-sm font-medium">Review</button>`
+          ? `<button type="button" onclick="window.location.href='result-face.html?daily_quiz_id=${item.id}'" class="inline-flex items-center gap-2 rounded-full bg-cyan-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700 focus:outline-none focus:ring focus:ring-cyan-200">Review</button>`
           : '—';
 
         return `

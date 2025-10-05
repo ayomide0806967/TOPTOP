@@ -65,7 +65,35 @@ let lastVerificationError = null;
 let hasFocusedContact = false;
 let hasFocusedAccount = false;
 
-const FIELD_STATUS_CLASSES = ['text-red-600', 'text-green-600', 'text-slate-600'];
+const FIELD_STATUS_CLASSES = ['text-red-600', 'text-amber-600', 'text-slate-600'];
+
+async function copyToClipboard(value) {
+  if (!value) return false;
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch (error) {
+      console.warn('[Registration] Clipboard API failed, falling back', error);
+    }
+  }
+
+  try {
+    const scratch = document.createElement('textarea');
+    scratch.value = value;
+    scratch.setAttribute('readonly', '');
+    scratch.style.position = 'absolute';
+    scratch.style.left = '-9999px';
+    document.body.appendChild(scratch);
+    scratch.select();
+    document.execCommand('copy');
+    document.body.removeChild(scratch);
+    return true;
+  } catch (fallbackError) {
+    console.warn('[Registration] Clipboard fallback failed', fallbackError);
+    return false;
+  }
+}
 
 const state = {
   namesComplete: false,
@@ -81,10 +109,22 @@ function renderFieldStatus(target, message, type = 'info') {
 
   if (type === 'error') {
     target.classList.add('text-red-600');
+    if (target.id === 'username-feedback') {
+      target.classList.remove('text-sm', 'font-semibold');
+      target.classList.add('text-xs');
+    }
   } else if (type === 'success') {
-    target.classList.add('text-green-600');
+    target.classList.add('text-amber-600');
+    if (target.id === 'username-feedback') {
+      target.classList.remove('text-xs');
+      target.classList.add('text-sm', 'font-semibold');
+    }
   } else {
     target.classList.add('text-slate-600');
+    if (target.id === 'username-feedback') {
+      target.classList.remove('text-sm', 'font-semibold');
+      target.classList.add('text-xs');
+    }
   }
 }
 
@@ -93,6 +133,10 @@ function clearFieldStatus(target) {
   target.textContent = '';
   target.classList.add('hidden');
   target.classList.remove(...FIELD_STATUS_CLASSES);
+  if (target.id === 'username-feedback') {
+    target.classList.remove('text-sm', 'font-semibold');
+    target.classList.add('text-xs');
+  }
 }
 
 function showFeedback(message, type = 'error') {
@@ -407,29 +451,43 @@ function setUsernameField(value, { status = 'info', message = '' } = {}) {
     // Add distinctive styling for auto-generated usernames
     if (generatedUsername) {
       usernameInput.classList.add(
-        'bg-emerald-50',
-        'border-emerald-300',
-        'text-emerald-900',
-        'font-semibold'
+        'bg-amber-50',
+        'border-amber-400',
+        'text-amber-900',
+        'font-semibold',
+        'text-xl',
+        'ring-2',
+        'ring-amber-200',
+        'shadow-md'
       );
       usernameInput.classList.remove(
         'bg-white',
         'border-slate-300',
         'text-slate-900',
-        'font-medium'
+        'font-medium',
+        'text-base',
+        'ring-0',
+        'shadow-none'
       );
     } else {
       usernameInput.classList.remove(
-        'bg-emerald-50',
-        'border-emerald-300',
-        'text-emerald-900',
-        'font-semibold'
+        'bg-amber-50',
+        'border-amber-400',
+        'text-amber-900',
+        'font-semibold',
+        'text-xl',
+        'ring-2',
+        'ring-amber-200',
+        'shadow-md'
       );
       usernameInput.classList.add(
         'bg-white',
         'border-slate-300',
         'text-slate-900',
-        'font-medium'
+        'font-medium',
+        'text-base',
+        'ring-0',
+        'shadow-none'
       );
     }
   }
@@ -829,7 +887,7 @@ async function prepareUsername() {
         emailInput.value.trim()
       );
 
-      setUsernameField(username, { status: 'success', message: 'Your username is reserved.' });
+      setUsernameField(username, { status: 'success', message: 'Your username is reserved. Keep it safe.' });
       updateSectionVisibility();
       if (feedbackEl?.dataset?.state === 'info') {
         showFeedback('Username secured! Use it with your password to sign in after payment.', 'info');
@@ -1089,9 +1147,18 @@ function showSuccessState(options) {
 async function transitionToActiveState(contact) {
   const username = contact?.username || generatedUsername;
   const email = contact?.email || contact?.contactEmail || emailInput?.value?.trim();
+  const userId = contact?.userId || pendingUserId;
 
   if (username && successUsernameEl) {
     successUsernameEl.textContent = username;
+  }
+
+  if (userId) {
+    try {
+      window.sessionStorage.setItem('refreshQuizUserId', userId);
+    } catch {
+      // ignore storage issues
+    }
   }
 
   let autoLoginSucceeded = false;
@@ -1110,6 +1177,22 @@ async function transitionToActiveState(contact) {
   clearStoredReference();
 
   if (autoLoginSucceeded) {
+    if (storedPassword) {
+      try {
+        window.sessionStorage.setItem(
+          'welcome_credentials',
+          JSON.stringify({
+            username,
+            password: storedPassword,
+            userId,
+            savedAt: new Date().toISOString(),
+          })
+        );
+      } catch (storageError) {
+        console.warn('[Registration] Unable to store welcome credentials', storageError);
+      }
+    }
+    await resetTodaysQuiz(userId);
     showSuccessState({
       title: 'Payment confirmed! You’re in 🎉',
       body:
@@ -1235,6 +1318,51 @@ async function handlePaymentSuccess(reference, contact) {
   await processPaymentVerification(reference, contactDetails).finally(() => {
     activeReference = null;
   });
+}
+
+async function resetTodaysQuiz(userId) {
+  if (!userId) return;
+  try {
+    const supabase = await ensureSupabaseClient();
+    const today = new Date().toISOString().slice(0, 10);
+
+    const { data: quizzes, error: quizError } = await supabase
+      .from('daily_quizzes')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('assigned_date', today);
+
+    if (quizError) {
+      console.warn('[Registration] Failed to fetch existing daily quizzes', quizError);
+      return;
+    }
+
+    if (Array.isArray(quizzes) && quizzes.length > 0) {
+      const ids = quizzes.map((quiz) => quiz.id);
+      const { error: deleteQuestionsError } = await supabase
+        .from('daily_quiz_questions')
+        .delete()
+        .in('daily_quiz_id', ids);
+      if (deleteQuestionsError) {
+        console.warn('[Registration] Failed to clear quiz questions', deleteQuestionsError);
+      }
+
+      const { error: deleteQuizError } = await supabase
+        .from('daily_quizzes')
+        .delete()
+        .in('id', ids);
+      if (deleteQuizError) {
+        console.warn('[Registration] Failed to remove existing daily quiz', deleteQuizError);
+      }
+    }
+
+    const { error: regenerateError } = await supabase.rpc('generate_daily_quiz');
+    if (regenerateError) {
+      console.warn('[Registration] Failed to regenerate daily quiz', regenerateError);
+    }
+  } catch (error) {
+    console.warn('[Registration] Unexpected error while resetting daily quiz', error);
+  }
 }
 
 function openPaystackCheckout(paystackData, contact) {
@@ -1388,7 +1516,7 @@ async function handleFormSubmit(event) {
 
     const { userId, username } = await createPendingUser(registrationPayload);
     pendingUserId = userId;
-    setUsernameField(username, { status: 'success', message: 'Username reserved and ready.' });
+    setUsernameField(username, { status: 'success', message: 'Your username is reserved. Keep it safe.' });
 
     const contact = {
       planId,
@@ -1443,7 +1571,16 @@ async function handleFormSubmit(event) {
 async function initialise() {
   if (!formEl) return;
 
+  try {
+    const supabase = await ensureSupabaseClient();
+    await supabase.auth.signOut();
+  } catch (error) {
+    console.warn('[Registration] Failed to clear existing session', error);
+  }
+
   window.localStorage.removeItem('pendingPlanId');
+  window.localStorage.removeItem(STORAGE_CONTACT);
+  window.localStorage.removeItem(STORAGE_REFERENCE);
 
   const params = new URLSearchParams(window.location.search);
   const planId = params.get('planId') || params.get('plan');
@@ -1570,25 +1707,30 @@ async function initialise() {
     validatePasswords();
   });
 
-  copyUsernameBtn?.addEventListener('click', () => {
+  copyUsernameBtn?.addEventListener('click', async () => {
     if (!generatedUsername) return;
-    navigator.clipboard
-      .writeText(generatedUsername)
-      .then(() => {
-        renderFieldStatus(usernameFeedbackEl, 'Your username is reserved, keep it safely', 'success');
-      });
+    const copied = await copyToClipboard(generatedUsername);
+    if (copied) {
+      renderFieldStatus(usernameFeedbackEl, 'Your username is reserved. Keep it safe.', 'success');
+    } else {
+      renderFieldStatus(usernameFeedbackEl, 'Copy failed. Select and copy the username manually.', 'error');
+    }
   });
 
-  successCopyBtn?.addEventListener('click', () => {
+  successCopyBtn?.addEventListener('click', async () => {
     if (!generatedUsername) return;
-    navigator.clipboard
-      .writeText(generatedUsername)
-      .then(() => {
-        if (successBodyEl) {
-          successBodyEl.textContent = 'Your username is reserved, keep it safely';
-          successBodyEl.classList.add('text-green-600');
-        }
-      });
+    const copied = await copyToClipboard(generatedUsername);
+    if (copied) {
+      if (successBodyEl) {
+        successBodyEl.classList.remove('text-rose-600', 'text-amber-600', 'font-semibold');
+        successBodyEl.textContent = 'Username copied! Take a screenshot or store it securely.';
+        successBodyEl.classList.add('text-amber-600', 'font-semibold');
+      }
+    } else if (successBodyEl) {
+      successBodyEl.classList.remove('text-rose-600', 'text-amber-600', 'font-semibold');
+      successBodyEl.textContent = 'Copy failed. Highlight the username and copy it manually.';
+      successBodyEl.classList.add('text-rose-600', 'font-semibold');
+    }
   });
 
   successGoDashboardBtn?.addEventListener('click', () => {

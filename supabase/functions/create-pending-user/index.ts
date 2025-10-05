@@ -162,22 +162,27 @@ serve(async (req) => {
     }
 
     console.log('[create-pending-user] Fetching auth user by email');
-    const { data: userList, error: fetchUserError } = await supabaseAdmin.auth.admin.listUsers({
-      email: normalizedEmail,
-      per_page: 1,
-    });
+    // Query using filter instead of relying on first page of listUsers without filters
+    const { data: userList, error: fetchUserError } =
+      await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 200,
+        filter: `email.eq.${normalizedEmail}`,
+      });
 
     if (fetchUserError) {
       console.error('[create-pending-user] listUsers error:', fetchUserError);
       throw fetchUserError;
     }
 
-    const existingUser = userList?.users?.[0] ?? null;
+    const authUser = userList?.users?.find(
+      (user) => user.email?.toLowerCase() === normalizedEmail
+    ) ?? null;
 
     let userId: string;
 
-    if (existingUser) {
-      userId = existingUser.id;
+    if (authUser) {
+      userId = authUser.id;
       console.log('[create-pending-user] Reusing existing auth user:', userId);
 
       const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
