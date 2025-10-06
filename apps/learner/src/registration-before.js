@@ -1610,6 +1610,9 @@ async function handleFormSubmit(event) {
 async function initialise() {
   if (!formEl) return;
 
+  const params = new URLSearchParams(window.location.search);
+  const initialPlanId = params.get('planId') || params.get('plan');
+
   try {
     const supabase = await ensureSupabaseClient();
     const {
@@ -1618,6 +1621,29 @@ async function initialise() {
 
     if (session?.user) {
       state.session = session;
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('subscription_status')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        const status = (profile?.subscription_status || '').toLowerCase();
+        if (['pending_payment', 'awaiting_setup'].includes(status)) {
+          const redirectParams = new URLSearchParams();
+          const pendingPlanId = initialPlanId || window.localStorage.getItem('pendingPlanId');
+          if (pendingPlanId) {
+            redirectParams.set('planId', pendingPlanId);
+          }
+          const target = redirectParams.toString()
+            ? `resume-registration.html?${redirectParams.toString()}`
+            : 'resume-registration.html';
+          window.location.replace(target);
+          return;
+        }
+      } catch (profileError) {
+        console.warn('[Registration] Unable to resolve profile status for session user', profileError);
+      }
     } else {
       await supabase.auth.signOut();
       clearSessionFingerprint();
@@ -1630,8 +1656,7 @@ async function initialise() {
   window.localStorage.removeItem(STORAGE_CONTACT);
   window.localStorage.removeItem(STORAGE_REFERENCE);
 
-  const params = new URLSearchParams(window.location.search);
-  const planId = params.get('planId') || params.get('plan');
+  const planId = initialPlanId;
 
   let plan = readStoredPlan(planId);
   if (!plan && planId) {

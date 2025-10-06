@@ -959,6 +959,17 @@ function redirectToRegistration(planId) {
   window.location.href = newPath + '?planId=' + planId;
 }
 
+function redirectToResume(planId) {
+  persistRegistrationPlan(planId);
+  window.localStorage.setItem('pendingPlanId', planId);
+  const currentPath = window.location.pathname;
+  const newPath = currentPath.replace(
+    'subscription-plans.html',
+    'resume-registration.html'
+  );
+  window.location.href = `${newPath}?planId=${planId}`;
+}
+
 
 async function handlePlanSelection(planId) {
   const entry = state.planLookup.get(planId);
@@ -969,6 +980,11 @@ async function handlePlanSelection(planId) {
 
   if (state.user) {
     await ensureProfile();
+    const status = (state.profile?.subscription_status || '').toLowerCase();
+    if (status === 'pending_payment' || status === 'awaiting_setup') {
+      redirectToResume(planId);
+      return;
+    }
     if (!shouldUseRegistrationFlow()) {
       await startExistingUserCheckout(planId);
       return;
