@@ -410,7 +410,10 @@ function mapSupabaseSubscriptions(rows) {
   }, {});
 }
 
-const OPTION_PATTERN = /^([A-Z])[.)]\s*(.+)$/;
+const OPTION_PATTERN = /^([A-Z])(?:\s*[.):-])\s*(.+)$/i;
+const ANSWER_DIRECTIVE_PATTERN =
+  /^(?:ANS(?:WER)?|CORRECT\s+ANSWER|ANSWER\s+KEY)\s*[:=]\s*(.+)$/i;
+const QUESTION_NUMBER_PREFIX_PATTERN = /^\d+\s*[).:-]\s+/;
 
 function buildQuestion(row) {
   if (!row) return null;
@@ -686,47 +689,148 @@ function buildFreeQuizQuestion(row) {
   };
 }
 
+function normalizeOptionText(value) {
+  return typeof value === 'string'
+    ? value.toLowerCase().replace(/[^a-z0-9]/g, '')
+    : '';
+}
+
+function appendLine(base, addition) {
+  if (!base) return addition;
+  return base.endsWith('\n') ? `${base}${addition}` : `${base}\n${addition}`;
+}
+
+function stripQuestionPrefix(line) {
+  if (typeof line !== 'string') return line;
+  return line.replace(QUESTION_NUMBER_PREFIX_PATTERN, '').trim();
+}
+
 function parseAikenContent(content) {
   if (!content || !content.trim()) {
     throw new DataServiceError('The uploaded file is empty.');
   }
 
-  const lines = content.replace(/\r\n?/g, '\n').split('\n');
+  const sanitizedContent = content.replace(/\uFEFF/g, '');
+  const lines = sanitizedContent.replace(/\r\n?/g, '\n').split('\n');
   const questions = [];
   let current = null;
 
   const startNewQuestion = (line) => {
     current = {
-      stem: line,
+      stem: stripQuestionPrefix(line),
       options: [],
     };
   };
 
+  const finalizeCurrentQuestion = () => {
+    if (!current) return;
+    questions.push(current);
+    current = null;
+  };
+
   lines.forEach((rawLine) => {
+    const hasIndentation = /^\s+/.test(rawLine);
     const line = rawLine.trim();
     if (!line) {
       if (current && current.options.length === 0) {
-        current.stem = `${current.stem}\n`;
+        current.stem = `${current.stem}${current.stem.endsWith('\n') ? '' : '\n'}`;
+      } else if (current && current.options.length > 0) {
+        const lastOption = current.options[current.options.length - 1];
+        lastOption.content = `${lastOption.content}${lastOption.content.endsWith('\n') ? '' : '\n'}`;
       }
       return;
     }
 
-    if (/^ANSWER\s*:/i.test(line)) {
+    const answerMatch = line.match(ANSWER_DIRECTIVE_PATTERN);
+    if (answerMatch) {
       if (!current) {
         throw new DataServiceError(
           'ANSWER directive appeared before any question.'
         );
       }
-      const answers = line
-        .replace(/^ANSWER\s*:/i, '')
-        .split(/[,\s]+/)
-        .map((value) => value.trim().toUpperCase())
-        .filter(Boolean);
-      if (!answers.length) {
+      if (!current.options.length) {
         throw new DataServiceError(
-          'ANSWER directive is missing option letters.'
+          'ANSWER directive appeared before any options were defined.',
+          {
+            context: { stem: current.stem },
+          }
         );
       }
+      const directive = answerMatch[1].trim();
+      if (!directive) {
+        throw new DataServiceError(
+          'ANSWER directive is missing option letters.',
+          {
+            context: { stem: current.stem },
+          }
+        );
+      }
+
+      const answers = [];
+      const letterMatches = directive.match(/\b[A-Z]\b/gi) || [];
+      letterMatches.forEach((match) => {
+        const letter = match.toUpperCase();
+        if (!answers.includes(letter)) {
+          answers.push(letter);
+        }
+      });
+
+      const optionLookup = current.options.map((option) => ({
+        label: option.label,
+        normalized: normalizeOptionText(option.content),
+      }));
+
+      if (!answers.length) {
+        const normalizedDirective = normalizeOptionText(directive);
+        if (normalizedDirective) {
+          optionLookup.forEach((entry) => {
+            if (
+              entry.normalized &&
+              entry.normalized === normalizedDirective &&
+              !answers.includes(entry.label)
+            ) {
+              answers.push(entry.label);
+            }
+          });
+        }
+      }
+
+      if (!answers.length) {
+        directive
+          .replace(/\b(?:and|or|\+|&)\b/gi, ',')
+          .split(/[,;/]/)
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .forEach((token) => {
+            if (/^[A-Z]$/i.test(token)) {
+              const letter = token.toUpperCase();
+              if (!answers.includes(letter)) {
+                answers.push(letter);
+              }
+              return;
+            }
+            const normalizedToken = normalizeOptionText(token);
+            if (!normalizedToken) {
+              return;
+            }
+            const matched = optionLookup.find(
+              (entry) => entry.normalized === normalizedToken
+            );
+            if (matched && !answers.includes(matched.label)) {
+              answers.push(matched.label);
+            }
+          });
+      }
+
+      if (!answers.length) {
+        throw new DataServiceError(
+          'ANSWER directive is missing option letters.',
+          {
+            context: { stem: current.stem },
+          }
+        );
+      }
+
       answers.forEach((letter) => {
         const option = current.options.find((item) => item.label === letter);
         if (!option) {
@@ -739,8 +843,7 @@ function parseAikenContent(content) {
         }
         option.isCorrect = true;
       });
-      questions.push(current);
-      current = null;
+      finalizeCurrentQuestion();
       return;
     }
 
@@ -751,7 +854,8 @@ function parseAikenContent(content) {
           'Option encountered before the question text.'
         );
       }
-      const [, letter, text] = optionMatch;
+      const [, letterRaw, text] = optionMatch;
+      const letter = letterRaw.toUpperCase();
       current.options.push({
         label: letter,
         content: text.trim(),
@@ -766,18 +870,25 @@ function parseAikenContent(content) {
     }
 
     if (current.options.length === 0) {
-      current.stem = `${current.stem}${current.stem.endsWith('\n') ? '' : '\n'}${line}`;
-    } else {
-      questions.push(current);
-      startNewQuestion(line);
+      current.stem = appendLine(current.stem, line);
+      return;
     }
+
+    if (hasIndentation) {
+      const lastOption = current.options[current.options.length - 1];
+      lastOption.content = appendLine(lastOption.content, line);
+      return;
+    }
+
+    finalizeCurrentQuestion();
+    startNewQuestion(line);
   });
 
   if (current) {
     if (!current.options.length) {
       throw new DataServiceError('A question is missing answer options.');
     }
-    questions.push(current);
+    finalizeCurrentQuestion();
   }
 
   if (!questions.length) {
