@@ -828,12 +828,21 @@ function openTopicAikenUploader({ topicId, topicName, actions }) {
             },
           });
 
+          const skipped = failures.length;
+
           if (imported > 0) {
-            showToast(
-              `${imported} question${imported === 1 ? '' : 's'} added to ${plainTopicName}.`,
-              { type: 'success' }
-            );
+            const toastMessage = skipped
+              ? `${imported} question${imported === 1 ? '' : 's'} added • ${skipped} skipped`
+              : `${imported} question${imported === 1 ? '' : 's'} added to ${plainTopicName}.`;
+            showToast(toastMessage, { type: 'success' });
             refresh?.();
+          }
+
+          if (!imported && skipped) {
+            showToast(
+              `Skipped ${skipped} question${skipped === 1 ? '' : 's'} — fix the highlighted items.`,
+              { type: 'error' }
+            );
           }
 
           if (!failures.length) {
@@ -1006,19 +1015,27 @@ async function uploadPreviewedQuestionsSequentially({
   for (let index = 0; index < total; index += 1) {
     const question = questions[index];
     const segment = Array.isArray(segments) ? segments[index] : null;
-    try {
-      await dataService.createQuestion(topicId, {
-        stem: question?.stem?.trim() || '',
-        options: Array.isArray(question?.options)
-          ? question.options.map((option, optionIndex) => ({
-              label: option.label || String.fromCharCode(65 + optionIndex),
-              content: option.content,
-              isCorrect: Boolean(option.isCorrect),
-              order: Number.isFinite(option.order) ? option.order : optionIndex,
-            }))
-          : [],
+    const snippet = segment?.text?.trim?.();
+    if (!snippet) {
+      failures.push({
+        index,
+        question,
+        segment,
+        error: new Error('Unable to isolate the original question text.'),
       });
-      completed += 1;
+      if (typeof updateProgress === 'function') {
+        updateProgress(completed, total);
+      }
+      continue;
+    }
+
+    try {
+      const result = await dataService.importAikenQuestions(topicId, snippet);
+      const inserted = Number(result?.insertedCount ?? 0);
+      if (!Number.isFinite(inserted) || inserted < 1) {
+        throw new Error('The snippet did not create any questions.');
+      }
+      completed += inserted;
       if (typeof updateProgress === 'function') {
         updateProgress(completed, total);
       }
