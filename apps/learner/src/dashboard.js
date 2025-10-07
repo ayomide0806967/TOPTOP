@@ -90,6 +90,8 @@ const elements = {
   planSubheading: document.querySelector('[data-role="plan-subheading"]'),
   planBrowseBtn: document.querySelector('[data-role="plan-browse"]'),
   planCollection: document.querySelector('[data-role="plan-collection"]'),
+  extraSetsSection: document.querySelector('[data-role="extra-sets-section"]'),
+  extraSetsList: document.querySelector('[data-role="extra-sets-list"]'),
 }; 
 
 const state = {
@@ -101,6 +103,9 @@ const state = {
   scheduleHealth: null,
   subscriptions: [],
   defaultSubscriptionId: null,
+  extraQuestionSets: [],
+  extraQuestionsCache: new Map(),
+  expandedExtraSetId: null,
 };
 
 const NOTICE_TONE_CLASSES = {
@@ -213,6 +218,35 @@ function formatDate(dateString) {
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+function formatDateTime(dateString) {
+  if (!dateString) return '—';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return formatDate(dateString);
+  return date.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+function escapeHtml(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return value
+    .toString()
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatMultilineText(value) {
+  if (!value) return '';
+  const escaped = escapeHtml(value);
+  return escaped.replace(/\r?\n/g, '<br>');
 }
 
 function formatCurrency(amount, currency = 'NGN') {
@@ -1404,6 +1438,321 @@ function renderHistory() {
   }
 }
 
+function describeExtraSchedule(set) {
+  if (!set) return 'Available now';
+  const { starts_at: startsAt, ends_at: endsAt } = set;
+  if (startsAt && endsAt) {
+    return `${formatDateTime(startsAt)} → ${formatDateTime(endsAt)}`;
+  }
+  if (startsAt) {
+    return `Opened ${formatDateTime(startsAt)}`;
+  }
+  if (endsAt) {
+    return `Available until ${formatDateTime(endsAt)}`;
+  }
+  return 'Available now';
+}
+
+function buildExtraQuestionMarkup(question, index) {
+  const questionNumber = index + 1;
+  const stem = formatMultilineText(question.stem || '');
+  const options = Array.isArray(question.options) ? question.options : [];
+  const optionItems = options
+    .map((option) => {
+      const optionLabel = escapeHtml(option.label || '').toUpperCase();
+      const content = formatMultilineText(option.content || '');
+      const isCorrect = Boolean(option.is_correct);
+      const correctBadge = isCorrect
+        ? '<span class="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-200 px-2 py-0.5 text-xs font-semibold text-emerald-800">Correct</span>'
+        : '';
+      const baseClasses = 'flex items-start gap-2 rounded-lg border px-3 py-2 text-sm text-slate-700';
+      const classes = isCorrect
+        ? `${baseClasses} border-emerald-200 bg-emerald-50`
+        : `${baseClasses} border-slate-200 bg-white`;
+      return `
+        <li class="${classes}">
+          <span class="font-semibold text-slate-900">${optionLabel}.</span>
+          <span class="flex-1">${content}</span>
+          ${correctBadge}
+        </li>
+      `;
+    })
+    .join('');
+
+  const explanation = question.explanation
+    ? `
+      <div class="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+        <span class="font-semibold">Explanation:</span>
+        <span class="ml-1">${formatMultilineText(question.explanation)}</span>
+      </div>
+    `
+    : '';
+
+  return `
+    <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <header class="flex items-start gap-3">
+        <span class="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">${questionNumber}</span>
+        <h4 class="text-sm font-semibold text-slate-900">${stem || 'Question unavailable'}</h4>
+      </header>
+      <ul class="mt-3 space-y-2">
+        ${optionItems || '<li class="text-sm text-slate-500">No options provided.</li>'}
+      </ul>
+      ${explanation}
+    </article>
+  `;
+}
+
+function buildExtraSetPanel(set) {
+  const cache = state.extraQuestionsCache.get(set.id);
+  if (!cache || cache.status === 'loading') {
+    return `
+      <div class="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
+        Loading questions…
+      </div>
+    `;
+  }
+
+  if (cache.status === 'error') {
+    const message = escapeHtml(cache.message || 'Unable to load questions.');
+    return `
+      <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-5 text-sm text-rose-700">
+        <p>${message}</p>
+        <button type="button" class="mt-3 inline-flex items-center gap-2 rounded-md border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100" data-action="retry-extra-set" data-set-id="${set.id}">
+          Try again
+        </button>
+      </div>
+    `;
+  }
+
+  const questions = Array.isArray(cache.questions) ? cache.questions : [];
+  if (!questions.length) {
+    return `
+      <div class="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
+        No questions available in this set yet. Check back soon!
+      </div>
+    `;
+  }
+
+  const questionBlocks = questions
+    .map((question, index) => buildExtraQuestionMarkup(question, index))
+    .join('');
+
+  return `
+    <div class="mt-5 space-y-4" data-role="extra-set-questions">
+      ${questionBlocks}
+    </div>
+  `;
+}
+
+function buildExtraSetCard(set) {
+  const expanded = state.expandedExtraSetId === set.id;
+  const schedule = describeExtraSchedule(set);
+  const buttonLabel = expanded ? 'Hide questions' : 'View questions';
+  const panelMarkup = expanded ? buildExtraSetPanel(set) : '';
+
+  return `
+    <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-set-id="${set.id}">
+      <header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div class="space-y-2">
+          <h4 class="text-lg font-semibold text-slate-900">${escapeHtml(set.title || 'Untitled set')}</h4>
+          <p class="text-sm text-slate-600">${escapeHtml(set.description || 'Stay sharp with these curated questions.')}</p>
+          <dl class="flex flex-wrap gap-3 text-xs text-slate-500">
+            <div class="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+              <span class="font-semibold text-slate-700">Questions:</span>
+              <span>${Number(set.question_count ?? 0)}</span>
+            </div>
+            <div class="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+              <span class="font-semibold text-slate-700">Schedule:</span>
+              <span>${escapeHtml(schedule)}</span>
+            </div>
+          </dl>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center gap-1 rounded-full ${set.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'} px-3 py-1 text-xs font-semibold">
+            ${set.is_active ? 'Active' : 'Inactive'}
+          </span>
+        </div>
+      </header>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button type="button" class="inline-flex items-center gap-2 rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-800 focus:outline-none focus:ring focus:ring-cyan-200" data-action="toggle-extra-set" data-set-id="${set.id}">
+          ${buttonLabel}
+        </button>
+      </div>
+      ${panelMarkup}
+    </article>
+  `;
+}
+
+function renderExtraQuestionSets() {
+  const section = elements.extraSetsSection;
+  const list = elements.extraSetsList;
+  if (!section || !list) return;
+
+  const sets = Array.isArray(state.extraQuestionSets)
+    ? state.extraQuestionSets
+    : [];
+
+  if (
+    state.expandedExtraSetId &&
+    !sets.some((set) => set.id === state.expandedExtraSetId)
+  ) {
+    state.expandedExtraSetId = null;
+  }
+
+  if (!sets.length) {
+    section.classList.remove('hidden');
+    list.innerHTML = `
+      <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+        No bonus practice sets are available for your profile yet. Check back later!
+      </div>
+    `;
+    return;
+  }
+
+  const cards = sets.map((set) => buildExtraSetCard(set)).join('');
+  section.classList.remove('hidden');
+  list.innerHTML = cards;
+}
+
+async function loadExtraQuestionSets() {
+  if (!state.supabase) return;
+
+  const list = elements.extraSetsList;
+  const section = elements.extraSetsSection;
+  if (section) {
+    section.classList.remove('hidden');
+  }
+  if (list) {
+    list.innerHTML = `
+      <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+        Loading extra question sets…
+      </div>
+    `;
+  }
+
+  try {
+    const { data, error } = await state.supabase
+      .from('extra_question_sets')
+      .select('id, title, description, is_active, question_count, starts_at, ends_at, updated_at')
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+
+    const sets = Array.isArray(data) ? data : [];
+    state.extraQuestionSets = sets.filter((set) => Number(set.question_count ?? 0) > 0);
+    const validIds = new Set(state.extraQuestionSets.map((set) => set.id));
+    Array.from(state.extraQuestionsCache.keys()).forEach((key) => {
+      if (!validIds.has(key)) {
+        state.extraQuestionsCache.delete(key);
+      }
+    });
+    renderExtraQuestionSets();
+  } catch (error) {
+    console.error('[Dashboard] loadExtraQuestionSets failed', error);
+    state.extraQuestionSets = [];
+    state.extraQuestionsCache.clear();
+    if (list) {
+      list.innerHTML = `
+        <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-6 text-sm text-rose-700">
+          Unable to load bonus practice sets. Please refresh to try again.
+        </div>
+      `;
+    }
+    showToast('Unable to load bonus practice sets.', 'error');
+  }
+}
+
+async function loadExtraQuestionsForSet(setId) {
+  if (!state.supabase || !setId) return;
+
+  try {
+    const { data, error } = await state.supabase
+      .from('extra_questions')
+      .select(
+        `id, stem, explanation, extra_question_options(id, label, content, is_correct, order_index)`
+      )
+      .eq('set_id', setId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+
+    const questions = Array.isArray(data)
+      ? data.map((row) => {
+          const options = Array.isArray(row.extra_question_options)
+            ? row.extra_question_options
+                .slice()
+                .sort(
+                  (a, b) =>
+                    (a.order_index ?? a.label?.charCodeAt(0) ?? 0) -
+                    (b.order_index ?? b.label?.charCodeAt(0) ?? 0)
+                )
+                .map((option) => ({
+                  id: option.id,
+                  label: option.label,
+                  content: option.content,
+                  is_correct: Boolean(option.is_correct),
+                  order_index: option.order_index,
+                }))
+            : [];
+          return {
+            id: row.id,
+            stem: row.stem,
+            explanation: row.explanation,
+            options,
+          };
+        })
+      : [];
+
+    state.extraQuestionsCache.set(setId, {
+      status: 'ready',
+      questions,
+    });
+    renderExtraQuestionSets();
+  } catch (error) {
+    console.error('[Dashboard] loadExtraQuestionsForSet failed', error);
+    state.extraQuestionsCache.set(setId, {
+      status: 'error',
+      message: error.message || 'Unable to load questions. Please try again later.',
+    });
+    renderExtraQuestionSets();
+    showToast('Unable to open that question set right now.', 'error');
+  }
+}
+
+function handleExtraSetsClick(event) {
+  const toggle = event.target.closest('[data-action="toggle-extra-set"]');
+  const retry = event.target.closest('[data-action="retry-extra-set"]');
+
+  if (toggle) {
+    const setId = toggle.dataset.setId;
+    if (!setId) return;
+    if (state.expandedExtraSetId === setId) {
+      state.expandedExtraSetId = null;
+      renderExtraQuestionSets();
+      return;
+    }
+
+    state.expandedExtraSetId = setId;
+    const cache = state.extraQuestionsCache.get(setId);
+    if (!cache || cache.status === 'error') {
+      state.extraQuestionsCache.set(setId, { status: 'loading', questions: [] });
+      renderExtraQuestionSets();
+      loadExtraQuestionsForSet(setId);
+    } else if (cache.status === 'loading') {
+      renderExtraQuestionSets();
+    } else {
+      renderExtraQuestionSets();
+    }
+    return;
+  }
+
+  if (retry) {
+    const setId = retry.dataset.setId;
+    if (!setId) return;
+    state.extraQuestionsCache.set(setId, { status: 'loading', questions: [] });
+    renderExtraQuestionSets();
+    loadExtraQuestionsForSet(setId);
+  }
+}
+
 function calculateStreak(history) {
   const sorted = history
     .map((item) => ({ ...item, assigned_date: item.assigned_date }))
@@ -1785,6 +2134,7 @@ async function initialise() {
     });
     elements.mobileLogout?.addEventListener('click', handleLogout);
     elements.planCollection?.addEventListener('click', handlePlanCollectionClick);
+    elements.extraSetsList?.addEventListener('click', handleExtraSetsClick);
 
     if (elements.mobileMenu) {
       document.addEventListener('click', handleMobileMenuOutsideClick);
@@ -1796,6 +2146,7 @@ async function initialise() {
     await loadScheduleHealth();
     await checkTodayQuiz();
     await refreshHistory();
+    await loadExtraQuestionSets();
   } catch (error) {
     console.error('[Dashboard] initialisation failed', error);
     showToast('Something went wrong while loading the dashboard.', 'error');
@@ -1816,6 +2167,8 @@ function cleanup() {
     elements.mobileMenuToggle?.removeEventListener('click', handleMobileClick);
     elements.mobileMenuToggle?.removeEventListener('touchend', handleMobileTouch);
   }
+  elements.planCollection?.removeEventListener('click', handlePlanCollectionClick);
+  elements.extraSetsList?.removeEventListener('click', handleExtraSetsClick);
 }
 
 window.addEventListener('beforeunload', cleanup);

@@ -6,6 +6,7 @@ import { freeQuizzesView } from './freeQuizzes.js';
 import { quizBuilderView } from './quizBuilder.js';
 import { usersView } from './users.js';
 import { questionsView } from './questions.js';
+import { extraQuestionsView } from './extraQuestions.js';
 
 export const viewRegistry = {
   dashboard: dashboardView,
@@ -13,6 +14,7 @@ export const viewRegistry = {
   slots: studyCyclesView,
   subscriptions: subscriptionsView,
   freequizzes: freeQuizzesView,
+  extraquestions: extraQuestionsView,
   quizbuilder: quizBuilderView,
   users: usersView,
   questions: questionsView,

@@ -705,63 +705,216 @@ function stripQuestionPrefix(line) {
   return line.replace(QUESTION_NUMBER_PREFIX_PATTERN, '').trim();
 }
 
-function parseAikenContent(content) {
+function normalizeExtraVisibilityRules(value) {
+  const base = {
+    allowAllDepartments: true,
+    departmentIds: [],
+    allowAllPlans: true,
+    planTiers: [],
+  };
+
+  if (!value || typeof value !== 'object') {
+    return { ...base };
+  }
+
+  return {
+    allowAllDepartments:
+      value.allowAllDepartments !== undefined
+        ? Boolean(value.allowAllDepartments)
+        : base.allowAllDepartments,
+    departmentIds: Array.isArray(value.departmentIds)
+      ? value.departmentIds.map(String).filter(Boolean)
+      : base.departmentIds,
+    allowAllPlans:
+      value.allowAllPlans !== undefined
+        ? Boolean(value.allowAllPlans)
+        : base.allowAllPlans,
+    planTiers: Array.isArray(value.planTiers)
+      ? value.planTiers.map(String).filter(Boolean)
+      : base.planTiers,
+  };
+}
+
+function sanitizeDateInput(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  return value;
+}
+
+function buildExtraQuestionSet(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    visibility_rules: normalizeExtraVisibilityRules(row.visibility_rules),
+    starts_at: row.starts_at,
+    ends_at: row.ends_at,
+    is_active: Boolean(row.is_active),
+    question_count: row.question_count ?? 0,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+function buildExtraQuestion(row) {
+  if (!row) return null;
+  const options = Array.isArray(row.extra_question_options)
+    ? row.extra_question_options
+        .slice()
+        .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+        .map((option) => ({
+          id: option.id,
+          question_id: option.question_id,
+          label: option.label,
+          content: option.content,
+          is_correct: option.is_correct,
+          order: option.order_index ?? 0,
+        }))
+    : [];
+
+  return {
+    id: row.id,
+    set_id: row.set_id,
+    stem: row.stem,
+    explanation: row.explanation,
+    metadata: row.metadata || {},
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    options,
+  };
+}
+
+function prepareExtraQuestionSetPayload(input = {}) {
+  const title = typeof input.title === 'string' ? input.title.trim() : '';
+  const description =
+    typeof input.description === 'string' && input.description.trim()
+      ? input.description.trim()
+      : null;
+  const starts_at = sanitizeDateInput(input.starts_at ?? input.startsAt);
+  const ends_at = sanitizeDateInput(input.ends_at ?? input.endsAt);
+  const is_active = input.is_active ?? input.isActive ?? false;
+  const visibility = normalizeExtraVisibilityRules(
+    input.visibility || input.visibility_rules
+  );
+
+  return {
+    title,
+    description,
+    starts_at,
+    ends_at,
+    is_active: Boolean(is_active),
+    visibility_rules: visibility,
+  };
+}
+
+function parseAikenContent(content, options = {}) {
+  const { captureDiagnostics = false } = options;
+
   if (!content || !content.trim()) {
     throw new DataServiceError('The uploaded file is empty.');
   }
 
   const sanitizedContent = content.replace(/\uFEFF/g, '');
   const lines = sanitizedContent.replace(/\r\n?/g, '\n').split('\n');
+
   const questions = [];
+  const diagnostics = captureDiagnostics ? [] : null;
+  const questionLineMap = [];
+
   let current = null;
 
-  const startNewQuestion = (line) => {
+  const startNewQuestion = (line, lineNumber) => {
     current = {
       stem: stripQuestionPrefix(line),
       options: [],
+      startLine: lineNumber,
+      lastLine: lineNumber,
     };
   };
 
-  const finalizeCurrentQuestion = () => {
+  const finalizeCurrentQuestion = (endLineNumber) => {
     if (!current) return;
-    questions.push(current);
+    const resolvedOptions = current.options.map((option, optionIndex) => ({
+      label: option.label,
+      content: option.content.trim(),
+      isCorrect: option.isCorrect,
+      order: optionIndex,
+    }));
+
+    questions.push({
+      stem: current.stem.trim(),
+      options: resolvedOptions,
+    });
+
+    const resolvedEndLine = endLineNumber ?? current.lastLine ?? current.startLine;
+    questionLineMap.push({
+      startLine: current.startLine,
+      endLine: resolvedEndLine,
+      optionLines: current.options.map((option) => ({
+        label: option.label,
+        lineNumber: option.lineNumber,
+      })),
+    });
+
+    if (diagnostics) {
+      diagnostics.push({
+        questionIndex: questions.length - 1,
+        startLine: current.startLine,
+        endLine: resolvedEndLine,
+        optionLines: current.options.map((option) => ({
+          label: option.label,
+          lineNumber: option.lineNumber,
+        })),
+        optionCount: current.options.length,
+      });
+    }
+
     current = null;
   };
 
-  lines.forEach((rawLine) => {
+  for (let index = 0; index < lines.length; index += 1) {
+    const rawLine = lines[index];
+    const lineNumber = index + 1;
     const hasIndentation = /^\s+/.test(rawLine);
     const line = rawLine.trim();
+
     if (!line) {
       if (current && current.options.length === 0) {
         current.stem = `${current.stem}${current.stem.endsWith('\n') ? '' : '\n'}`;
+        current.lastLine = lineNumber;
       } else if (current && current.options.length > 0) {
         const lastOption = current.options[current.options.length - 1];
         lastOption.content = `${lastOption.content}${lastOption.content.endsWith('\n') ? '' : '\n'}`;
+        current.lastLine = lineNumber;
       }
-      return;
+      continue;
     }
 
     const answerMatch = line.match(ANSWER_DIRECTIVE_PATTERN);
     if (answerMatch) {
       if (!current) {
         throw new DataServiceError(
-          'ANSWER directive appeared before any question.'
+          'ANSWER directive appeared before any question.',
+          { context: { lineNumber, line: rawLine } }
         );
       }
       if (!current.options.length) {
         throw new DataServiceError(
           'ANSWER directive appeared before any options were defined.',
           {
-            context: { stem: current.stem },
+            context: { stem: current.stem, lineNumber, line: rawLine },
           }
         );
       }
+
       const directive = answerMatch[1].trim();
       if (!directive) {
         throw new DataServiceError(
           'ANSWER directive is missing option letters.',
           {
-            context: { stem: current.stem },
+            context: { stem: current.stem, lineNumber, line: rawLine },
           }
         );
       }
@@ -826,7 +979,7 @@ function parseAikenContent(content) {
         throw new DataServiceError(
           'ANSWER directive is missing option letters.',
           {
-            context: { stem: current.stem },
+            context: { stem: current.stem, lineNumber, line: rawLine },
           }
         );
       }
@@ -837,21 +990,28 @@ function parseAikenContent(content) {
           throw new DataServiceError(
             `ANSWER references option "${letter}" which was not provided.`,
             {
-              context: { stem: current.stem },
+              context: {
+                stem: current.stem,
+                lineNumber,
+                line: rawLine,
+              },
             }
           );
         }
         option.isCorrect = true;
       });
-      finalizeCurrentQuestion();
-      return;
+
+      current.lastLine = lineNumber;
+      finalizeCurrentQuestion(lineNumber);
+      continue;
     }
 
     const optionMatch = line.match(OPTION_PATTERN);
     if (optionMatch) {
       if (!current) {
         throw new DataServiceError(
-          'Option encountered before the question text.'
+          'Option encountered before the question text.',
+          { context: { lineNumber, line: rawLine } }
         );
       }
       const [, letterRaw, text] = optionMatch;
@@ -860,35 +1020,44 @@ function parseAikenContent(content) {
         label: letter,
         content: text.trim(),
         isCorrect: false,
+        lineNumber,
       });
-      return;
+      current.lastLine = lineNumber;
+      continue;
     }
 
     if (!current) {
-      startNewQuestion(line);
-      return;
+      startNewQuestion(line, lineNumber);
+      continue;
     }
 
     if (current.options.length === 0) {
       current.stem = appendLine(current.stem, line);
-      return;
+      current.lastLine = lineNumber;
+      continue;
     }
 
     if (hasIndentation) {
       const lastOption = current.options[current.options.length - 1];
       lastOption.content = appendLine(lastOption.content, line);
-      return;
+      if (!lastOption.lineNumber) {
+        lastOption.lineNumber = lineNumber;
+      }
+      current.lastLine = lineNumber;
+      continue;
     }
 
-    finalizeCurrentQuestion();
-    startNewQuestion(line);
-  });
+    finalizeCurrentQuestion(lineNumber - 1);
+    startNewQuestion(line, lineNumber);
+  }
 
   if (current) {
     if (!current.options.length) {
-      throw new DataServiceError('A question is missing answer options.');
+      throw new DataServiceError('A question is missing answer options.', {
+        context: { lineNumber: current.startLine },
+      });
     }
-    finalizeCurrentQuestion();
+    finalizeCurrentQuestion(current.lastLine);
   }
 
   if (!questions.length) {
@@ -899,23 +1068,29 @@ function parseAikenContent(content) {
     if (question.options.length < 2) {
       throw new DataServiceError(
         'Each question must include at least two options.',
-        { context: { index: index + 1 } }
+        {
+          context: {
+            index: index + 1,
+            lineNumber: questionLineMap[index]?.startLine,
+          },
+        }
       );
     }
     if (!question.options.some((option) => option.isCorrect)) {
       throw new DataServiceError(
         'Each question must specify a correct answer via the ANSWER directive.',
         {
-          context: { index: index + 1, stem: question.stem },
+          context: {
+            index: index + 1,
+            stem: question.stem,
+            lineNumber: questionLineMap[index]?.endLine,
+          },
         }
       );
     }
-    question.options.forEach((option, optionIndex) => {
-      option.order = optionIndex;
-    });
   });
 
-  return questions;
+  return captureDiagnostics ? { questions, diagnostics } : questions;
 }
 
 async function ensureClient() {
@@ -961,6 +1136,24 @@ async function refreshTopicQuestionCount(client, topicId) {
     .from('topics')
     .update({ question_count: count ?? 0 })
     .eq('id', topicId);
+  if (updateError) {
+    throw updateError;
+  }
+}
+
+async function refreshExtraQuestionSetCount(client, setId) {
+  const { count, error } = await client
+    .from('extra_questions')
+    .select('id', { count: 'exact', head: true })
+    .eq('set_id', setId);
+  if (error) {
+    throw error;
+  }
+
+  const { error: updateError } = await client
+    .from('extra_question_sets')
+    .update({ question_count: count ?? 0 })
+    .eq('id', setId);
   if (updateError) {
     throw updateError;
   }
@@ -3167,6 +3360,294 @@ class DataService {
         throw error;
       }
       throw wrapError('Failed to import Aiken questions.', error, { topicId });
+    }
+  }
+
+  previewAikenContent(content) {
+    try {
+      return parseAikenContent(content, { captureDiagnostics: true });
+    } catch (error) {
+      if (error instanceof DataServiceError) {
+        throw error;
+      }
+      throw new DataServiceError('Unable to parse Aiken content.', {
+        cause: error,
+      });
+    }
+  }
+
+  async getExtraQuestionSet(setId) {
+    if (!setId) return null;
+    const client = await ensureClient();
+    try {
+      const { data, error } = await client
+        .from('extra_question_sets')
+        .select(
+          'id, title, description, visibility_rules, starts_at, ends_at, is_active, question_count, created_at, updated_at'
+        )
+        .eq('id', setId)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? buildExtraQuestionSet(data) : null;
+    } catch (error) {
+      throw wrapError('Failed to load the extra question set.', error, {
+        setId,
+      });
+    }
+  }
+
+  async listExtraQuestionSets() {
+    const client = await ensureClient();
+    try {
+      const { data, error } = await client
+        .from('extra_question_sets')
+        .select(
+          'id, title, description, visibility_rules, starts_at, ends_at, is_active, question_count, created_at, updated_at'
+        )
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return Array.isArray(data) ? data.map(buildExtraQuestionSet) : [];
+    } catch (error) {
+      throw wrapError('Failed to load extra question sets.', error);
+    }
+  }
+
+  async createExtraQuestionSet(payload) {
+    const prepared = prepareExtraQuestionSetPayload(payload);
+    if (!prepared.title) {
+      throw new DataServiceError('A title is required before creating an extra question set.');
+    }
+
+    const client = await ensureClient();
+    try {
+      const { data, error } = await client
+        .from('extra_question_sets')
+        .insert({
+          ...prepared,
+          question_count: 0,
+        })
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        throw new Error('Supabase returned an empty response for the new extra question set.');
+      }
+      return buildExtraQuestionSet(data);
+    } catch (error) {
+      if (error instanceof DataServiceError) {
+        throw error;
+      }
+      throw wrapError('Unable to create extra question set.', error, {
+        title: prepared.title,
+      });
+    }
+  }
+
+  async updateExtraQuestionSet(setId, updates = {}) {
+    if (!setId) {
+      throw new DataServiceError('Extra question set id is required.');
+    }
+
+    const payload = {};
+    if (updates.title !== undefined) {
+      const title = typeof updates.title === 'string' ? updates.title.trim() : '';
+      if (!title) {
+        throw new DataServiceError('Title cannot be empty.');
+      }
+      payload.title = title;
+    }
+    if (updates.description !== undefined) {
+      payload.description =
+        typeof updates.description === 'string' && updates.description.trim()
+          ? updates.description.trim()
+          : null;
+    }
+    if (updates.starts_at !== undefined || updates.startsAt !== undefined) {
+      payload.starts_at = sanitizeDateInput(
+        updates.starts_at ?? updates.startsAt
+      );
+    }
+    if (updates.ends_at !== undefined || updates.endsAt !== undefined) {
+      payload.ends_at = sanitizeDateInput(updates.ends_at ?? updates.endsAt);
+    }
+    if (updates.is_active !== undefined || updates.isActive !== undefined) {
+      payload.is_active = Boolean(updates.is_active ?? updates.isActive);
+    }
+    if (updates.visibility !== undefined || updates.visibility_rules !== undefined) {
+      payload.visibility_rules = normalizeExtraVisibilityRules(
+        updates.visibility || updates.visibility_rules
+      );
+    }
+
+    if (!Object.keys(payload).length) {
+      return this.getExtraQuestionSet(setId);
+    }
+
+    const client = await ensureClient();
+    try {
+      const { data, error } = await client
+        .from('extra_question_sets')
+        .update(payload)
+        .eq('id', setId)
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        throw new DataServiceError('Extra question set not found.');
+      }
+      return buildExtraQuestionSet(data);
+    } catch (error) {
+      if (error instanceof DataServiceError) {
+        throw error;
+      }
+      throw wrapError('Unable to update extra question set.', error, {
+        setId,
+      });
+    }
+  }
+
+  async deleteExtraQuestionSet(setId) {
+    if (!setId) {
+      throw new DataServiceError('Extra question set id is required.');
+    }
+    const client = await ensureClient();
+    try {
+      const { error } = await client
+        .from('extra_question_sets')
+        .delete()
+        .eq('id', setId);
+      if (error) throw error;
+    } catch (error) {
+      throw wrapError('Failed to delete extra question set.', error, {
+        setId,
+      });
+    }
+  }
+
+  async listExtraQuestions(setId) {
+    if (!setId) {
+      throw new DataServiceError('Select an extra question set first.');
+    }
+
+    const client = await ensureClient();
+    try {
+      const { data, error } = await client
+        .from('extra_questions')
+        .select(
+          `id, set_id, stem, explanation, metadata, created_at, updated_at,
+           extra_question_options(id, question_id, label, content, is_correct, order_index)`
+        )
+        .eq('set_id', setId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return Array.isArray(data) ? data.map(buildExtraQuestion) : [];
+    } catch (error) {
+      throw wrapError('Failed to load extra questions for the selected set.', error, {
+        setId,
+      });
+    }
+  }
+
+  async deleteExtraQuestion(setId, questionId) {
+    if (!setId || !questionId) {
+      throw new DataServiceError('Both set id and question id are required.');
+    }
+    const client = await ensureClient();
+    try {
+      const { error } = await client
+        .from('extra_questions')
+        .delete()
+        .eq('id', questionId)
+        .eq('set_id', setId);
+      if (error) throw error;
+      await refreshExtraQuestionSetCount(client, setId);
+    } catch (error) {
+      throw wrapError('Unable to delete the extra question.', error, {
+        setId,
+        questionId,
+      });
+    }
+  }
+
+  async importExtraQuestionsFromAiken(setId, fileContent) {
+    if (!setId) {
+      throw new DataServiceError(
+        'Select or create an extra question set before uploading questions.'
+      );
+    }
+
+    let parsed;
+    try {
+      parsed = parseAikenContent(fileContent);
+    } catch (error) {
+      if (error instanceof DataServiceError) {
+        throw error;
+      }
+      throw new DataServiceError('Unable to parse Aiken content.', {
+        cause: error,
+      });
+    }
+
+    const client = await ensureClient();
+
+    try {
+      const { data: setRow, error: fetchError } = await client
+        .from('extra_question_sets')
+        .select('id')
+        .eq('id', setId)
+        .maybeSingle();
+      if (fetchError) throw fetchError;
+      if (!setRow) {
+        throw new DataServiceError('Extra question set not found.');
+      }
+
+      const questionPayloads = parsed.map((question) => ({
+        set_id: setId,
+        stem: question.stem.trim(),
+        explanation: null,
+        metadata: {},
+      }));
+
+      const { data: insertedQuestions, error: insertError } = await client
+        .from('extra_questions')
+        .insert(questionPayloads)
+        .select('id');
+      if (insertError) throw insertError;
+      if (
+        !Array.isArray(insertedQuestions) ||
+        insertedQuestions.length !== parsed.length
+      ) {
+        throw new Error('Supabase returned an unexpected insert response.');
+      }
+
+      const optionPayloads = insertedQuestions.flatMap((row, index) => {
+        const source = parsed[index];
+        return source.options.map((option) => ({
+          question_id: row.id,
+          label: option.label,
+          content: option.content,
+          is_correct: option.isCorrect,
+          order_index: option.order,
+        }));
+      });
+
+      if (optionPayloads.length) {
+        const { error: optionError } = await client
+          .from('extra_question_options')
+          .insert(optionPayloads);
+        if (optionError) throw optionError;
+      }
+
+      await refreshExtraQuestionSetCount(client, setId);
+
+      return {
+        insertedCount: parsed.length,
+      };
+    } catch (error) {
+      if (error instanceof DataServiceError) {
+        throw error;
+      }
+      throw wrapError('Failed to import extra questions.', error, { setId });
     }
   }
 

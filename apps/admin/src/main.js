@@ -33,6 +33,15 @@ const actions = {
   clearDepartmentSelection() {
     appState.clearDepartmentSelection();
   },
+  openExtraQuestions() {
+    appState.setView('extraquestions', { extraQuestionSetId: null });
+  },
+  selectExtraQuestionSet(setId) {
+    appState.setView('extraquestions', { extraQuestionSetId: setId });
+  },
+  clearExtraQuestionSelection() {
+    appState.setView('extraquestions', { extraQuestionSetId: null });
+  },
   refresh() {
     render();
   },
@@ -52,6 +61,8 @@ function breadcrumbForView(view) {
       return 'Quiz Builder';
     case 'freequizzes':
       return 'Free Quiz';
+    case 'extraquestions':
+      return 'Extra Questions';
     case 'users':
       return 'Users';
     default:
