@@ -539,6 +539,101 @@ async function renderFreeQuizResults(supabase, slug, attemptId) {
   }
 }
 
+async function renderExtraPracticeResults(supabase, setId) {
+  let cached = null;
+  try {
+    const stored = sessionStorage.getItem('extra_quiz_last_result');
+    if (stored) {
+      cached = JSON.parse(stored);
+      if (cached?.setId !== setId && cached?.set?.id !== setId) {
+        cached = null;
+      }
+    }
+  } catch (err) {
+    console.warn('[Result Face] Unable to parse cached extra set result', err);
+  }
+
+  if (cached) {
+    sessionStorage.removeItem('extra_quiz_last_result');
+  }
+
+  let setMeta = cached?.set || null;
+  if (!setMeta) {
+    const { data, error } = await supabase
+      .from('extra_question_sets')
+      .select('id, title, description, time_limit_seconds, question_count, starts_at, ends_at')
+      .eq('id', setId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      throw new Error('We could not find that practice set.');
+    }
+    setMeta = data;
+  }
+
+  const entries = Array.isArray(cached?.entries) ? cached.entries : [];
+  const derivedStats = entries.length ? deriveFreeStats(entries) : { correct: 0, total: entries.length };
+
+  const correct = Number.isFinite(cached?.correct)
+    ? cached.correct
+    : derivedStats.correct;
+  const total = Number.isFinite(cached?.total) && cached.total
+    ? cached.total
+    : derivedStats.total || setMeta.question_count || entries.length || 0;
+  const percent = total ? (correct / total) * 100 : 0;
+  const timeUsed = cached?.duration_seconds ?? computeTimeUsed(cached?.quiz?.started_at, cached?.quiz?.completed_at);
+
+  $('quiz-title').textContent = setMeta.title || 'Bonus Practice Result';
+  const metaBits = [];
+  if (setMeta.starts_at) metaBits.push(`Opens ${formatDateTime(setMeta.starts_at)}`);
+  if (setMeta.ends_at) metaBits.push(`Closes ${formatDateTime(setMeta.ends_at)}`);
+  const metaText = metaBits.length ? metaBits.join(' • ') : 'Extra practice curated by the Academic Nightingale team.';
+  $('quiz-meta').textContent = `${metaText} • Keep practising to strengthen your weak points.`;
+  $('stat-score').textContent = `${correct}/${total}`;
+  $('stat-percentage').textContent = `${percent.toFixed(1)}%`;
+  $('stat-time-used').textContent = timeUsed != null ? formatTime(timeUsed) : '--';
+  $('stat-total-time').textContent = setMeta.time_limit_seconds
+    ? formatTime(setMeta.time_limit_seconds)
+    : 'No limit';
+  $('stat-correct').textContent = correct;
+  $('stat-wrong').textContent = total - correct;
+
+  const list = $('questions-list');
+  if (entries.length) {
+    list.innerHTML = entries.map((entry, index) => renderQuestion(entry, index)).join('');
+  } else {
+    list.innerHTML = '<div class="p-4 rounded-md bg-slate-100 text-slate-600 text-sm">Answer review is unavailable because we could not recover your practice responses.</div>';
+  }
+
+  const quizData = {
+    quiz: {
+      assigned_date: cached?.quiz?.assigned_date || new Date().toISOString(),
+      time_limit_seconds: setMeta.time_limit_seconds,
+      started_at: cached?.quiz?.started_at,
+      completed_at: cached?.quiz?.completed_at || new Date().toISOString(),
+    },
+    correct,
+    total,
+    percent,
+    timeUsed,
+  };
+
+  const saveBtn = $('save-result-btn');
+  if (saveBtn) {
+    saveBtn.onclick = () => {
+      saveBtn.disabled = true;
+      downloadResultSummary(quizData);
+      setTimeout(() => (saveBtn.disabled = false), 1000);
+    };
+  }
+
+  const backBtn = $('back-to-dashboard');
+  if (backBtn) {
+    backBtn.href = 'admin-board.html';
+    backBtn.textContent = 'Back to dashboard';
+  }
+}
+
 async function initialise() {
   const supabase = await getSupabaseClient();
   const url = new URL(window.location.href);
@@ -554,6 +649,12 @@ async function initialise() {
   } = await supabase.auth.getSession();
   if (!session?.user) {
     window.location.replace('login.html');
+    return;
+  }
+
+  const extraSetId = url.searchParams.get('extra_question_set_id');
+  if (extraSetId) {
+    await renderExtraPracticeResults(supabase, extraSetId);
     return;
   }
 

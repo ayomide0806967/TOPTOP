@@ -49,6 +49,47 @@ function truncate(text, limit = 140) {
   return `${text.slice(0, limit - 1)}…`;
 }
 
+function escapeHtml(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return value
+    .toString()
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function highlightMatches(text, term) {
+  if (!text) return '';
+  if (!term) return escapeHtml(text);
+  const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
+  const placeholderStart = '__@@__';
+  const placeholderEnd = '__##__';
+  const withPlaceholders = text.replace(regex, `${placeholderStart}$1${placeholderEnd}`);
+  const escaped = escapeHtml(withPlaceholders);
+  return escaped
+    .replace(new RegExp(placeholderStart, 'g'), '<mark>')
+    .replace(new RegExp(placeholderEnd, 'g'), '</mark>');
+}
+
+function questionMatchesTerm(question, term) {
+  if (!term) return true;
+  const normalized = term.toLowerCase();
+  const haystack = [question.stem, question.explanation]
+    .concat((question.options || []).map((option) => option.content))
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(normalized);
+}
+
 function derivePlanTierInfo(products) {
   const tierMap = new Map();
   if (Array.isArray(products)) {
@@ -143,6 +184,23 @@ function renderScheduleSummary(set) {
   return `Closes ${formatDateTime(set.ends_at)}`;
 }
 
+function renderTimeLimitSummary(seconds) {
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value <= 0) {
+    return 'No timer';
+  }
+  const minutes = Math.round(value / 60);
+  if (minutes < 60) {
+    return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (remainingMinutes === 0) {
+    return `${hours} hour${hours === 1 ? '' : 's'}`;
+  }
+  return `${hours}h ${remainingMinutes}m`;
+}
+
 function renderExtraSetCard(set, departmentsMap, planTierMap) {
   const visibility = describeVisibility(
     normalizeVisibility(set.visibility_rules),
@@ -150,7 +208,7 @@ function renderExtraSetCard(set, departmentsMap, planTierMap) {
     planTierMap
   );
   return `
-    <article class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" data-id="${set.id}">
+    <article class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-cyan-200 hover:shadow-md" data-role="set-card" data-id="${set.id}">
       <header class="flex items-start justify-between gap-4">
         <div>
           <h3 class="text-lg font-semibold text-slate-900">${set.title}</h3>
@@ -166,6 +224,10 @@ function renderExtraSetCard(set, departmentsMap, planTierMap) {
         <div class="flex items-center justify-between">
           <dt class="font-semibold text-slate-600">Schedule</dt>
           <dd>${renderScheduleSummary(set)}</dd>
+        </div>
+        <div class="flex items-center justify-between">
+          <dt class="font-semibold text-slate-600">Timer</dt>
+          <dd>${renderTimeLimitSummary(set.time_limit_seconds)}</dd>
         </div>
         <div class="flex flex-col gap-1">
           <dt class="font-semibold text-slate-600">Audience</dt>
@@ -219,8 +281,20 @@ function renderListView(sets, departmentsMap, planTierMap) {
   `;
 }
 
-function renderQuestionRows(questions) {
-  if (!questions.length) {
+function renderQuestionRows(questions, searchTerm = '') {
+  const term = (searchTerm || '').trim();
+  const filtered = term
+    ? questions.filter((question) => questionMatchesTerm(question, term))
+    : questions;
+
+  if (!filtered.length) {
+    if (questions.length) {
+      return `
+        <tr>
+          <td colspan="4" class="px-4 py-6 text-center text-sm text-slate-500">No questions match “${escapeHtml(term)}”.</td>
+        </tr>
+      `;
+    }
     return `
       <tr>
         <td colspan="4" class="px-4 py-6 text-center text-sm text-slate-500">No questions uploaded yet.</td>
@@ -228,9 +302,9 @@ function renderQuestionRows(questions) {
     `;
   }
 
-  return questions
+  return filtered
     .map((question) => {
-      const correct = question.options
+      const correctOptions = question.options
         .filter((option) => option.is_correct)
         .map((option) => option.label)
         .join(', ');
@@ -239,18 +313,21 @@ function renderQuestionRows(questions) {
           (option) => `
             <span class="flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600">
               <span class="font-semibold text-slate-800">${option.label}.</span>
-              ${option.content}
+              ${term ? highlightMatches(option.content, term) : escapeHtml(option.content)}
             </span>
           `
         )
         .join('');
+      const stemContent = term
+        ? highlightMatches(question.stem, term)
+        : escapeHtml(truncate(question.stem, 220));
       return `
         <tr class="border-b border-slate-100" data-question-id="${question.id}">
-          <td class="whitespace-pre-line px-4 py-3 text-sm text-slate-800">${truncate(question.stem, 220)}</td>
+          <td class="whitespace-pre-line px-4 py-3 text-sm text-slate-800">${stemContent}</td>
           <td class="px-4 py-3">
             <div class="flex flex-wrap gap-1">${optionsMarkup}</div>
           </td>
-          <td class="px-4 py-3 text-sm text-slate-500">${correct || '—'}</td>
+          <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(correctOptions || '—')}</td>
           <td class="px-4 py-3 text-right">
             <button type="button" class="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:border-red-300" data-role="delete-question" data-question-id="${question.id}">Delete</button>
           </td>
@@ -293,6 +370,11 @@ function renderDetailView(set, questions, context) {
           <p class="mt-2 text-lg font-semibold text-slate-900">${renderStatusBadge(set)}</p>
           <p class="mt-2 text-xs text-slate-500">${renderScheduleSummary(set)}</p>
         </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Timer</p>
+          <p class="mt-2 text-lg font-semibold text-slate-900">${renderTimeLimitSummary(set.time_limit_seconds)}</p>
+          <p class="mt-2 text-xs text-slate-500">Control how long learners have when attempting this set.</p>
+        </div>
         <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:col-span-2">
           <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Audience</p>
           <p class="mt-2 text-sm text-slate-700">${visibility}</p>
@@ -334,8 +416,23 @@ function renderDetailView(set, questions, context) {
       </section>
 
       <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <header class="border-b border-slate-100 px-5 py-4">
-          <h2 class="text-lg font-semibold text-slate-900">Questions (${questions.length})</h2>
+        <header class="flex flex-col gap-4 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+          <h2 class="text-lg font-semibold text-slate-900">
+            Questions <span class="text-sm font-normal text-slate-500" data-role="question-count-label">(${questions.length})</span>
+          </h2>
+          <div class="relative w-full max-w-sm">
+            <input
+              type="search"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600"
+              placeholder="Search questions…"
+              data-role="question-search"
+            />
+            <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M5 11a6 6 0 1012 0 6 6 0 00-12 0z" />
+              </svg>
+            </span>
+          </div>
         </header>
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-slate-100 text-sm">
@@ -424,6 +521,9 @@ function bindVisibilityControls(form) {
 
 function openSetEditor({ mode, set, departments, planTiers, onSave }) {
   const visibility = normalizeVisibility(set?.visibility_rules);
+  const timeLimitMinutes = set?.time_limit_seconds
+    ? Math.round(Number(set.time_limit_seconds) / 60)
+    : '';
 
   openModal({
     title: mode === 'create' ? 'Create Extra Question Set' : 'Edit Extra Question Set',
@@ -478,6 +578,11 @@ function openSetEditor({ mode, set, departments, planTiers, onSave }) {
               <input type="datetime-local" name="ends_at" value="${toLocalDateTimeInput(set?.ends_at)}" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600" />
             </label>
           </div>
+          <label class="text-sm font-medium text-slate-700">
+            <span>Timer (minutes)</span>
+            <input type="number" min="0" name="time_limit_minutes" value="${timeLimitMinutes}" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600" placeholder="e.g. 25" />
+            <span class="mt-1 block text-xs text-slate-500">Leave blank to disable the timer for learners.</span>
+          </label>
           <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
             <input type="checkbox" name="is_active" ${set?.is_active ? 'checked' : ''} />
             Activate immediately
@@ -556,12 +661,21 @@ function openSetEditor({ mode, set, departments, planTiers, onSave }) {
           return;
         }
 
+        const rawTimeLimit = formData.get('time_limit_minutes');
+        const parsedTimeLimit = rawTimeLimit
+          ? Number(rawTimeLimit)
+          : null;
+
         const payload = {
           title,
           description: (formData.get('description') || '').toString().trim(),
           starts_at: fromLocalDateTimeInput(formData.get('starts_at')),
           ends_at: fromLocalDateTimeInput(formData.get('ends_at')),
           is_active: Boolean(formData.get('is_active')),
+          time_limit_minutes:
+            Number.isFinite(parsedTimeLimit) && parsedTimeLimit > 0
+              ? parsedTimeLimit
+              : null,
           visibility: {
             allowAllDepartments,
             departmentIds,
@@ -612,6 +726,18 @@ function registerListHandlers(container, context, actions) {
   container.querySelectorAll('[data-role="manage-set"]').forEach((button) => {
     button.addEventListener('click', () => {
       actions.selectExtraQuestionSet(button.dataset.id);
+    });
+  });
+
+  container.querySelectorAll('[data-role="set-card"]').forEach((card) => {
+    card.addEventListener('click', (event) => {
+      const target = event.target.closest('button, [data-role]');
+      if (target && target !== card && target.dataset.role !== 'set-card') {
+        return;
+      }
+      const setId = card.dataset.id;
+      if (!setId) return;
+      actions.selectExtraQuestionSet(setId);
     });
   });
 
@@ -740,6 +866,56 @@ function registerDetailHandlers(container, context, actions) {
   const inlineError = container.querySelector('[data-role="inline-error"]');
   const inlineButton = container.querySelector('[data-role="validate-upload"]');
   const clearButton = container.querySelector('[data-role="clear-inline"]');
+  const questionTable = container.querySelector('[data-role="question-table"]');
+  const searchInput = container.querySelector('[data-role="question-search"]');
+  const countLabel = container.querySelector('[data-role="question-count-label"]');
+
+  const updateQuestionCountLabel = (term) => {
+    if (!countLabel) return;
+    if (!term) {
+      countLabel.textContent = `(${context.questions.length})`;
+      return;
+    }
+    const count = context.questions.filter((question) =>
+      questionMatchesTerm(question, term)
+    ).length;
+    countLabel.textContent = `(${count} of ${context.questions.length})`;
+  };
+
+  const refreshQuestionTable = (term = '') => {
+    if (!questionTable) return;
+    questionTable.innerHTML = renderQuestionRows(context.questions, term);
+    updateQuestionCountLabel(term);
+    bindDeleteQuestionHandlers();
+  };
+
+  const bindDeleteQuestionHandlers = () => {
+    container.querySelectorAll('[data-role="delete-question"]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const questionId = button.dataset.questionId;
+        if (!questionId) return;
+        const confirmation = window.confirm('Delete this question?');
+        if (!confirmation) return;
+        try {
+          await dataService.deleteExtraQuestion(context.set.id, questionId);
+          showToast('Question deleted.', { type: 'success' });
+          actions.refresh();
+        } catch (error) {
+          showToast(error?.message || 'Failed to delete question.', {
+            type: 'error',
+          });
+        }
+      });
+    });
+  };
+
+  updateQuestionCountLabel('');
+  bindDeleteQuestionHandlers();
+
+  searchInput?.addEventListener('input', () => {
+    const term = searchInput.value.trim();
+    refreshQuestionTable(term);
+  });
 
   inlineButton?.addEventListener('click', async () => {
     if (!textarea) return;
@@ -792,24 +968,6 @@ function registerDetailHandlers(container, context, actions) {
     textarea.value = '';
     inlineError?.classList.add('hidden');
     inlineError.textContent = '';
-  });
-
-  container.querySelectorAll('[data-role="delete-question"]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      const questionId = button.dataset.questionId;
-      if (!questionId) return;
-      const confirmation = window.confirm('Delete this question?');
-      if (!confirmation) return;
-      try {
-        await dataService.deleteExtraQuestion(context.set.id, questionId);
-        showToast('Question deleted.', { type: 'success' });
-        actions.refresh();
-      } catch (error) {
-        showToast(error?.message || 'Failed to delete question.', {
-          type: 'error',
-        });
-      }
-    });
   });
 }
 

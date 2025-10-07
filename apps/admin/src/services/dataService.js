@@ -753,6 +753,7 @@ function buildExtraQuestionSet(row) {
     ends_at: row.ends_at,
     is_active: Boolean(row.is_active),
     question_count: row.question_count ?? 0,
+    time_limit_seconds: row.time_limit_seconds ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -795,6 +796,20 @@ function prepareExtraQuestionSetPayload(input = {}) {
   const starts_at = sanitizeDateInput(input.starts_at ?? input.startsAt);
   const ends_at = sanitizeDateInput(input.ends_at ?? input.endsAt);
   const is_active = input.is_active ?? input.isActive ?? false;
+  const hasSecondsInput = Object.prototype.hasOwnProperty.call(
+    input,
+    'time_limit_seconds'
+  );
+  const rawTimeLimit = hasSecondsInput
+    ? input.time_limit_seconds
+    : input.time_limit_minutes ?? input.time_limit;
+  let time_limit_seconds = null;
+  if (rawTimeLimit !== undefined && rawTimeLimit !== null && rawTimeLimit !== '') {
+    const numeric = Number(rawTimeLimit);
+    if (Number.isFinite(numeric) && numeric > 0) {
+      time_limit_seconds = hasSecondsInput ? Math.round(numeric) : Math.round(numeric * 60);
+    }
+  }
   const visibility = normalizeExtraVisibilityRules(
     input.visibility || input.visibility_rules
   );
@@ -806,6 +821,7 @@ function prepareExtraQuestionSetPayload(input = {}) {
     ends_at,
     is_active: Boolean(is_active),
     visibility_rules: visibility,
+    time_limit_seconds,
   };
 }
 
@@ -3383,7 +3399,7 @@ class DataService {
       const { data, error } = await client
         .from('extra_question_sets')
         .select(
-          'id, title, description, visibility_rules, starts_at, ends_at, is_active, question_count, created_at, updated_at'
+          'id, title, description, visibility_rules, starts_at, ends_at, is_active, question_count, time_limit_seconds, created_at, updated_at'
         )
         .eq('id', setId)
         .maybeSingle();
@@ -3402,7 +3418,7 @@ class DataService {
       const { data, error } = await client
         .from('extra_question_sets')
         .select(
-          'id, title, description, visibility_rules, starts_at, ends_at, is_active, question_count, created_at, updated_at'
+          'id, title, description, visibility_rules, starts_at, ends_at, is_active, question_count, time_limit_seconds, created_at, updated_at'
         )
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -3472,6 +3488,26 @@ class DataService {
     }
     if (updates.is_active !== undefined || updates.isActive !== undefined) {
       payload.is_active = Boolean(updates.is_active ?? updates.isActive);
+    }
+    if (
+      updates.time_limit_seconds !== undefined ||
+      updates.time_limit_minutes !== undefined ||
+      updates.time_limit !== undefined
+    ) {
+      const hasSeconds = updates.time_limit_seconds !== undefined;
+      const rawTimeLimit = hasSeconds
+        ? updates.time_limit_seconds
+        : updates.time_limit_minutes ?? updates.time_limit;
+      if (rawTimeLimit === null || rawTimeLimit === '' || rawTimeLimit === undefined) {
+        payload.time_limit_seconds = null;
+      } else {
+        const numeric = Number(rawTimeLimit);
+        payload.time_limit_seconds = Number.isFinite(numeric) && numeric > 0
+          ? hasSeconds
+            ? Math.round(numeric)
+            : Math.round(numeric * 60)
+          : null;
+      }
     }
     if (updates.visibility !== undefined || updates.visibility_rules !== undefined) {
       payload.visibility_rules = normalizeExtraVisibilityRules(
