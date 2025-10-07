@@ -735,6 +735,17 @@ function normalizeExtraVisibilityRules(value) {
   };
 }
 
+function isMissingColumnError(error, columnName) {
+  const parts = [error?.message, error?.details, error?.hint]
+    .filter((value) => typeof value === 'string' && value.length)
+    .map((value) => value.toLowerCase());
+  if (!parts.length) return false;
+  const columnNeedle = `column ${columnName.toLowerCase()}`;
+  return parts.some(
+    (part) => part.includes(columnNeedle) && part.includes('does not exist')
+  );
+}
+
 function sanitizeDateInput(value) {
   if (value === null || value === undefined || value === '') {
     return null;
@@ -3406,6 +3417,21 @@ class DataService {
       if (error) throw error;
       return data ? buildExtraQuestionSet(data) : null;
     } catch (error) {
+      if (isMissingColumnError(error, 'time_limit_seconds')) {
+        const { data, error: fallbackError } = await client
+          .from('extra_question_sets')
+          .select(
+            'id, title, description, visibility_rules, starts_at, ends_at, is_active, question_count, created_at, updated_at'
+          )
+          .eq('id', setId)
+          .maybeSingle();
+        if (fallbackError) {
+          throw wrapError('Failed to load the extra question set.', fallbackError, {
+            setId,
+          });
+        }
+        return data ? buildExtraQuestionSet({ ...data, time_limit_seconds: null }) : null;
+      }
       throw wrapError('Failed to load the extra question set.', error, {
         setId,
       });
@@ -3424,6 +3450,20 @@ class DataService {
       if (error) throw error;
       return Array.isArray(data) ? data.map(buildExtraQuestionSet) : [];
     } catch (error) {
+      if (isMissingColumnError(error, 'time_limit_seconds')) {
+        const { data, error: fallbackError } = await client
+          .from('extra_question_sets')
+          .select(
+            'id, title, description, visibility_rules, starts_at, ends_at, is_active, question_count, created_at, updated_at'
+          )
+          .order('created_at', { ascending: false });
+        if (fallbackError) {
+          throw wrapError('Failed to load extra question sets.', fallbackError);
+        }
+        return Array.isArray(data)
+          ? data.map((row) => buildExtraQuestionSet({ ...row, time_limit_seconds: null }))
+          : [];
+      }
       throw wrapError('Failed to load extra question sets.', error);
     }
   }
@@ -3452,6 +3492,11 @@ class DataService {
     } catch (error) {
       if (error instanceof DataServiceError) {
         throw error;
+      }
+      if (isMissingColumnError(error, 'time_limit_seconds')) {
+        throw new DataServiceError(
+          'Unable to create extra question set because the database is missing the new time limit column. Run the latest Supabase migration (20251205131000_extra_question_time_limit.sql) and try again.'
+        );
       }
       throw wrapError('Unable to create extra question set.', error, {
         title: prepared.title,
@@ -3533,6 +3578,11 @@ class DataService {
       }
       return buildExtraQuestionSet(data);
     } catch (error) {
+      if (isMissingColumnError(error, 'time_limit_seconds')) {
+        throw new DataServiceError(
+          'Unable to update the extra question set because the database is missing the new time limit column. Run the latest Supabase migration (20251205131000_extra_question_time_limit.sql) and try again.'
+        );
+      }
       if (error instanceof DataServiceError) {
         throw error;
       }

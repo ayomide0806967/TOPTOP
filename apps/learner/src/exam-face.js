@@ -46,6 +46,32 @@ const STORAGE_KEYS = {
   FREE_PROGRESS: 'free_quiz_progress_',
 };
 
+function readExtraSetLaunchDebug() {
+  if (typeof sessionStorage === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem('extra_set_launch_debug');
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (error) {
+    console.debug('[Exam Face] Unable to read extra set launch debug info', error);
+    return null;
+  }
+}
+
+function mergeExtraSetLaunchDebug(patch) {
+  if (typeof sessionStorage === 'undefined') return null;
+  if (!patch || typeof patch !== 'object') return readExtraSetLaunchDebug();
+  try {
+    const existing = readExtraSetLaunchDebug() || {};
+    const updated = { ...existing, ...patch };
+    sessionStorage.setItem('extra_set_launch_debug', JSON.stringify(updated));
+    return updated;
+  } catch (error) {
+    console.debug('[Exam Face] Unable to persist extra set launch debug info', error);
+    return null;
+  }
+}
+
 function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   const bgColor =
@@ -714,6 +740,7 @@ async function ensureStarted() {
     if (!state.dailyQuiz.started_at) {
       state.dailyQuiz.started_at = new Date().toISOString();
     }
+    state.dailyQuiz.status = 'in_progress';
     storeExamDeadline();
     if (!state.timerId) startTimerTicking();
     return;
@@ -1150,15 +1177,61 @@ async function loadQuizData() {
   const extraSetId = url.searchParams.get('extra_question_set_id');
   if (extraSetId) {
     state.mode = 'extra';
-    const { data: setRow, error: setError } = await state.supabase
+    const launchDebug = readExtraSetLaunchDebug();
+    console.debug('[Exam Face] Attempting to load extra practice set', {
+      extraSetId,
+      userId: state.user?.id || null,
+      launchDebug,
+    });
+    mergeExtraSetLaunchDebug({
+      extraSetId,
+      loadAttemptedAt: new Date().toISOString(),
+      destination: window.location.href,
+      authenticatedUserId: state.user?.id || null,
+    });
+    let setRow = null;
+    let setError = null;
+    ({ data: setRow, error: setError } = await state.supabase
       .from('extra_question_sets')
       .select('id, title, description, time_limit_seconds, question_count, starts_at, ends_at, is_active')
       .eq('id', extraSetId)
-      .maybeSingle();
-    if (setError) throw setError;
+      .maybeSingle());
+    if (setError && setError.message?.includes('time_limit_seconds')) {
+      const fallback = await state.supabase
+        .from('extra_question_sets')
+        .select('id, title, description, question_count, starts_at, ends_at, is_active')
+        .eq('id', extraSetId)
+        .maybeSingle();
+      setRow = fallback.data
+        ? { ...fallback.data, time_limit_seconds: null }
+        : null;
+      setError = fallback.error;
+    }
+    if (setError) {
+      mergeExtraSetLaunchDebug({
+        loadFailedAt: new Date().toISOString(),
+        failureReason: setError.message || 'Unknown Supabase error loading extra set',
+      });
+      throw setError;
+    }
     if (!setRow) {
+      mergeExtraSetLaunchDebug({
+        loadFailedAt: new Date().toISOString(),
+        failureReason: 'Extra question set not found',
+      });
       throw new Error('This practice set is no longer available.');
     }
+
+    mergeExtraSetLaunchDebug({
+      loadSucceededAt: new Date().toISOString(),
+      resolvedSet: {
+        id: setRow.id,
+        questionCount: Number(setRow.question_count ?? 0),
+        isActive: Boolean(setRow.is_active),
+        startsAt: setRow.starts_at || null,
+        endsAt: setRow.ends_at || null,
+      },
+    });
 
     state.extraSet = setRow;
     state.dailyQuiz = {
@@ -1191,6 +1264,10 @@ async function loadQuizData() {
     if (checkError) throw checkError;
 
     if (!todayQuiz) {
+      console.warn('[Exam Face] No quiz found for user today; redirecting to dashboard', {
+        userId: state.user?.id || null,
+        requestedUrl: window.location.href,
+      });
       window.location.replace('admin-board.html');
       return;
     }
@@ -1284,13 +1361,23 @@ async function loadQuestions() {
   }
 
   if (state.mode === 'extra') {
-    const { data, error } = await state.supabase
+    let dataResponse = await state.supabase
       .from('extra_questions')
       .select(
         `id, stem, explanation, metadata, extra_question_options(id, label, content, is_correct, order_index)`
       )
       .eq('set_id', state.dailyQuiz.id)
       .order('created_at', { ascending: true });
+    if (dataResponse.error && dataResponse.error.message?.includes('time_limit_seconds')) {
+      dataResponse = await state.supabase
+        .from('extra_questions')
+        .select(
+          `id, stem, explanation, metadata, extra_question_options(id, label, content, is_correct, order_index)`
+        )
+        .eq('set_id', state.dailyQuiz.id)
+        .order('created_at', { ascending: true });
+    }
+    const { data, error } = dataResponse;
     if (error) throw error;
     const rows = Array.isArray(data) ? data : [];
     state.entries = rows.map((row, idx) => {
@@ -1476,6 +1563,15 @@ async function initialise() {
       return;
     }
     await loadQuestions();
+    if (state.mode === 'extra') {
+      mergeExtraSetLaunchDebug({
+        questionsLoadedAt: new Date().toISOString(),
+        questionCount: Array.isArray(state.entries) ? state.entries.length : 0,
+      });
+      console.debug('[Exam Face] Extra practice questions loaded', {
+        questionCount: Array.isArray(state.entries) ? state.entries.length : 0,
+      });
+    }
 
     if (state.mode !== 'free' && state.dailyQuiz.status === 'assigned') {
       try {
@@ -1550,8 +1646,24 @@ async function initialise() {
     initOverlays();
     renderPalette();
     startTimerTicking();
+    if (state.mode === 'extra') {
+      mergeExtraSetLaunchDebug({
+        initialisedAt: new Date().toISOString(),
+        status: 'ready',
+      });
+      console.debug('[Exam Face] Extra practice initialised successfully', {
+        setId: state.dailyQuiz?.id || null,
+        questionCount: Array.isArray(state.entries) ? state.entries.length : 0,
+      });
+    }
   } catch (err) {
     console.error('[Exam Face] initialisation failed', err);
+    if (state.mode === 'extra') {
+      mergeExtraSetLaunchDebug({
+        initialisationFailedAt: new Date().toISOString(),
+        failureMessage: err?.message || 'Unknown error',
+      });
+    }
     const errorMsg = err.message || 'An error occurred while loading the quiz.';
     els.loading.innerHTML = `
       <div class="text-red-800">

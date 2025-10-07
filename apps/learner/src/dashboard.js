@@ -1558,6 +1558,36 @@ async function loadExtraQuestionSets() {
     state.extraQuestionSets = sets.filter((set) => Number(set.question_count ?? 0) > 0);
     renderExtraQuestionSets();
   } catch (error) {
+    const isMissingTimer =
+      typeof error?.message === 'string' &&
+      error.message.includes('time_limit_seconds');
+    if (isMissingTimer) {
+      try {
+        const { data: fallbackData, error: fallbackError } = await state.supabase
+          .from('extra_question_sets')
+          .select('id, title, description, is_active, question_count, starts_at, ends_at, updated_at')
+          .order('updated_at', { ascending: false });
+        if (fallbackError) throw fallbackError;
+        const sets = Array.isArray(fallbackData) ? fallbackData : [];
+        state.extraQuestionSets = sets
+          .filter((set) => Number(set.question_count ?? 0) > 0)
+          .map((set) => ({ ...set, time_limit_seconds: null }));
+        renderExtraQuestionSets();
+        return;
+      } catch (fallbackError) {
+        console.error('[Dashboard] loadExtraQuestionSets fallback failed', fallbackError);
+        state.extraQuestionSets = [];
+        if (list) {
+          list.innerHTML = `
+            <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-6 text-sm text-rose-700">
+              Unable to load bonus practice sets. Please refresh to try again.
+            </div>
+          `;
+        }
+        showToast('Unable to load bonus practice sets.', 'error');
+        return;
+      }
+    }
     console.error('[Dashboard] loadExtraQuestionSets failed', error);
     state.extraQuestionSets = [];
     if (list) {
@@ -1579,6 +1609,24 @@ function handleExtraSetsClick(event) {
 
   const setId = startBtn.dataset.setId;
   if (!setId) return;
+
+  let debugPayload = null;
+  try {
+    debugPayload = {
+      setId,
+      clickedAt: new Date().toISOString(),
+      source: window.location.href,
+      buttonState: {
+        disabled: Boolean(startBtn.disabled),
+        text: startBtn.textContent?.trim() || null,
+      },
+    };
+    sessionStorage.setItem('extra_set_launch_debug', JSON.stringify(debugPayload));
+  } catch (storageError) {
+    console.debug('[Dashboard] Unable to persist extra set launch debug info', storageError);
+  }
+
+  console.debug('[Dashboard] Navigating to extra practice set', debugPayload || { setId });
 
   const url = new URL('exam-face.html', window.location.href);
   url.searchParams.set('extra_question_set_id', setId);

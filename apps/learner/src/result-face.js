@@ -559,16 +559,26 @@ async function renderExtraPracticeResults(supabase, setId) {
 
   let setMeta = cached?.set || null;
   if (!setMeta) {
-    const { data, error } = await supabase
+    let response = await supabase
       .from('extra_question_sets')
       .select('id, title, description, time_limit_seconds, question_count, starts_at, ends_at')
       .eq('id', setId)
       .maybeSingle();
-    if (error) throw error;
-    if (!data) {
+    if (response.error && response.error.message?.includes('time_limit_seconds')) {
+      response = await supabase
+        .from('extra_question_sets')
+        .select('id, title, description, question_count, starts_at, ends_at')
+        .eq('id', setId)
+        .maybeSingle();
+      if (response.data) {
+        response.data.time_limit_seconds = null;
+      }
+    }
+    if (response.error) throw response.error;
+    if (!response.data) {
       throw new Error('We could not find that practice set.');
     }
-    setMeta = data;
+    setMeta = response.data;
   }
 
   const entries = Array.isArray(cached?.entries) ? cached.entries : [];

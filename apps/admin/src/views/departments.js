@@ -368,61 +368,15 @@ export async function departmentsView(state, actions) {
         }
       });
 
-      const uploadInput = document.createElement('input');
-      uploadInput.type = 'file';
-      uploadInput.accept = '.txt,.md,.aiken';
-      uploadInput.className = 'hidden';
-      container.appendChild(uploadInput);
-
-      let activeUpload = null;
-
-      uploadInput.addEventListener('change', async (event) => {
-        const file = event.target.files?.[0];
-        if (!file || !activeUpload) {
-          uploadInput.value = '';
-          return;
-        }
-
-        const { topicId, button, topicName } = activeUpload;
-        const originalLabel = button.textContent;
-        button.textContent = 'Uploading...';
-        button.disabled = true;
-
-        try {
-          const content = await file.text();
-          const result = await dataService.importAikenQuestions(
-            topicId,
-            content
-          );
-          const count = result?.insertedCount ?? 0;
-          showToast(
-            `${count} question${count === 1 ? '' : 's'} added to ${topicName}.`,
-            { type: 'success' }
-          );
-          actions.refresh();
-        } catch (error) {
-          console.error(error);
-          showToast(error.message || 'Failed to upload questions.', {
-            type: 'error',
-          });
-        } finally {
-          button.textContent = originalLabel;
-          button.disabled = false;
-          uploadInput.value = '';
-          activeUpload = null;
-        }
-      });
-
       container
         .querySelectorAll('[data-role="upload-aiken"]')
         .forEach((button) => {
           button.addEventListener('click', () => {
-            activeUpload = {
+            openTopicAikenUploader({
               topicId: button.dataset.topicId,
               topicName: decodeURIComponent(button.dataset.topicName),
-              button,
-            };
-            uploadInput.click();
+              actions,
+            });
           });
         });
 
@@ -687,4 +641,245 @@ function confirmTopicDeletion(id, name, actions) {
         });
     },
   });
+}
+
+function openTopicAikenUploader({ topicId, topicName, actions }) {
+  if (!topicId) {
+    showToast('Select a topic before uploading questions.', { type: 'error' });
+    return;
+  }
+  const safeTopicName = topicName ? escapeHtml(topicName) : 'this topic';
+  const plainTopicName = topicName || 'this topic';
+  openModal({
+    title: `Upload Questions to ${safeTopicName}`,
+    widthClass: 'max-w-3xl',
+    render: ({ body, footer, close }) => {
+      body.innerHTML = `
+        <div class="space-y-6">
+          <section class="rounded-lg border border-slate-200 bg-slate-50/70 px-4 py-5">
+            <h3 class="text-base font-semibold text-slate-900">Upload from file</h3>
+            <p class="mt-1 text-sm text-slate-600">Supports Aiken-formatted .txt, .md, or .aiken files.</p>
+            <input type="file" accept=".txt,.md,.aiken" data-role="file-input" class="hidden" />
+            <div class="mt-4 flex flex-wrap items-center gap-3">
+              <button type="button" data-role="trigger-file-upload" class="inline-flex items-center gap-2 rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:ring-offset-2">
+                Select Aiken file
+              </button>
+              <p class="text-xs text-slate-500">We’ll parse the file and append questions to <strong>${safeTopicName}</strong>.</p>
+            </div>
+            <p class="mt-2 hidden text-sm text-red-600" data-role="file-error"></p>
+          </section>
+
+          <section class="rounded-lg border border-slate-200 bg-white px-4 py-5 shadow-sm">
+            <h3 class="text-base font-semibold text-slate-900">Paste Aiken text</h3>
+            <p class="mt-1 text-sm text-slate-600">Validate pasted questions before importing. Errors highlight the affected line.</p>
+            <textarea rows="10" data-role="aiken-text" class="mt-3 w-full rounded-md border border-slate-200 px-3 py-2 text-sm font-mono text-slate-800 focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600" placeholder="Enter Aiken formatted questions"></textarea>
+            <p class="mt-2 hidden text-sm text-red-600" data-role="inline-error"></p>
+            <div class="mt-3 flex gap-2">
+              <button type="button" data-role="validate-upload" class="rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:ring-offset-2">Validate &amp; upload</button>
+              <button type="button" data-role="clear-inline" class="rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2">Clear</button>
+            </div>
+            <div class="mt-4 hidden rounded-md border border-slate-100 bg-slate-50 px-3 py-3" data-role="preview-container">
+              <p class="text-sm font-semibold text-slate-700">Preview</p>
+              <ol class="mt-2 space-y-1 text-sm text-slate-600" data-role="preview-list"></ol>
+            </div>
+          </section>
+        </div>
+      `;
+      footer.innerHTML = `
+        <button type="button" data-role="close-modal" class="rounded-md bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2">Close</button>
+      `;
+      footer
+        .querySelector('[data-role="close-modal"]')
+        ?.addEventListener('click', close);
+
+      const refresh = typeof actions?.refresh === 'function' ? actions.refresh : null;
+      const fileButton = body.querySelector('[data-role="trigger-file-upload"]');
+      const fileInput = body.querySelector('[data-role="file-input"]');
+      const fileError = body.querySelector('[data-role="file-error"]');
+      const textarea = body.querySelector('[data-role="aiken-text"]');
+      const inlineError = body.querySelector('[data-role="inline-error"]');
+      const validateBtn = body.querySelector('[data-role="validate-upload"]');
+      const clearBtn = body.querySelector('[data-role="clear-inline"]');
+      const previewContainer = body.querySelector('[data-role="preview-container"]');
+      const previewList = body.querySelector('[data-role="preview-list"]');
+
+      fileButton?.addEventListener('click', () => {
+        fileError?.classList.add('hidden');
+        if (fileInput) {
+          fileInput.value = '';
+          fileInput.click();
+        }
+      });
+
+      fileInput?.addEventListener('change', async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const originalLabel = fileButton?.textContent;
+        if (fileButton) {
+          fileButton.disabled = true;
+          fileButton.textContent = 'Uploading…';
+        }
+        fileError?.classList.add('hidden');
+        try {
+          const content = await file.text();
+          const result = await dataService.importAikenQuestions(topicId, content);
+          const count = result?.insertedCount ?? 0;
+          showToast(
+            `${count} question${count === 1 ? '' : 's'} added to ${plainTopicName}.`,
+            { type: 'success' }
+          );
+          close();
+          refresh?.();
+        } catch (error) {
+          console.error(error);
+          const message = error?.message || 'Failed to upload questions.';
+          if (fileError) {
+            fileError.textContent = message;
+            fileError.classList.remove('hidden');
+          } else {
+            showToast(message, { type: 'error' });
+          }
+        } finally {
+          if (fileButton) {
+            fileButton.disabled = false;
+            fileButton.textContent = originalLabel || 'Select Aiken file';
+          }
+          if (fileInput) {
+            fileInput.value = '';
+          }
+        }
+      });
+
+      validateBtn?.addEventListener('click', async () => {
+        if (!textarea) return;
+        inlineError?.classList.add('hidden');
+        if (inlineError) inlineError.textContent = '';
+        previewContainer?.classList.add('hidden');
+        if (previewList) previewList.innerHTML = '';
+
+        const text = textarea.value.trim();
+        if (!text) {
+          if (inlineError) {
+            inlineError.textContent = 'Paste Aiken formatted text before uploading.';
+            inlineError.classList.remove('hidden');
+          }
+          textarea.focus();
+          return;
+        }
+
+        const originalLabel = validateBtn.textContent;
+        validateBtn.disabled = true;
+        validateBtn.textContent = 'Validating…';
+
+        try {
+          const preview = await dataService.previewAikenContent(text);
+          const questions = Array.isArray(preview?.questions) ? preview.questions : [];
+          if (previewList && questions.length) {
+            previewList.innerHTML = questions
+              .map((question, index) => {
+                const stem = question?.stem || '';
+                const truncated = stem.length > 180 ? `${stem.slice(0, 177)}…` : stem;
+                return `
+                  <li class="flex items-start gap-2 border-b border-slate-100 py-1">
+                    <span class="pt-0.5 text-xs font-semibold text-slate-500">${index + 1}</span>
+                    <span class="flex-1 text-slate-700">${escapeHtml(truncated)}</span>
+                  </li>
+                `;
+              })
+              .join('');
+          }
+          if (questions.length) {
+            previewContainer?.classList.remove('hidden');
+          } else {
+            if (inlineError) {
+              inlineError.textContent = 'No valid questions were found. Check the formatting and try again.';
+              inlineError.classList.remove('hidden');
+            }
+            return;
+          }
+
+          const proceed = window.confirm(
+            `Parsed ${questions.length} question${questions.length === 1 ? '' : 's'}. Upload now?`
+          );
+          if (!proceed) {
+            return;
+          }
+
+          const result = await dataService.importAikenQuestions(topicId, text);
+          const count = result?.insertedCount ?? questions.length;
+          showToast(
+            `${count} question${count === 1 ? '' : 's'} added to ${plainTopicName}.`,
+            { type: 'success' }
+          );
+          textarea.value = '';
+          previewContainer?.classList.add('hidden');
+          if (previewList) previewList.innerHTML = '';
+          inlineError?.classList.add('hidden');
+          close();
+          refresh?.();
+        } catch (error) {
+          console.error(error);
+          const message = error?.message || 'Unable to process Aiken content.';
+          if (inlineError) {
+            inlineError.textContent = error?.context?.lineNumber
+              ? `${message} (Line ${error.context.lineNumber})`
+              : message;
+            inlineError.classList.remove('hidden');
+          } else {
+            showToast(message, { type: 'error' });
+          }
+          if (textarea && error?.context?.lineNumber) {
+            highlightTextareaLine(textarea, error.context.lineNumber);
+          }
+        } finally {
+          validateBtn.disabled = false;
+          validateBtn.textContent = originalLabel || 'Validate & upload';
+        }
+      });
+
+      clearBtn?.addEventListener('click', () => {
+        if (!textarea) return;
+        textarea.value = '';
+        inlineError?.classList.add('hidden');
+        if (inlineError) inlineError.textContent = '';
+        previewContainer?.classList.add('hidden');
+        if (previewList) previewList.innerHTML = '';
+        textarea.focus();
+      });
+
+      setTimeout(() => {
+        textarea?.focus();
+      }, 0);
+    },
+  });
+}
+
+function escapeHtml(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return value
+    .toString()
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function highlightTextareaLine(textarea, lineNumber) {
+  if (!textarea || !lineNumber || lineNumber < 1) return;
+  const lines = textarea.value.split('\n');
+  let start = 0;
+  for (let index = 0; index < lineNumber - 1 && index < lines.length; index += 1) {
+    start += lines[index].length + 1;
+  }
+  const line = lines[lineNumber - 1] || '';
+  const end = start + line.length;
+  textarea.focus();
+  textarea.setSelectionRange(start, end);
+  const ratio = lines.length ? (lineNumber - 1) / lines.length : 0;
+  textarea.scrollTop = ratio * textarea.scrollHeight;
+  textarea.classList.add('ring-2', 'ring-red-500');
+  setTimeout(() => textarea.classList.remove('ring-2', 'ring-red-500'), 1200);
 }
