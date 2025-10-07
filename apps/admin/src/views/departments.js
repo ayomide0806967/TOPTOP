@@ -818,17 +818,20 @@ function openTopicAikenUploader({ topicId, topicName, actions }) {
             return;
           }
 
+          const existingStemSet = await buildExistingStemSet(topicId);
+
           validateBtn.textContent = `Uploading… 0/${questions.length}`;
-          const { imported, failures } = await uploadPreviewedQuestionsSequentially({
+          const { imported, errors, duplicates } = await uploadPreviewedQuestionsSequentially({
             topicId,
             questions,
             segments,
+            existingStemSet,
             updateProgress: (completed, total) => {
               validateBtn.textContent = `Uploading… ${completed}/${total}`;
             },
           });
 
-          const skipped = failures.length;
+          const skipped = errors.length + duplicates.length;
 
           if (imported > 0) {
             const toastMessage = skipped
@@ -840,12 +843,12 @@ function openTopicAikenUploader({ topicId, topicName, actions }) {
 
           if (!imported && skipped) {
             showToast(
-              `Skipped ${skipped} question${skipped === 1 ? '' : 's'} — fix the highlighted items.`,
+              `Skipped ${skipped} question${skipped === 1 ? '' : 's'} — fix issues or remove duplicates.`,
               { type: 'error' }
             );
           }
 
-          if (!failures.length) {
+          if (!errors.length && !duplicates.length) {
             textarea.value = '';
             previewContainer?.classList.add('hidden');
             if (previewList) previewList.innerHTML = '';
@@ -855,41 +858,60 @@ function openTopicAikenUploader({ topicId, topicName, actions }) {
             return;
           }
 
-          const failureSegments = failures
+          const failureSegments = errors
             .map((failure) => failure.segment?.text || '')
             .filter(Boolean);
           if (failureSegments.length) {
             textarea.value = failureSegments.join('\n\n');
+          } else if (!errors.length) {
+            textarea.value = '';
           }
 
           if (inlineError) {
-            inlineError.textContent = `${failures.length} question${failures.length === 1 ? '' : 's'} couldn't be saved. They remain above so you can fix and retry.`;
+            inlineError.textContent = errors.length
+              ? `${errors.length} question${errors.length === 1 ? '' : 's'} couldn't be saved. They remain above so you can fix and retry.`
+              : 'All parseable questions were uploaded. Duplicates were skipped automatically.';
             inlineError.classList.remove('hidden');
           }
 
           if (failureList) {
-            failureList.innerHTML = failures
-              .map((failure) => {
-                const stem = failure.question?.stem || 'Question';
-                const summary = stem.length > 160 ? `${stem.slice(0, 157)}…` : stem;
-                const reason = failure.error?.message || failure.error?.cause?.message || 'Unknown error';
-                const lineLabel = failure.segment?.startLine
-                  ? `Line ${failure.segment.startLine}`
-                  : null;
-                return `
-                  <li>
-                    <div class="font-medium">${escapeHtml(summary)}</div>
-                    <div class="text-xs">${lineLabel ? `${escapeHtml(lineLabel)} — ` : ''}${escapeHtml(reason)}</div>
-                  </li>
-                `;
-              })
-              .join('');
+            const needsFixItems = errors.map((failure) => {
+              const stem = failure.question?.stem || 'Question';
+              const summary = stem.length > 160 ? `${stem.slice(0, 157)}…` : stem;
+              const reason = failure.error?.message || failure.error?.cause?.message || 'Unknown error';
+              const lineLabel = failure.segment?.startLine
+                ? `Line ${failure.segment.startLine}`
+                : null;
+              return `
+                <li>
+                  <div class="font-medium">${escapeHtml(summary)}</div>
+                  <div class="text-xs">${lineLabel ? `${escapeHtml(lineLabel)} — ` : ''}${escapeHtml(reason)}</div>
+                </li>
+              `;
+            });
+
+            const duplicateItems = duplicates.map((dup) => {
+              const stem = dup.question?.stem || 'Question';
+              const summary = stem.length > 160 ? `${stem.slice(0, 157)}…` : stem;
+              return `
+                <li>
+                  <div class="font-medium">${escapeHtml(summary)}</div>
+                  <div class="text-xs text-slate-600">Skipped — already exists in this topic.</div>
+                </li>
+              `;
+            });
+
+            failureList.innerHTML = [...needsFixItems, ...duplicateItems].join('');
           }
           failureSummary?.classList.remove('hidden');
 
-          setTimeout(() => {
-            highlightTextareaLine(textarea, 1);
-          }, 0);
+          if (errors.length) {
+            setTimeout(() => {
+              highlightTextareaLine(textarea, 1);
+            }, 0);
+          } else {
+            textarea.focus();
+          }
         } catch (error) {
           console.error(error);
           const message = error?.message || 'Unable to process Aiken content.';
@@ -1002,11 +1024,14 @@ async function uploadPreviewedQuestionsSequentially({
   topicId,
   questions,
   segments,
+  existingStemSet,
   updateProgress,
 }) {
   const total = Array.isArray(questions) ? questions.length : 0;
-  let completed = 0;
-  const failures = [];
+  let importedCount = 0;
+  const errors = [];
+  const duplicates = [];
+  const seenStems = new Set(existingStemSet || []);
 
   if (typeof updateProgress === 'function') {
     updateProgress(0, total);
@@ -1015,16 +1040,39 @@ async function uploadPreviewedQuestionsSequentially({
   for (let index = 0; index < total; index += 1) {
     const question = questions[index];
     const segment = Array.isArray(segments) ? segments[index] : null;
-    const snippet = segment?.text?.trim?.();
-    if (!snippet) {
-      failures.push({
+    const normalizedStem = normalizeStem(question?.stem);
+
+    if (!normalizedStem) {
+      errors.push({
         index,
         question,
         segment,
-        error: new Error('Unable to isolate the original question text.'),
+        error: new Error('Question stem is empty or invalid.'),
       });
       if (typeof updateProgress === 'function') {
-        updateProgress(completed, total);
+        updateProgress(importedCount, total);
+      }
+      continue;
+    }
+
+    if (seenStems.has(normalizedStem)) {
+      duplicates.push({ index, question, segment });
+      if (typeof updateProgress === 'function') {
+        updateProgress(importedCount, total);
+      }
+      continue;
+    }
+
+    const snippet = serializeQuestionToAiken(question);
+    if (!snippet) {
+      errors.push({
+        index,
+        question,
+        segment,
+        error: new Error('Unable to serialise question into Aiken format.'),
+      });
+      if (typeof updateProgress === 'function') {
+        updateProgress(importedCount, total);
       }
       continue;
     }
@@ -1033,19 +1081,77 @@ async function uploadPreviewedQuestionsSequentially({
       const result = await dataService.importAikenQuestions(topicId, snippet);
       const inserted = Number(result?.insertedCount ?? 0);
       if (!Number.isFinite(inserted) || inserted < 1) {
-        throw new Error('The snippet did not create any questions.');
+        throw new Error('No new questions were created for this item.');
       }
-      completed += inserted;
-      if (typeof updateProgress === 'function') {
-        updateProgress(completed, total);
-      }
+      importedCount += inserted;
+      seenStems.add(normalizedStem);
     } catch (error) {
-      failures.push({ index, question, segment, error });
-      if (typeof updateProgress === 'function') {
-        updateProgress(completed, total);
-      }
+      errors.push({ index, question, segment, error });
+    }
+
+    if (typeof updateProgress === 'function') {
+      updateProgress(importedCount, total);
     }
   }
 
-  return { imported: completed, failures };
+  return { imported: importedCount, errors, duplicates };
+}
+
+async function buildExistingStemSet(topicId) {
+  try {
+    const existingQuestions = await dataService.listQuestions(topicId);
+    const stems = Array.isArray(existingQuestions)
+      ? existingQuestions.map((question) => normalizeStem(question?.stem))
+      : [];
+    return new Set(stems.filter(Boolean));
+  } catch (error) {
+    console.warn('[Departments] Unable to load existing stems before upload', error);
+    return new Set();
+  }
+}
+
+function normalizeStem(value) {
+  if (!value) return '';
+  return value
+    .toString()
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+function serializeQuestionToAiken(question) {
+  if (!question) return '';
+  const stem = question?.stem?.toString().trim();
+  if (!stem) return '';
+
+  const lines = [stem];
+  const options = Array.isArray(question?.options) ? question.options : [];
+  const answerLetters = [];
+
+  const deriveLetter = (option, index) => {
+    const label = option?.label?.toString().trim() || '';
+    const match = label.match(/[A-Za-z]/);
+    if (match) return match[0].toUpperCase();
+    const fallback = String.fromCharCode(65 + index);
+    return fallback;
+  };
+
+  options.forEach((option, index) => {
+    const content = option?.content?.toString().trim();
+    if (!content) return;
+    const letter = deriveLetter(option, index);
+    lines.push(`${letter}. ${content}`);
+    if (option?.isCorrect) {
+      if (!answerLetters.includes(letter)) {
+        answerLetters.push(letter);
+      }
+    }
+  });
+
+  if (!answerLetters.length) {
+    return '';
+  }
+
+  lines.push(`ANSWER: ${answerLetters.join(', ')}`);
+  return lines.join('\n');
 }
