@@ -80,7 +80,6 @@ const elements = {
   regenerateBtn: document.querySelector('[data-role="regenerate-quiz"]'),
   resumeBtn: document.querySelector('[data-role="resume-quiz"]'),
   logoutBtn: document.querySelector('[data-role="logout"]'),
-  mobileLogout: document.querySelector('[data-role="mobile-logout"]'),
   userGreeting: document.querySelector('[data-role="user-greeting"]'),
   userEmail: document.querySelector('[data-role="user-email"]'),
   subscriptionCard: document.querySelector('[data-role="subscription-card"]'),
@@ -90,11 +89,7 @@ const elements = {
   planCollection: document.querySelector('[data-role="plan-collection"]'),
   extraSetsSection: document.querySelector('[data-role="extra-sets-section"]'),
   extraSetsList: document.querySelector('[data-role="extra-sets-list"]'),
-  sidebar: document.getElementById('app-sidebar'),
-  navOverlay: document.querySelector('[data-role="nav-overlay"]'),
-  navToggle: document.querySelector('[data-role="nav-toggle"]'),
-  navClose: document.querySelector('[data-role="nav-close"]'),
-  navButtons: Array.from(document.querySelectorAll('aside [data-nav-target]')),
+  navButtons: Array.from(document.querySelectorAll('[data-role="nav-buttons"] [data-nav-target]')),
   views: Array.from(document.querySelectorAll('[data-view]')),
   dashboardContent: document.querySelector('[data-role="dashboard-content"]'),
   paymentGate: document.querySelector('[data-role="payment-gate"]'),
@@ -235,75 +230,18 @@ function setActiveView(targetView) {
   });
 }
 
-function openSidebar() {
-  if (window.matchMedia('(min-width: 1024px)').matches) return;
-  if (elements.sidebar) {
-    elements.sidebar.classList.remove('-translate-x-full');
-  }
-  if (elements.navToggle) {
-    elements.navToggle.setAttribute('aria-expanded', 'true');
-  }
-  elements.navOverlay?.classList.remove('hidden');
-}
-
-function closeSidebar(force = false) {
-  if (!force && window.matchMedia('(min-width: 1024px)').matches) {
-    elements.navOverlay?.classList.add('hidden');
-    if (elements.navToggle) {
-      elements.navToggle.setAttribute('aria-expanded', 'false');
-    }
-    return;
-  }
-  if (elements.sidebar) {
-    elements.sidebar.classList.add('-translate-x-full');
-  }
-  if (elements.navToggle) {
-    elements.navToggle.setAttribute('aria-expanded', 'false');
-  }
-  elements.navOverlay?.classList.add('hidden');
-}
-
-function toggleSidebar() {
-  if (window.matchMedia('(min-width: 1024px)').matches) return;
-  if (!elements.sidebar) return;
-  const isHidden = elements.sidebar.classList.contains('-translate-x-full');
-  if (isHidden) {
-    openSidebar();
-  } else {
-    closeSidebar(true);
-  }
-}
-
-function handleWindowResize() {
-  if (window.matchMedia('(min-width: 1024px)').matches) {
-    elements.navOverlay?.classList.add('hidden');
-    if (elements.sidebar) {
-      elements.sidebar.classList.remove('-translate-x-full');
-    }
-  } else if (elements.sidebar) {
-    elements.sidebar.classList.add('-translate-x-full');
-  }
-}
-
-function handleSidebarEscape(event) {
-  if (event.key === 'Escape') {
-    closeSidebar(true);
-  }
-}
-
 function bindNavigation() {
   if (navigationBound) return;
   navigationBound = true;
-  elements.navToggle?.addEventListener('click', toggleSidebar);
-  elements.navClose?.addEventListener('click', () => closeSidebar(true));
-  elements.navOverlay?.addEventListener('click', () => closeSidebar(true));
+  elements.navButtons = Array.from(
+    document.querySelectorAll('[data-role="nav-buttons"] [data-nav-target]')
+  );
 
   elements.navButtons.forEach((button) => {
     button.addEventListener('click', () => {
       if (button.disabled) return;
       const target = button.dataset.navTarget;
       setActiveView(target);
-      closeSidebar(true);
     });
   });
 
@@ -314,10 +252,6 @@ function bindNavigation() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   }
-
-  window.addEventListener('resize', handleWindowResize);
-  document.addEventListener('keydown', handleSidebarEscape);
-  handleWindowResize();
 }
 
 function showToast(message, type = 'info') {
@@ -2239,7 +2173,6 @@ async function ensureProfile() {
 }
 
 async function handleLogout() {
-  closeSidebar(true);
   try {
     await state.supabase.auth.signOut();
     clearSessionFingerprint();
@@ -2275,7 +2208,6 @@ async function initialise() {
     elements.resumeBtn?.addEventListener('click', startOrResumeQuiz);
     elements.regenerateBtn?.addEventListener('click', regenerateQuiz);
     elements.logoutBtn?.addEventListener('click', handleLogout);
-    elements.mobileLogout?.addEventListener('click', handleLogout);
     elements.planBrowseBtn?.addEventListener('click', () => {
       window.location.href = 'subscription-plans.html';
     });
@@ -2295,8 +2227,6 @@ async function initialise() {
 }
 
 function cleanup() {
-  window.removeEventListener('resize', handleWindowResize);
-  document.removeEventListener('keydown', handleSidebarEscape);
   elements.planCollection?.removeEventListener('click', handlePlanCollectionClick);
   elements.extraSetsList?.removeEventListener('click', handleExtraSetsClick);
   elements.profileForm?.removeEventListener('submit', handleProfileSubmit);
