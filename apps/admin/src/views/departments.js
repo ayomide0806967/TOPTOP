@@ -731,11 +731,19 @@ function openTopicAikenUploader({ topicId, topicName, actions }) {
           const result = await dataService.importAikenQuestions(topicId, content);
           const count = Number(result?.insertedCount ?? 0);
           const skipped = Number(result?.skippedCount ?? 0);
+          const duplicates = Number(result?.duplicateCount ?? 0);
           const toastType = skipped ? 'warning' : 'success';
           const toastMessage = skipped
             ? `${count} question${count === 1 ? '' : 's'} added • ${skipped} skipped`
             : `${count} question${count === 1 ? '' : 's'} added to ${plainTopicName}.`;
           showToast(toastMessage, { type: toastType });
+          if (duplicates > 0) {
+            const duplicateLabel = duplicates === 1 ? 'duplicate question' : 'duplicate questions';
+            showToast(
+              `${duplicates} ${duplicateLabel} skipped because they already exist in ${plainTopicName}.`,
+              { type: 'info' }
+            );
+          }
           if (skipped && Array.isArray(result?.parseErrors) && result.parseErrors.length) {
             const firstIssue = result.parseErrors[0];
             const detail = firstIssue?.message

@@ -415,6 +415,15 @@ const ANSWER_DIRECTIVE_PATTERN =
   /^(?:ANS(?:WER)?|CORRECT\s+ANSWER|ANSWER\s+KEY)\s*[:=]\s*(.+)$/i;
 const QUESTION_NUMBER_PREFIX_PATTERN = /^\d+\s*[).:-]\s+/;
 
+function normalizeStemText(value) {
+  if (!value) return '';
+  return value
+    .toString()
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
 function buildQuestion(row) {
   if (!row) return null;
   const options = Array.isArray(row.question_options)
@@ -1756,14 +1765,33 @@ class DataService {
   }
 
   async deleteTopicCascadeFallback(client, topicId) {
-    const chunkSize = 200;
+    const deleteWithBackoff = async ({ table, column, ids, initialChunk = 200 }) => {
+      if (!Array.isArray(ids) || !ids.length) return;
+      const queue = ids.filter(Boolean);
+      let chunkSize = Math.max(1, initialChunk);
 
-    const deleteInChunks = async (table, column, ids) => {
-      for (let index = 0; index < ids.length; index += chunkSize) {
-        const chunk = ids.slice(index, index + chunkSize).filter(Boolean);
+      while (queue.length) {
+        const chunk = queue.splice(0, chunkSize);
         if (!chunk.length) continue;
         const { error } = await client.from(table).delete().in(column, chunk);
-        if (error) throw error;
+        if (error) {
+          if (isStatementTimeout(error)) {
+            if (chunk.length === 1) {
+              const single = chunk[0];
+              const { error: singleError } = await client
+                .from(table)
+                .delete()
+                .eq(column, single)
+                .limit(1);
+              if (singleError) throw singleError;
+              continue;
+            }
+            queue.unshift(...chunk);
+            chunkSize = Math.max(1, Math.floor(chunkSize / 2));
+            continue;
+          }
+          throw error;
+        }
       }
     };
 
@@ -1778,17 +1806,73 @@ class DataService {
 
     const questionIds = await fetchQuestionIds();
 
+    const { error: clearWeeksError } = await client
+      .from('study_cycle_weeks')
+      .update({ topic_id: null })
+      .eq('topic_id', topicId);
+    if (clearWeeksError && !isStatementTimeout(clearWeeksError)) {
+      throw clearWeeksError;
+    }
+    if (clearWeeksError && isStatementTimeout(clearWeeksError)) {
+      const { data: weekIds, error: weekFetchError } = await client
+        .from('study_cycle_weeks')
+        .select('id')
+        .eq('topic_id', topicId);
+      if (weekFetchError) throw weekFetchError;
+      const identifiers = Array.isArray(weekIds) ? weekIds.map((row) => row.id) : [];
+      if (identifiers.length) {
+        for (const id of identifiers) {
+          const { error: weekUpdateError } = await client
+            .from('study_cycle_weeks')
+            .update({ topic_id: null })
+            .eq('id', id)
+            .limit(1);
+          if (weekUpdateError) throw weekUpdateError;
+        }
+      }
+    }
+
     if (questionIds.length) {
-      await deleteInChunks('study_cycle_subslot_questions', 'question_id', questionIds);
-      await deleteInChunks('question_options', 'question_id', questionIds);
-      await deleteInChunks('questions', 'id', questionIds);
+      await deleteWithBackoff({
+        table: 'study_cycle_subslot_questions',
+        column: 'question_id',
+        ids: questionIds,
+        initialChunk: 100,
+      });
+      await deleteWithBackoff({
+        table: 'question_options',
+        column: 'question_id',
+        ids: questionIds,
+        initialChunk: 100,
+      });
+      await deleteWithBackoff({
+        table: 'questions',
+        column: 'id',
+        ids: questionIds,
+        initialChunk: 100,
+      });
     }
 
     const { error: subslotTopicError } = await client
       .from('study_cycle_subslot_topics')
       .delete()
       .eq('topic_id', topicId);
-    if (subslotTopicError) throw subslotTopicError;
+    if (subslotTopicError && isStatementTimeout(subslotTopicError)) {
+      const { data: subslotIds, error: subslotFetchError } = await client
+        .from('study_cycle_subslot_topics')
+        .select('id')
+        .eq('topic_id', topicId);
+      if (subslotFetchError) throw subslotFetchError;
+      const ids = Array.isArray(subslotIds) ? subslotIds.map((row) => row.id) : [];
+      await deleteWithBackoff({
+        table: 'study_cycle_subslot_topics',
+        column: 'id',
+        ids,
+        initialChunk: 100,
+      });
+    } else if (subslotTopicError) {
+      throw subslotTopicError;
+    }
 
     const { error: topicDeleteError } = await client
       .from('topics')
@@ -3470,7 +3554,7 @@ class DataService {
       });
     }
 
-    const skippedCount = Array.isArray(parseMeta.skipped)
+    const formatIssueCount = Array.isArray(parseMeta.skipped)
       ? parseMeta.skipped.length
       : 0;
     const parseIssues = Array.isArray(parseMeta.errors) ? parseMeta.errors : [];
@@ -3490,7 +3574,54 @@ class DataService {
         );
       }
 
-      const questionPayloads = parsed.map((question) => ({
+      const { data: existingQuestions, error: existingError } = await client
+        .from('questions')
+        .select('stem')
+        .eq('topic_id', topicId);
+      if (existingError) throw existingError;
+
+      const existingStemSet = new Set(
+        (existingQuestions || [])
+          .map((row) => normalizeStemText(row.stem))
+          .filter(Boolean)
+      );
+
+      const batchStemSet = new Set();
+      const dedupedQuestions = [];
+      const duplicates = [];
+
+      parsed.forEach((question, originalIndex) => {
+        const normalizedStem = normalizeStemText(question?.stem);
+        if (!normalizedStem) {
+          duplicates.push({
+            stem: question?.stem || '',
+            index: originalIndex,
+            reason: 'empty-stem',
+          });
+          return;
+        }
+        if (existingStemSet.has(normalizedStem) || batchStemSet.has(normalizedStem)) {
+          duplicates.push({ stem: question.stem, index: originalIndex });
+          return;
+        }
+        batchStemSet.add(normalizedStem);
+        dedupedQuestions.push({ question, originalIndex });
+      });
+
+      const duplicateCount = duplicates.length;
+      const skippedCount = formatIssueCount + duplicateCount;
+
+      if (!dedupedQuestions.length) {
+        return {
+          insertedCount: 0,
+          skippedCount,
+          duplicateCount,
+          duplicates,
+          parseErrors: parseIssues,
+        };
+      }
+
+      const questionPayloads = dedupedQuestions.map(({ question }) => ({
         topic_id: topicId,
         question_type: 'multiple_choice_single',
         stem: question.stem.trim(),
@@ -3505,13 +3636,14 @@ class DataService {
       if (questionError) throw questionError;
       if (
         !Array.isArray(insertedQuestions) ||
-        insertedQuestions.length !== parsed.length
+        insertedQuestions.length !== dedupedQuestions.length
       ) {
         throw new Error('Supabase returned an unexpected insert response.');
       }
 
       const optionPayloads = insertedQuestions.flatMap((row, index) => {
-        const source = parsed[index];
+        const source = dedupedQuestions[index]?.question;
+        if (!source) return [];
         return source.options.map((option) => ({
           question_id: row.id,
           label: option.label,
@@ -3521,22 +3653,27 @@ class DataService {
         }));
       });
 
-      const { error: optionError } = await client
-        .from('question_options')
-        .insert(optionPayloads);
-      if (optionError) throw optionError;
+      if (optionPayloads.length) {
+        const { error: optionError } = await client
+          .from('question_options')
+          .insert(optionPayloads);
+        if (optionError) throw optionError;
+      }
 
       const { error: updateError } = await client
         .from('topics')
         .update({
-          question_count: Number(topic.question_count ?? 0) + parsed.length,
+          question_count:
+            Number(topic.question_count ?? 0) + dedupedQuestions.length,
         })
         .eq('id', topicId);
       if (updateError) throw updateError;
 
       return {
-        insertedCount: parsed.length,
+        insertedCount: dedupedQuestions.length,
         skippedCount,
+        duplicateCount,
+        duplicates,
         parseErrors: parseIssues,
       };
     } catch (error) {
