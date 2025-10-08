@@ -848,10 +848,20 @@ function registerDetailHandlers(container, context, actions) {
         context.set.id,
         text
       );
-      showToast(
-        `${result.insertedCount} question${result.insertedCount === 1 ? '' : 's'} uploaded successfully.`,
-        { type: 'success' }
-      );
+      const count = Number(result?.insertedCount ?? 0);
+      const skipped = Number(result?.skippedCount ?? 0);
+      const toastType = skipped ? 'warning' : 'success';
+      const toastMessage = skipped
+        ? `${count} question${count === 1 ? '' : 's'} uploaded • ${skipped} skipped`
+        : `${count} question${count === 1 ? '' : 's'} uploaded successfully.`;
+      showToast(toastMessage, { type: toastType });
+      if (skipped && Array.isArray(result?.parseErrors) && result.parseErrors.length) {
+        const firstIssue = result.parseErrors[0];
+        const detail = firstIssue?.message
+          ? `First issue: ${firstIssue.message}`
+          : 'Skipped items had formatting issues. Fix them and retry.';
+        showToast(detail, { type: 'info' });
+      }
       actions.refresh();
     } catch (error) {
       showToast(error?.message || 'Failed to upload questions.', { type: 'error' });
@@ -932,23 +942,84 @@ function registerDetailHandlers(container, context, actions) {
     inlineButton.textContent = 'Validating…';
     try {
       const preview = await dataService.previewAikenContent(text);
-      const count = preview?.questions?.length ?? 0;
+      const questions = Array.isArray(preview?.questions) ? preview.questions : [];
+      const skippedIssues = Array.isArray(preview?.skipped) ? preview.skipped : [];
+      const parseErrors = Array.isArray(preview?.errors) ? preview.errors : [];
+
+      if (!questions.length) {
+        inlineError.textContent = 'No valid questions were found. Fix the highlighted issues and try again.';
+        inlineError?.classList.remove('hidden');
+        const firstLine = skippedIssues[0]?.startLine || parseErrors[0]?.lineNumber;
+        if (firstLine) {
+          highlightTextareaLine(textarea, Number(firstLine));
+        }
+        return;
+      }
+
+      if (skippedIssues.length || parseErrors.length) {
+        const issueSummaryParts = [];
+        if (skippedIssues.length) {
+          issueSummaryParts.push(
+            `${skippedIssues.length} question${skippedIssues.length === 1 ? '' : 's'} will be skipped due to formatting issues.`
+          );
+        }
+        if (parseErrors.length) {
+          issueSummaryParts.push(
+            `${parseErrors.length} additional formatting issue${parseErrors.length === 1 ? '' : 's'} detected.`
+          );
+        }
+        const firstLine = skippedIssues[0]?.startLine || parseErrors[0]?.lineNumber;
+        inlineError.textContent = issueSummaryParts.join(' ');
+        inlineError?.classList.remove('hidden');
+        if (firstLine) {
+          highlightTextareaLine(textarea, Number(firstLine));
+        }
+      } else {
+        inlineError?.classList.add('hidden');
+        inlineError.textContent = '';
+      }
+
+      const summaryParts = [
+        `Parsed ${questions.length} question${questions.length === 1 ? '' : 's'}.`,
+      ];
+      if (skippedIssues.length) {
+        summaryParts.push(
+          `${skippedIssues.length} question${skippedIssues.length === 1 ? '' : 's'} will be skipped.`
+        );
+      }
+      if (parseErrors.length) {
+        summaryParts.push(
+          `${parseErrors.length} other formatting issue${parseErrors.length === 1 ? '' : 's'} detected.`
+        );
+      }
+
       const proceed = window.confirm(
-        `Parsed ${count} question${count === 1 ? '' : 's'}. Upload now?`
+        `${summaryParts.join(' ')} Upload the valid questions now?`
       );
       if (!proceed) {
         inlineButton.disabled = false;
         inlineButton.textContent = 'Validate & upload';
         return;
       }
+
       const result = await dataService.importExtraQuestionsFromAiken(
         context.set.id,
         text
       );
-      showToast(
-        `${result.insertedCount} question${result.insertedCount === 1 ? '' : 's'} uploaded successfully.`,
-        { type: 'success' }
-      );
+      const count = Number(result?.insertedCount ?? 0);
+      const skipped = Number(result?.skippedCount ?? 0);
+      const toastType = skipped ? 'warning' : 'success';
+      const toastMessage = skipped
+        ? `${count} question${count === 1 ? '' : 's'} uploaded • ${skipped} skipped`
+        : `${count} question${count === 1 ? '' : 's'} uploaded successfully.`;
+      showToast(toastMessage, { type: toastType });
+      if (skipped && Array.isArray(result?.parseErrors) && result.parseErrors.length) {
+        const firstIssue = result.parseErrors[0];
+        const detail = firstIssue?.message
+          ? `First issue: ${firstIssue.message}`
+          : 'Skipped items had formatting issues. Fix them and retry.';
+        showToast(detail, { type: 'info' });
+      }
       textarea.value = '';
       actions.refresh();
     } catch (error) {

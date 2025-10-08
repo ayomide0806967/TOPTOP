@@ -729,11 +729,20 @@ function openTopicAikenUploader({ topicId, topicName, actions }) {
         try {
           const content = await file.text();
           const result = await dataService.importAikenQuestions(topicId, content);
-          const count = result?.insertedCount ?? 0;
-          showToast(
-            `${count} question${count === 1 ? '' : 's'} added to ${plainTopicName}.`,
-            { type: 'success' }
-          );
+          const count = Number(result?.insertedCount ?? 0);
+          const skipped = Number(result?.skippedCount ?? 0);
+          const toastType = skipped ? 'warning' : 'success';
+          const toastMessage = skipped
+            ? `${count} question${count === 1 ? '' : 's'} added • ${skipped} skipped`
+            : `${count} question${count === 1 ? '' : 's'} added to ${plainTopicName}.`;
+          showToast(toastMessage, { type: toastType });
+          if (skipped && Array.isArray(result?.parseErrors) && result.parseErrors.length) {
+            const firstIssue = result.parseErrors[0];
+            const detail = firstIssue?.message
+              ? `First issue: ${firstIssue.message}`
+              : 'Fix formatting issues and retry for skipped items.';
+            showToast(detail, { type: 'info' });
+          }
           close();
           refresh?.();
         } catch (error) {
@@ -785,6 +794,97 @@ function openTopicAikenUploader({ topicId, topicName, actions }) {
           const diagnostics = Array.isArray(preview?.diagnostics)
             ? preview.diagnostics
             : [];
+          const skippedIssues = Array.isArray(preview?.skipped) ? preview.skipped : [];
+          const parseErrors = Array.isArray(preview?.errors) ? preview.errors : [];
+          const issueEntries = [];
+
+          const formatLineSpan = (startLine, endLine) => {
+            const start = Number(startLine);
+            const end = Number(endLine);
+            if (Number.isFinite(start) && Number.isFinite(end)) {
+              if (start === end) return `Line ${start}`;
+              return `Lines ${start}-${end}`;
+            }
+            if (Number.isFinite(start)) return `Line ${start}`;
+            if (Number.isFinite(end)) return `Line ${end}`;
+            return 'Line ?';
+          };
+
+          const summariseIssues = (issues) => {
+            if (!Array.isArray(issues) || !issues.length) {
+              return 'Formatting issue detected.';
+            }
+            const [first, ...rest] = issues;
+            const primary =
+              typeof first === 'string'
+                ? first
+                : first?.message || 'Formatting issue detected.';
+            return rest.length ? `${primary} (+${rest.length} more)` : primary;
+          };
+
+          skippedIssues.forEach((entry) => {
+            const label = `${formatLineSpan(entry.startLine, entry.endLine)} - ${summariseIssues(entry.issues)}`;
+            const primaryLine = Number.isFinite(Number(entry.startLine))
+              ? Number(entry.startLine)
+              : Number.isFinite(Number(entry.endLine))
+                ? Number(entry.endLine)
+                : null;
+            issueEntries.push({
+              lineNumber: primaryLine,
+              message: label,
+            });
+          });
+
+          parseErrors.forEach((entry) => {
+            const lineNumber = Number(entry?.lineNumber);
+            const prefix = Number.isFinite(lineNumber)
+              ? `Line ${lineNumber}`
+              : 'Formatting issue';
+            const detail = entry?.message || 'Unexpected token encountered.';
+            issueEntries.push({
+              lineNumber: Number.isFinite(lineNumber) ? lineNumber : null,
+              message: `${prefix} - ${detail}`,
+            });
+          });
+
+          if (failureList) {
+            if (issueEntries.length) {
+              failureList.innerHTML = issueEntries
+                .map((entry) => {
+                  const lineAttr = Number.isFinite(entry.lineNumber)
+                    ? ` data-line="${entry.lineNumber}"`
+                    : '';
+                  return `
+                    <li>
+                      <button type="button" class="text-left text-sm text-rose-700 hover:underline" data-role="jump-to-line"${lineAttr}>
+                        ${escapeHtml(entry.message)}
+                      </button>
+                    </li>
+                  `;
+                })
+                .join('');
+              failureSummary?.classList.remove('hidden');
+              const firstHighlight = issueEntries.find((entry) =>
+                Number.isFinite(entry.lineNumber)
+              );
+              if (firstHighlight && textarea) {
+                highlightTextareaLine(textarea, Number(firstHighlight.lineNumber));
+              }
+              failureList.querySelectorAll('[data-role="jump-to-line"]').forEach((button) => {
+                button.addEventListener('click', () => {
+                  if (!textarea) return;
+                  const lineValue = Number(button.dataset.line);
+                  if (Number.isFinite(lineValue)) {
+                    highlightTextareaLine(textarea, lineValue);
+                  }
+                });
+              });
+            } else {
+              failureList.innerHTML = '';
+              failureSummary?.classList.add('hidden');
+            }
+          }
+
           const segments = extractQuestionSegments(textarea.value, diagnostics, questions.length);
 
           if (previewList && questions.length) {
@@ -811,8 +911,22 @@ function openTopicAikenUploader({ topicId, topicName, actions }) {
             return;
           }
 
+          const summaryParts = [
+            `Parsed ${questions.length} question${questions.length === 1 ? '' : 's'}.`,
+          ];
+          if (skippedIssues.length) {
+            summaryParts.push(
+              `${skippedIssues.length} question${skippedIssues.length === 1 ? '' : 's'} skipped due to formatting issues.`
+            );
+          }
+          if (parseErrors.length) {
+            summaryParts.push(
+              `${parseErrors.length} additional formatting issue${parseErrors.length === 1 ? '' : 's'} detected.`
+            );
+          }
+
           const proceed = window.confirm(
-            `Parsed ${questions.length} question${questions.length === 1 ? '' : 's'}. Upload now?`
+            `${summaryParts.join(' ')} Upload the valid questions now?`
           );
           if (!proceed) {
             return;

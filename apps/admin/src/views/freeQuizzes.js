@@ -719,8 +719,24 @@ async function openManageQuizModal(quiz, topics, actions) {
                   return;
                 }
                 try {
-                  await dataService.importFreeQuizQuestionsFromAiken({ quizId: currentQuiz.id, file });
-                  showToast('Questions imported successfully.', { type: 'success' });
+                  const result = await dataService.importFreeQuizQuestionsFromAiken({
+                    quizId: currentQuiz.id,
+                    file,
+                  });
+                  const inserted = Number(result?.insertedCount ?? 0);
+                  const skipped = Number(result?.skippedCount ?? 0);
+                  const toastType = skipped ? 'warning' : 'success';
+                  const toastMessage = skipped
+                    ? `${inserted} question${inserted === 1 ? '' : 's'} added • ${skipped} skipped`
+                    : `${inserted} question${inserted === 1 ? '' : 's'} added to the quiz.`;
+                  showToast(toastMessage, { type: toastType });
+                  if (skipped && Array.isArray(result?.parseErrors) && result.parseErrors.length) {
+                    const firstIssue = result.parseErrors[0];
+                    const detail = firstIssue?.message
+                      ? `First issue: ${firstIssue.message}`
+                      : 'Skipped items had formatting issues. Fix them and retry.';
+                    showToast(detail, { type: 'info' });
+                  }
                   const refreshed = await dataService.getFreeQuizDetail(currentQuiz.id);
                   questions = refreshed.questions || [];
                   selectedQuestionIds = new Set();

@@ -848,7 +848,8 @@ function parseAikenContent(content, options = {}) {
 
   const questions = [];
   const diagnostics = captureDiagnostics ? [] : null;
-  const questionLineMap = [];
+  const skipped = [];
+  const parseErrors = [];
 
   let current = null;
 
@@ -858,31 +859,93 @@ function parseAikenContent(content, options = {}) {
       options: [],
       startLine: lineNumber,
       lastLine: lineNumber,
+      issues: [],
     };
+  };
+
+  const recordGlobalIssue = (message, context = {}) => {
+    parseErrors.push({ message, ...context });
+  };
+
+  const recordCurrentIssue = (message, context = {}) => {
+    if (!current) {
+      recordGlobalIssue(message, context);
+      return;
+    }
+    current.issues.push({ message, ...context });
+    current.invalid = true;
   };
 
   const finalizeCurrentQuestion = (endLineNumber) => {
     if (!current) return;
-    const resolvedOptions = current.options.map((option, optionIndex) => ({
-      label: option.label,
-      content: option.content.trim(),
-      isCorrect: option.isCorrect,
-      order: optionIndex,
-    }));
-
-    questions.push({
-      stem: current.stem.trim(),
-      options: resolvedOptions,
-    });
 
     const resolvedEndLine = endLineNumber ?? current.lastLine ?? current.startLine;
-    questionLineMap.push({
-      startLine: current.startLine,
-      endLine: resolvedEndLine,
-      optionLines: current.options.map((option) => ({
+    const trimmedStem = (current.stem || '').trim();
+
+    const resolvedOptions = [];
+    const optionIssues = [];
+
+    current.options.forEach((option, optionIndex) => {
+      const trimmedContent = option.content.trim();
+      if (!trimmedContent) {
+        optionIssues.push({
+          message: `Option ${option.label} is blank.`,
+          lineNumber: option.lineNumber,
+        });
+        return;
+      }
+      resolvedOptions.push({
         label: option.label,
-        lineNumber: option.lineNumber,
-      })),
+        content: trimmedContent,
+        isCorrect: Boolean(option.isCorrect),
+        order: optionIndex,
+      });
+    });
+
+    if (optionIssues.length) {
+      current.issues.push(...optionIssues);
+    }
+
+    const hasEnoughOptions = resolvedOptions.length >= 2;
+    const hasCorrectOption = resolvedOptions.some((option) => option.isCorrect);
+
+    if (!trimmedStem) {
+      current.issues.push({
+        message: 'Question text is empty.',
+        lineNumber: current.startLine,
+      });
+    }
+    if (!hasEnoughOptions) {
+      current.issues.push({
+        message: 'Each question must include at least two options.',
+        lineNumber: current.startLine,
+      });
+    }
+    if (!hasCorrectOption) {
+      current.issues.push({
+        message: 'Each question must specify a correct answer via the ANSWER directive.',
+        lineNumber: resolvedEndLine,
+      });
+    }
+
+    if (current.issues.length) {
+      skipped.push({
+        stem: trimmedStem,
+        startLine: current.startLine,
+        endLine: resolvedEndLine,
+        optionLines: current.options.map((option) => ({
+          label: option.label,
+          lineNumber: option.lineNumber,
+        })),
+        issues: current.issues,
+      });
+      current = null;
+      return;
+    }
+
+    questions.push({
+      stem: trimmedStem,
+      options: resolvedOptions,
     });
 
     if (diagnostics) {
@@ -894,7 +957,7 @@ function parseAikenContent(content, options = {}) {
           label: option.label,
           lineNumber: option.lineNumber,
         })),
-        optionCount: current.options.length,
+        optionCount: resolvedOptions.length,
       });
     }
 
@@ -922,28 +985,32 @@ function parseAikenContent(content, options = {}) {
     const answerMatch = line.match(ANSWER_DIRECTIVE_PATTERN);
     if (answerMatch) {
       if (!current) {
-        throw new DataServiceError(
-          'ANSWER directive appeared before any question.',
-          { context: { lineNumber, line: rawLine } }
-        );
+        recordGlobalIssue('ANSWER directive appeared before any question.', {
+          lineNumber,
+          line: rawLine,
+        });
+        continue;
       }
+
       if (!current.options.length) {
-        throw new DataServiceError(
+        recordCurrentIssue(
           'ANSWER directive appeared before any options were defined.',
-          {
-            context: { stem: current.stem, lineNumber, line: rawLine },
-          }
+          { lineNumber, line: rawLine }
         );
+        current.lastLine = lineNumber;
+        finalizeCurrentQuestion(lineNumber);
+        continue;
       }
 
       const directive = answerMatch[1].trim();
       if (!directive) {
-        throw new DataServiceError(
-          'ANSWER directive is missing option letters.',
-          {
-            context: { stem: current.stem, lineNumber, line: rawLine },
-          }
-        );
+        recordCurrentIssue('ANSWER directive is missing option letters.', {
+          lineNumber,
+          line: rawLine,
+        });
+        current.lastLine = lineNumber;
+        finalizeCurrentQuestion(lineNumber);
+        continue;
       }
 
       const answers = [];
@@ -1003,27 +1070,23 @@ function parseAikenContent(content, options = {}) {
       }
 
       if (!answers.length) {
-        throw new DataServiceError(
-          'ANSWER directive is missing option letters.',
-          {
-            context: { stem: current.stem, lineNumber, line: rawLine },
-          }
-        );
+        recordCurrentIssue('ANSWER directive is missing option letters.', {
+          lineNumber,
+          line: rawLine,
+        });
+        current.lastLine = lineNumber;
+        finalizeCurrentQuestion(lineNumber);
+        continue;
       }
 
       answers.forEach((letter) => {
         const option = current.options.find((item) => item.label === letter);
         if (!option) {
-          throw new DataServiceError(
+          recordCurrentIssue(
             `ANSWER references option "${letter}" which was not provided.`,
-            {
-              context: {
-                stem: current.stem,
-                lineNumber,
-                line: rawLine,
-              },
-            }
+            { lineNumber, line: rawLine }
           );
+          return;
         }
         option.isCorrect = true;
       });
@@ -1036,10 +1099,11 @@ function parseAikenContent(content, options = {}) {
     const optionMatch = line.match(OPTION_PATTERN);
     if (optionMatch) {
       if (!current) {
-        throw new DataServiceError(
-          'Option encountered before the question text.',
-          { context: { lineNumber, line: rawLine } }
-        );
+        recordGlobalIssue('Option encountered before the question text.', {
+          lineNumber,
+          line: rawLine,
+        });
+        continue;
       }
       const [, letterRaw, text] = optionMatch;
       const letter = letterRaw.toUpperCase();
@@ -1080,44 +1144,44 @@ function parseAikenContent(content, options = {}) {
 
   if (current) {
     if (!current.options.length) {
-      throw new DataServiceError('A question is missing answer options.', {
-        context: { lineNumber: current.startLine },
+      recordCurrentIssue('A question is missing answer options.', {
+        lineNumber: current.startLine,
       });
     }
     finalizeCurrentQuestion(current.lastLine);
   }
 
   if (!questions.length) {
-    throw new DataServiceError('No questions were found in the uploaded file.');
+    const context = {};
+    if (skipped.length) {
+      context.skipped = skipped;
+    }
+    if (parseErrors.length) {
+      context.parseErrors = parseErrors;
+    }
+    throw new DataServiceError(
+      'No valid questions were found. Check the formatting and try again.',
+      { context }
+    );
   }
 
-  questions.forEach((question, index) => {
-    if (question.options.length < 2) {
-      throw new DataServiceError(
-        'Each question must include at least two options.',
-        {
-          context: {
-            index: index + 1,
-            lineNumber: questionLineMap[index]?.startLine,
-          },
-        }
-      );
-    }
-    if (!question.options.some((option) => option.isCorrect)) {
-      throw new DataServiceError(
-        'Each question must specify a correct answer via the ANSWER directive.',
-        {
-          context: {
-            index: index + 1,
-            stem: question.stem,
-            lineNumber: questionLineMap[index]?.endLine,
-          },
-        }
-      );
-    }
+  if (captureDiagnostics) {
+    return {
+      questions,
+      diagnostics,
+      skipped,
+      errors: parseErrors,
+    };
+  }
+
+  Object.defineProperty(questions, 'meta', {
+    value: { skipped, errors: parseErrors },
+    enumerable: false,
+    configurable: true,
+    writable: false,
   });
 
-  return captureDiagnostics ? { questions, diagnostics } : questions;
+  return questions;
 }
 
 async function ensureClient() {
@@ -1149,6 +1213,24 @@ function wrapError(message, cause, context) {
   const extra = [causeMessage, detail].filter(Boolean).join(' — ');
   const composed = extra ? `${message} (${extra})` : message;
   return new DataServiceError(composed, { cause, context });
+}
+
+function isStatementTimeout(error) {
+  if (!error) return false;
+  const extract = (value) => (typeof value === 'string' ? value : '');
+  const code = error?.code || error?.cause?.code;
+  const message = [
+    extract(error?.message),
+    extract(error?.details),
+    extract(error?.cause?.message),
+    extract(error?.cause?.details),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  if (code === '57014') return true;
+  if (!message) return false;
+  return message.includes('statement timeout');
 }
 
 async function refreshTopicQuestionCount(client, topicId) {
@@ -1655,8 +1737,64 @@ class DataService {
       if (error) throw error;
       return true;
     } catch (error) {
-      throw wrapError('Failed to delete topic.', error, { topicId });
+      if (!isStatementTimeout(error)) {
+        throw wrapError('Failed to delete topic.', error, { topicId });
+      }
+      console.warn(
+        '[DataService] Topic deletion timed out. Attempting fallback cascade cleanup.',
+        { topicId, error }
+      );
+      try {
+        await this.deleteTopicCascadeFallback(client, topicId);
+        return true;
+      } catch (fallbackError) {
+        throw wrapError('Failed to delete topic after fallback cleanup.', fallbackError, {
+          topicId,
+        });
+      }
     }
+  }
+
+  async deleteTopicCascadeFallback(client, topicId) {
+    const chunkSize = 200;
+
+    const deleteInChunks = async (table, column, ids) => {
+      for (let index = 0; index < ids.length; index += chunkSize) {
+        const chunk = ids.slice(index, index + chunkSize).filter(Boolean);
+        if (!chunk.length) continue;
+        const { error } = await client.from(table).delete().in(column, chunk);
+        if (error) throw error;
+      }
+    };
+
+    const fetchQuestionIds = async () => {
+      const { data, error } = await client
+        .from('questions')
+        .select('id')
+        .eq('topic_id', topicId);
+      if (error) throw error;
+      return Array.isArray(data) ? data.map((row) => row.id) : [];
+    };
+
+    const questionIds = await fetchQuestionIds();
+
+    if (questionIds.length) {
+      await deleteInChunks('study_cycle_subslot_questions', 'question_id', questionIds);
+      await deleteInChunks('question_options', 'question_id', questionIds);
+      await deleteInChunks('questions', 'id', questionIds);
+    }
+
+    const { error: subslotTopicError } = await client
+      .from('study_cycle_subslot_topics')
+      .delete()
+      .eq('topic_id', topicId);
+    if (subslotTopicError) throw subslotTopicError;
+
+    const { error: topicDeleteError } = await client
+      .from('topics')
+      .delete()
+      .eq('id', topicId);
+    if (topicDeleteError) throw topicDeleteError;
   }
 
   async updateQuestion(
@@ -3256,8 +3394,12 @@ class DataService {
     try {
       const text = await file.text();
       const parsed = parseAikenContent(text);
+      const meta = parsed?.meta || {};
+      const skippedCount = Array.isArray(meta.skipped) ? meta.skipped.length : 0;
+      const parseIssues = Array.isArray(meta.errors) ? meta.errors : [];
+
       if (!Array.isArray(parsed) || !parsed.length) {
-        throw new DataServiceError('No questions found in import file.');
+        throw new DataServiceError('No valid questions were found. Check the formatting and try again.');
       }
       const { count: existingCount } = await client
         .from('free_quiz_questions')
@@ -3292,7 +3434,13 @@ class DataService {
         .insert(batches)
         .select('*');
       if (error) throw error;
-      return Array.isArray(data) ? data.map(buildFreeQuizQuestion) : [];
+      const records = Array.isArray(data) ? data.map(buildFreeQuizQuestion) : [];
+      return {
+        insertedCount: records.length,
+        skippedCount,
+        parseErrors: parseIssues,
+        records,
+      };
     } catch (error) {
       throw wrapError('Failed to import questions from Aiken file.', error, {
         quizId,
@@ -3309,8 +3457,10 @@ class DataService {
     }
 
     let parsed;
+    let parseMeta = {};
     try {
       parsed = parseAikenContent(fileContent);
+      parseMeta = parsed?.meta || {};
     } catch (error) {
       if (error instanceof DataServiceError) {
         throw error;
@@ -3319,6 +3469,11 @@ class DataService {
         cause: error,
       });
     }
+
+    const skippedCount = Array.isArray(parseMeta.skipped)
+      ? parseMeta.skipped.length
+      : 0;
+    const parseIssues = Array.isArray(parseMeta.errors) ? parseMeta.errors : [];
 
     const client = await ensureClient();
 
@@ -3381,6 +3536,8 @@ class DataService {
 
       return {
         insertedCount: parsed.length,
+        skippedCount,
+        parseErrors: parseIssues,
       };
     } catch (error) {
       if (error instanceof DataServiceError) {
@@ -3663,8 +3820,10 @@ class DataService {
     }
 
     let parsed;
+    let parseMeta = {};
     try {
       parsed = parseAikenContent(fileContent);
+      parseMeta = parsed?.meta || {};
     } catch (error) {
       if (error instanceof DataServiceError) {
         throw error;
@@ -3673,6 +3832,11 @@ class DataService {
         cause: error,
       });
     }
+
+    const skippedCount = Array.isArray(parseMeta.skipped)
+      ? parseMeta.skipped.length
+      : 0;
+    const parseIssues = Array.isArray(parseMeta.errors) ? parseMeta.errors : [];
 
     const client = await ensureClient();
 
@@ -3728,6 +3892,8 @@ class DataService {
 
       return {
         insertedCount: parsed.length,
+        skippedCount,
+        parseErrors: parseIssues,
       };
     } catch (error) {
       if (error instanceof DataServiceError) {
