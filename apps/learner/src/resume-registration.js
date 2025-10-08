@@ -425,7 +425,7 @@ async function loadProducts() {
   state.products = products;
   state.departments = deriveDepartments(products);
   state.generalProducts = products.filter((product) => !product.department_id);
-  if (state.generalProducts.length) {
+  if (state.generalProducts.length && !state.departments.some((dept) => dept.id === 'general')) {
     state.departments.push({ id: 'general', name: 'General Access', slug: 'general', color: 'default' });
   }
   state.planLookup = new Map();
@@ -530,14 +530,9 @@ function populatePlanEditor(currentPlanId) {
     .map(({ plan }) => `<option value="${plan.id}">${plan.name} — ${formatCurrency(plan.price, plan.currency || 'NGN')}</option>`)
     .join('');
 
-  const targetPlanId = currentPlanId || state.selectedPlan?.id || plansForDepartment[0].plan.id;
-
-  if (!planEditorPlan.querySelector(`option[value="${targetPlanId}"]`)) {
-    const fallbackEntry = state.planLookup.get(targetPlanId);
-    if (fallbackEntry) {
-      const label = `${fallbackEntry.plan.name} — ${formatCurrency(fallbackEntry.plan.price, fallbackEntry.plan.currency || 'NGN')}`;
-      planEditorPlan.insertAdjacentHTML('afterbegin', `<option value="${targetPlanId}">${label}</option>`);
-    }
+  let targetPlanId = currentPlanId || state.selectedPlan?.id || '';
+  if (!targetPlanId || !planEditorPlan.querySelector(`option[value="${targetPlanId}"]`)) {
+    targetPlanId = plansForDepartment[0].plan.id;
   }
 
   planEditorPlan.value = targetPlanId;

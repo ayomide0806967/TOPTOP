@@ -956,6 +956,16 @@ async function startDailyQuizForSubscription(subscriptionId) {
         showToast('No active study slot for your department today', 'error');
         return;
       }
+      if (message.toLowerCase().includes('lacks questions')) {
+        const planName = subscription.plan?.name || 'this plan';
+        showToast(
+          `We do not have enough questions scheduled for ${planName} today. Try another plan or check back later.`,
+          'warning'
+        );
+        await loadSubscriptions();
+        updatePlanCollectionLabels();
+        return;
+      }
       throw error;
     }
 
