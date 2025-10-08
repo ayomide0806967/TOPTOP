@@ -238,16 +238,25 @@ function openSidebar() {
   if (elements.sidebar) {
     elements.sidebar.classList.remove('-translate-x-full');
   }
+  if (elements.navToggle) {
+    elements.navToggle.setAttribute('aria-expanded', 'true');
+  }
   elements.navOverlay?.classList.remove('hidden');
 }
 
 function closeSidebar(force = false) {
   if (!force && window.matchMedia('(min-width: 1024px)').matches) {
     elements.navOverlay?.classList.add('hidden');
+    if (elements.navToggle) {
+      elements.navToggle.setAttribute('aria-expanded', 'false');
+    }
     return;
   }
   if (elements.sidebar) {
     elements.sidebar.classList.add('-translate-x-full');
+  }
+  if (elements.navToggle) {
+    elements.navToggle.setAttribute('aria-expanded', 'false');
   }
   elements.navOverlay?.classList.add('hidden');
 }
