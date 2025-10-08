@@ -106,6 +106,30 @@
         box-shadow: 0 -4px 20px -4px rgba(0, 0, 0, 0.1);
       }
 
+      /* Safe area for mobile devices with notch/home indicator */
+      .safe-area-inset-bottom {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+
+      /* Ensure buttons are always clickable and accessible */
+      .nav-button {
+        position: relative;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      /* Prevent scrolling issues on mobile */
+      body {
+        overscroll-behavior: contain;
+      }
+
+      /* Ensure navigation stays above all content */
+      .z-50 {
+        z-index: 9999;
+      }
+
       /* Mobile-first button bar styles */
       @media (max-width: 767px) {
         [data-role="nav-buttons"] {
@@ -114,28 +138,38 @@
           padding: 0.25rem;
           max-width: 100%;
           margin: 0 auto;
+          height: auto;
         }
 
         .nav-button {
-          padding: 0.625rem 0.25rem;
+          padding: 0.75rem 0.25rem;
           font-size: 0.625rem;
           flex-direction: column;
           gap: 0.25rem;
-          min-height: 3.5rem;
+          min-height: 3.75rem;
+          min-width: 44px;
           border-radius: 0.5rem;
-          background: rgba(255, 255, 255, 0.9);
+          background: rgba(255, 255, 255, 0.95);
           backdrop-filter: blur(10px);
+          transition: all 0.2s ease;
+          cursor: pointer;
+        }
+
+        .nav-button:active {
+          transform: scale(0.95);
         }
 
         .nav-button svg {
-          width: 1.125rem;
-          height: 1.125rem;
+          width: 1.25rem;
+          height: 1.25rem;
+          flex-shrink: 0;
         }
 
         .nav-button span {
           font-size: 0.625rem;
           line-height: 1;
           font-weight: 500;
+          text-align: center;
         }
 
         .nav-button:hover {
@@ -145,6 +179,32 @@
         .nav-button--active {
           background: linear-gradient(135deg, #0f9ac7, #0ea5b8);
           box-shadow: 0 2px 8px -2px rgba(6, 148, 168, 0.5);
+        }
+
+        .nav-button--active:active {
+          transform: scale(0.98);
+        }
+
+        /* Ensure navigation is always visible */
+        .fixed.bottom-0 {
+          position: fixed !important;
+          bottom: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+        }
+
+        /* Handle viewport height issues on mobile */
+        @supports (height: 100dvh) {
+          .fixed.bottom-0 {
+            height: auto;
+          }
+        }
+
+        /* Prevent zoom on input focus (iOS Safari fix) */
+        @supports (-webkit-touch-callout: none) {
+          .nav-button {
+            font-size: 16px;
+          }
         }
       }
 
@@ -575,10 +635,10 @@
         </main>
 
       <!-- Bottom Navigation Bar -->
-      <div class="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200/70 bg-white/95 backdrop-blur-md">
+      <div class="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200/70 bg-white/95 backdrop-blur-md safe-area-inset-bottom">
         <div class="px-4 py-2 sm:px-6 sm:py-3 lg:px-8">
           <div
-            class="grid grid-cols-4 gap-1 rounded-2xl border border-slate-200 bg-white/80 p-1 overflow-hidden shadow-lg"
+            class="grid grid-cols-4 gap-1 rounded-2xl border border-slate-200 bg-white/90 p-1 overflow-hidden shadow-lg max-w-lg mx-auto"
             data-role="nav-buttons"
           >
             <button type="button" data-nav-target="dashboard" class="nav-button nav-button--active" aria-current="page">
