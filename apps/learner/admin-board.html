@@ -18,16 +18,17 @@
       }
 
       .nav-button {
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        gap: 0.75rem;
-        padding: 0.85rem 0.9rem;
+        gap: 0.65rem;
+        padding: 0.55rem 0.8rem;
         border-radius: 0.9rem;
         font-weight: 600;
-        font-size: 0.9375rem;
+        font-size: 0.875rem;
         color: #0f172a;
         transition: all 0.18s ease;
         flex: 0 0 auto;
+        white-space: nowrap;
       }
 
       .nav-button svg {
@@ -78,12 +79,19 @@
         text-transform: uppercase;
       }
 
+      @media (min-width: 768px) {
+        .nav-button {
+          padding: 0.7rem 0.95rem;
+          font-size: 0.9375rem;
+        }
+      }
+
     </style>
   </head>
   <body class="antialiased">
     <div class="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       <header class="sticky top-0 z-30 border-b border-slate-200/70 bg-white/90 backdrop-blur">
-        <div class="space-y-4 px-4 py-4 sm:px-6 lg:px-8">
+        <div class="space-y-3 px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
           <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
               <div class="flex items-center gap-3">
@@ -128,7 +136,7 @@
             </div>
           </div>
           <div
-            class="flex flex-wrap items-center gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white/80 p-1"
+            class="flex items-center gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white/80 px-1 py-1.5"
             data-role="nav-buttons"
           >
             <button type="button" data-nav-target="dashboard" class="nav-button nav-button--active" aria-current="page">
