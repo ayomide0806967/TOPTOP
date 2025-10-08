@@ -1,9 +1,14 @@
 import { getSupabaseClient } from '../../shared/supabaseClient.js';
 
 const statusBanner = document.getElementById('status-banner');
-const departmentSelect = document.getElementById('departmentSelect');
-const planSelect = document.getElementById('planSelect');
 const planSummary = document.getElementById('planSummary');
+const planNameEl = document.querySelector('[data-role="plan-name"]');
+const planDescriptionEl = document.querySelector('[data-role="plan-description"]');
+const planDepartmentEl = document.querySelector('[data-role="plan-department"]');
+const planDailyLimitEl = document.querySelector('[data-role="plan-daily-limit"]');
+const planDurationEl = document.querySelector('[data-role="plan-duration"]');
+const planPriceEl = document.querySelector('[data-role="plan-price"]');
+const planChipEl = document.querySelector('[data-role="plan-chip"]');
 const payButton = document.getElementById('payButton');
 const successSection = document.getElementById('successSection');
 const footerYear = document.getElementById('footerYear');
@@ -16,17 +21,14 @@ const contactFields = {
 };
 
 const paystackConfig = window.__PAYSTACK_CONFIG__ || {};
+const STORAGE_PLAN = 'registrationPlan';
+const STORAGE_PENDING_PLAN_ID = 'pendingPlanId';
 
 const state = {
   supabase: null,
   user: null,
   profile: null,
-  products: [],
-  departments: [],
-  generalProducts: [],
-  planLookup: new Map(),
-  selectedDepartment: '',
-  selectedPlanId: '',
+  selectedPlan: null,
   activeReference: null,
   isLoading: false,
 };
@@ -73,65 +75,77 @@ function formatCurrency(amount, currency = 'NGN') {
   }
 }
 
-function groupProducts(rows) {
-  const map = new Map();
-  rows.forEach((row) => {
-    if (!row) return;
-    const productId = row.id || row.product_id;
-    if (!productId) return;
-    if (!map.has(productId)) {
-      map.set(productId, {
-        id: productId,
-        code: row.product_code,
-        name: row.product_name,
-        description: row.description,
-        product_type: row.product_type,
-        is_active: row.is_active,
-        department_id: row.department_id,
-        department_name: row.department_name,
-        department_slug: row.department_slug,
-        color_theme: row.color_theme,
-        plans: [],
-      });
+function readStoredPlan(planId) {
+  const raw = window.localStorage.getItem(STORAGE_PLAN);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!planId || parsed.planId === planId || parsed.id === planId) {
+      return parsed;
     }
-    if (row.plan_id) {
-      map.get(productId).plans.push({
-        id: row.plan_id,
-        code: row.plan_code,
-        name: row.plan_name,
-        price: row.price,
-        currency: row.currency,
-        questions: row.questions,
-        quizzes: row.quizzes,
-        participants: row.participants,
-        is_active: row.plan_is_active,
-        daily_question_limit: row.daily_question_limit,
-        duration_days: row.duration_days,
-        plan_tier: row.plan_tier,
-        quiz_duration_minutes: row.quiz_duration_minutes,
-      });
-    }
-  });
-
-  return Array.from(map.values()).filter(
-    (product) => product.is_active && product.plans.some((plan) => plan.is_active)
-  );
+  } catch (error) {
+    console.warn('[ResumeRegistration] Failed to parse stored plan snapshot', error);
+  }
+  return null;
 }
 
-function deriveDepartments(products) {
-  const lookup = new Map();
-  products.forEach((product) => {
-    if (!product.department_id) return;
-    if (!lookup.has(product.department_id)) {
-      lookup.set(product.department_id, {
-        id: product.department_id,
-        name: product.department_name,
-        slug: product.department_slug || product.department_id,
-        color: product.color_theme || product.department_slug || 'default',
-      });
-    }
-  });
-  return Array.from(lookup.values()).sort((a, b) => a.name.localeCompare(b.name));
+async function fetchPlanFromSupabase(planId) {
+  if (!planId || !state.supabase) return null;
+  try {
+    const { data, error } = await state.supabase
+      .from('subscription_plans')
+      .select(
+        `
+          id,
+          code,
+          name,
+          price,
+          currency,
+          metadata,
+          duration_days,
+          quiz_duration_minutes,
+          daily_question_limit,
+          subscription_products:subscription_products!subscription_plans_product_id_fkey (
+            id,
+            code,
+            name,
+            department_id,
+            department:departments(id, name, slug),
+            color_theme
+          )
+        `
+      )
+      .eq('id', planId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const product = data.subscription_products
+      ? {
+          id: data.subscription_products.id,
+          code: data.subscription_products.code,
+          name: data.subscription_products.name,
+          department_id: data.subscription_products.department_id,
+          department_name: data.subscription_products.department?.name || null,
+          department_slug: data.subscription_products.department?.slug || null,
+          color_theme: data.subscription_products.color_theme || null,
+        }
+      : null;
+    return {
+      id: data.id,
+      code: data.code,
+      name: data.name,
+      price: data.price,
+      currency: data.currency,
+      metadata: data.metadata || {},
+      duration_days: data.duration_days,
+      quiz_duration_minutes: data.quiz_duration_minutes,
+      daily_question_limit: data.daily_question_limit,
+      product,
+    };
+  } catch (error) {
+    console.error('[ResumeRegistration] Failed to fetch plan snapshot', error);
+    return null;
+  }
 }
 
 function populateContactCard(profile) {
@@ -151,117 +165,121 @@ function populateContactCard(profile) {
   if (contactFields.username) contactFields.username.textContent = username || '—';
 }
 
-function buildDepartmentOptions() {
-  if (!departmentSelect) return;
-  const baseOption = document.createElement('option');
-  baseOption.value = '';
-  baseOption.textContent = 'Select a department…';
-  departmentSelect.replaceChildren(baseOption);
+async function ensurePendingPlanContext() {
+  const profileSnapshot = state.profile?.pending_plan_snapshot || null;
+  const pendingPlanId =
+    state.profile?.pending_plan_id || window.localStorage.getItem(STORAGE_PENDING_PLAN_ID);
 
-  const options = [...state.departments];
-  if (state.generalProducts.length) {
-    options.push({ id: 'general', name: 'General Access', slug: 'general' });
+  let plan = null;
+
+  if (profileSnapshot) {
+    plan = {
+      ...profileSnapshot,
+      id: profileSnapshot.id || pendingPlanId,
+      currency: profileSnapshot.currency || 'NGN',
+    };
   }
 
-  options.forEach((dept) => {
-    const option = document.createElement('option');
-    option.value = dept.id;
-    option.textContent = dept.name;
-    departmentSelect.appendChild(option);
-  });
-
-  if (state.selectedDepartment) {
-    departmentSelect.value = state.selectedDepartment;
+  if (!plan && pendingPlanId) {
+    plan = readStoredPlan(pendingPlanId);
   }
-}
 
-function buildPlanOptions() {
-  if (!planSelect) return;
+  if (!plan && pendingPlanId) {
+    plan = await fetchPlanFromSupabase(pendingPlanId);
+  }
 
-  const placeholder = document.createElement('option');
-  placeholder.value = '';
-  placeholder.textContent = state.selectedDepartment
-    ? 'Select a plan…'
-    : 'Choose a department first…';
-
-  planSelect.replaceChildren(placeholder);
-  planSelect.disabled = !state.selectedDepartment;
-
-  if (!state.selectedDepartment) {
-    planSummary?.classList.add('hidden');
-    state.selectedPlanId = '';
-    planSelect.value = '';
+  if (!plan) {
+    showBanner(
+      'We could not find your selected plan. Please return to the pricing page and start again.',
+      'error'
+    );
     updatePayButtonState();
-    return;
+    return null;
   }
 
-  const products =
-    state.selectedDepartment === 'general'
-      ? state.generalProducts
-      : state.products.filter((product) => product.department_id === state.selectedDepartment);
+  if (!plan.id) {
+    plan.id = pendingPlanId || plan.planId;
+  }
 
-  state.planLookup.clear();
-
-  const plans = products.flatMap((product) =>
-    product.plans
-      .filter((plan) => plan.is_active)
-      .map((plan) => ({ plan, product }))
+  window.localStorage.setItem(STORAGE_PENDING_PLAN_ID, plan.id);
+  window.localStorage.setItem(
+    STORAGE_PLAN,
+    JSON.stringify({
+      planId: plan.id,
+      id: plan.id,
+      name: plan.name,
+      price: plan.price,
+      currency: plan.currency,
+      metadata: plan.metadata || {},
+      duration_days: plan.duration_days,
+      quiz_duration_minutes: plan.quiz_duration_minutes,
+      daily_question_limit: plan.daily_question_limit,
+      product: plan.product || plan.subscription_product || null,
+    })
   );
 
-  plans.forEach(({ plan, product }) => {
-    const option = document.createElement('option');
-    option.value = plan.id;
-    option.textContent = `${plan.name} — ${formatCurrency(plan.price, plan.currency)}`;
-    planSelect.appendChild(option);
-    state.planLookup.set(plan.id, { plan, product });
-  });
-
-  if (state.selectedPlanId && state.planLookup.has(state.selectedPlanId)) {
-    planSelect.value = state.selectedPlanId;
-  } else {
-    state.selectedPlanId = '';
-    planSelect.value = '';
-  }
-
-  updatePlanSummary();
+  state.selectedPlan = plan;
+  renderPlanDetails(plan);
   updatePayButtonState();
+  return plan;
 }
 
-function updatePlanSummary() {
+function renderPlanDetails(plan) {
   if (!planSummary) return;
 
-  if (!state.selectedPlanId || !state.planLookup.has(state.selectedPlanId)) {
+  if (!plan) {
     planSummary.classList.add('hidden');
     planSummary.textContent = '';
+    if (planNameEl) planNameEl.textContent = '—';
+    if (planDescriptionEl) planDescriptionEl.textContent = 'We will show your plan summary once it is available.';
+    if (planDepartmentEl) planDepartmentEl.textContent = '—';
+    if (planDailyLimitEl) planDailyLimitEl.textContent = '—';
+    if (planDurationEl) planDurationEl.textContent = '—';
+    if (planPriceEl) planPriceEl.textContent = '—';
+    if (planChipEl) planChipEl.textContent = 'Pending activation';
     return;
   }
 
-  const { plan, product } = state.planLookup.get(state.selectedPlanId);
+  const product = plan.product || plan.subscription_product || {};
+  const departmentName = product.department_name || product.department?.name || 'Your department';
   const durationLabel = plan.duration_days
     ? `${plan.duration_days} day${plan.duration_days === 1 ? '' : 's'}`
-    : null;
+    : 'Flexible access';
   const limitLabel = plan.daily_question_limit
     ? `${plan.daily_question_limit} questions/day`
-    : null;
-  const parts = [
-    `${formatCurrency(plan.price, plan.currency)} payable once`,
-    durationLabel,
-    limitLabel,
-  ].filter(Boolean);
+    : 'Unlimited practice';
+  const priceLabel = formatCurrency(plan.price, plan.currency || 'NGN');
 
-  planSummary.textContent = `${plan.name} · ${product.name}${parts.length ? ` · ${parts.join(' • ')}` : ''}`;
+  if (planNameEl) planNameEl.textContent = plan.name || 'Selected plan';
+  if (planDescriptionEl) {
+    planDescriptionEl.textContent =
+      plan.metadata?.summary ||
+      plan.metadata?.tagline ||
+      plan.metadata?.description ||
+      'Access curated question banks, analytics, and coaching for this department.';
+  }
+  if (planDepartmentEl) planDepartmentEl.textContent = departmentName;
+  if (planDailyLimitEl) planDailyLimitEl.textContent = limitLabel;
+  if (planDurationEl) planDurationEl.textContent = durationLabel;
+  if (planPriceEl) planPriceEl.textContent = priceLabel;
+  const status = (state.profile?.subscription_status || '').toLowerCase();
+  const chipText = status === 'active' || status === 'trialing' ? 'Active plan' : 'Pending activation';
+  if (planChipEl) planChipEl.textContent = chipText;
+
+  const summaryParts = [priceLabel, durationLabel, limitLabel];
+  planSummary.textContent = `${plan.name || 'Plan'} • ${summaryParts.join(' • ')}`;
   planSummary.classList.remove('hidden');
 }
 
 function updatePayButtonState() {
   if (!payButton) return;
-  payButton.disabled = !state.selectedPlanId || state.isLoading;
+  payButton.disabled = !state.selectedPlan || state.isLoading;
 }
 
 function setLoading(isLoading) {
   state.isLoading = isLoading;
   if (payButton) {
-    payButton.disabled = isLoading || !state.selectedPlanId;
+    payButton.disabled = isLoading || !state.selectedPlan;
     payButton.textContent = isLoading ? 'Preparing Paystack…' : 'Pay securely with Paystack';
   }
 }
@@ -351,7 +369,20 @@ async function fetchProfile() {
   const { data, error } = await state.supabase
     .from('profiles')
     .select(
-      'id, full_name, first_name, last_name, phone, email, username, subscription_status'
+      `
+        id,
+        full_name,
+        first_name,
+        last_name,
+        phone,
+        email,
+        username,
+        subscription_status,
+        registration_stage,
+        pending_plan_id,
+        pending_plan_snapshot,
+        pending_plan_selected_at
+      `
     )
     .eq('id', state.user.id)
     .maybeSingle();
@@ -458,12 +489,12 @@ async function handlePaymentSuccess(reference) {
 
 async function startCheckout() {
   if (!state.supabase || !state.user) return;
-  if (!state.selectedPlanId || !state.planLookup.has(state.selectedPlanId)) {
-    showBanner('Select a plan before continuing.', 'warning');
+  if (!state.selectedPlan) {
+    showBanner('We could not detect your selected plan. Please refresh and try again.', 'warning');
     return;
   }
 
-  const { plan } = state.planLookup.get(state.selectedPlanId);
+  const plan = state.selectedPlan;
   const contact = buildContactPayload();
 
   if (!contact.email) {
@@ -514,123 +545,12 @@ async function startCheckout() {
   }
 }
 
-function restoreSelections() {
-  const params = new URLSearchParams(window.location.search);
-  const planIdFromQuery = params.get('planId');
-  const storedPlanId = window.localStorage.getItem('pendingPlanId');
-  state.selectedPlanId = planIdFromQuery || storedPlanId || '';
-
-  if (state.selectedPlanId && state.planLookup.has(state.selectedPlanId)) {
-    const { product } = state.planLookup.get(state.selectedPlanId);
-    state.selectedDepartment = product.department_id || 'general';
-  } else if (state.selectedPlanId) {
-    // Department will be resolved after products load.
-    state.selectedDepartment = '';
-  } else {
-    const storedDepartment = window.localStorage.getItem('resumeDepartment');
-    if (storedDepartment) {
-      state.selectedDepartment = storedDepartment;
-    }
-  }
-}
-
-function persistSelections() {
-  if (state.selectedPlanId) {
-    window.localStorage.setItem('pendingPlanId', state.selectedPlanId);
-  }
-  if (state.selectedDepartment) {
-    window.localStorage.setItem('resumeDepartment', state.selectedDepartment);
-  }
-}
-
 function bindEventListeners() {
-  departmentSelect?.addEventListener('change', (event) => {
-    state.selectedDepartment = event.target.value;
-    if (state.selectedDepartment) {
-      window.localStorage.setItem('resumeDepartment', state.selectedDepartment);
-    } else {
-      window.localStorage.removeItem('resumeDepartment');
-    }
-    state.selectedPlanId = '';
-    window.localStorage.removeItem('pendingPlanId');
-    buildPlanOptions();
-  });
-
-  planSelect?.addEventListener('change', (event) => {
-    state.selectedPlanId = event.target.value;
-    if (state.selectedPlanId) {
-      window.localStorage.setItem('pendingPlanId', state.selectedPlanId);
-    } else {
-      window.localStorage.removeItem('pendingPlanId');
-    }
-    updatePlanSummary();
-    updatePayButtonState();
-  });
-
   payButton?.addEventListener('click', () => {
     if (!state.isLoading) {
       startCheckout();
     }
   });
-}
-
-async function loadProducts() {
-  if (!state.supabase) return;
-  try {
-    const { data, error } = await state.supabase
-      .from('subscription_products_with_plans')
-      .select('*')
-      .order('department_name', { ascending: true })
-      .order('price', { ascending: true });
-    if (error) throw error;
-
-    const products = groupProducts(data || []);
-    state.products = products.filter((product) => product.department_id);
-    state.generalProducts = products.filter((product) => !product.department_id);
-    state.departments = deriveDepartments(products);
-
-    restoreSelections();
-    buildDepartmentOptions();
-
-    if (!state.selectedDepartment) {
-      if (state.selectedPlanId) {
-        const entry = products
-          .flatMap((product) => product.plans.map((plan) => ({ product, plan })))
-          .find(({ plan }) => plan.id === state.selectedPlanId);
-        if (entry) {
-          state.selectedDepartment = entry.product.department_id || 'general';
-        }
-      }
-      if (!state.selectedDepartment && state.departments.length === 1) {
-        state.selectedDepartment = state.departments[0].id;
-      }
-    }
-
-    if (!state.selectedDepartment && state.generalProducts.length === 1) {
-      state.selectedDepartment = 'general';
-    }
-
-    if (state.selectedDepartment) {
-      departmentSelect.value = state.selectedDepartment;
-    }
-
-    buildPlanOptions();
-
-    if (state.selectedPlanId && !state.planLookup.has(state.selectedPlanId)) {
-      showBanner(
-        'The plan you previously selected is no longer available. Please choose a different plan.',
-        'warning'
-      );
-      state.selectedPlanId = '';
-      window.localStorage.removeItem('pendingPlanId');
-      buildPlanOptions();
-    }
-
-    persistSelections();
-  } catch (error) {
-    console.error('[ResumeRegistration] Failed to load products', error);
-    showBanner('We could not load subscription plans right now. Please refresh the page.', 'error');
-  }
 }
 
 async function initialise() {
@@ -667,9 +587,9 @@ async function initialise() {
     }
 
     clearBanner();
-    showBanner('Pick a plan to finish activating your account.', 'info');
+    showBanner('Complete payment to activate your selected plan.', 'info');
 
-    await loadProducts();
+    await ensurePendingPlanContext();
   } catch (error) {
     console.error('[ResumeRegistration] Initialisation failed', error);
     showBanner(error.message || 'Unable to resume checkout right now. Please refresh the page.', 'error');

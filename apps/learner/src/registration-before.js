@@ -5,7 +5,6 @@ const STORAGE_PLAN = 'registrationPlan';
 const STORAGE_CONTACT = 'registrationContact';
 const STORAGE_REFERENCE = 'registrationPaymentReference';
 
-const paystackConfig = window.__PAYSTACK_CONFIG__ || {};
 
 const registrationContainer = document.getElementById('registration-container');
 const successContainer = document.getElementById('success-message');
@@ -65,7 +64,7 @@ let isVerifyingPayment = false;
 let lastVerificationError = null;
 let hasFocusedContact = false;
 let hasFocusedAccount = false;
-let pendingRegistrationToken = null;
+let activePlanSnapshot = null;
 
 const FIELD_STATUS_CLASSES = ['text-red-600', 'text-amber-600', 'text-slate-600'];
 const FALLBACK_USERNAME_WORDS = ['prep', 'learn', 'study', 'ace', 'quiz', 'focus', 'track', 'mentor'];
@@ -248,20 +247,6 @@ function formatCurrency(value, currency = 'NGN') {
   return formatter.format(Number(value || 0));
 }
 
-function rememberPaymentReference(reference) {
-  if (!reference) return;
-  lastReference = reference;
-  try {
-    const payload = {
-      reference,
-      updatedAt: Date.now(),
-    };
-    window.localStorage.setItem(STORAGE_REFERENCE, JSON.stringify(payload));
-  } catch (error) {
-    console.warn('[Registration] Failed to persist payment reference', error);
-  }
-}
-
 function clearStoredReference() {
   lastReference = null;
   try {
@@ -284,6 +269,22 @@ function isActiveSubscription(status) {
 }
 
 function hydratePlanSummary(plan) {
+  activePlanSnapshot = plan
+    ? {
+        id: plan.id || plan.planId || null,
+        code: plan.plan_code || plan.code || null,
+        name: plan.name || null,
+        price: plan.price ?? null,
+        currency: plan.currency || 'NGN',
+        duration_days:
+          plan.duration_days ?? plan.metadata?.duration_days ?? null,
+        daily_question_limit: plan.daily_question_limit ?? null,
+        quiz_duration_minutes: plan.quiz_duration_minutes ?? null,
+        metadata: plan.metadata || {},
+        product: plan.product || null,
+      }
+    : null;
+
   if (planIdInput) planIdInput.value = plan?.id || '';
   if (planNameEl) planNameEl.textContent = plan?.name || 'Unknown plan';
   if (planPriceEl)
@@ -341,12 +342,54 @@ async function fetchPlanFromSupabase(planId) {
     const { data, error } = await supabase
       .from('subscription_plans')
       .select(
-        'id, name, price, currency, metadata, duration_days, quiz_duration_minutes'
+        `
+          id,
+          code,
+          name,
+          price,
+          currency,
+          metadata,
+          duration_days,
+          quiz_duration_minutes,
+          daily_question_limit,
+          subscription_products:subscription_products!subscription_plans_product_id_fkey (
+            id,
+            code,
+            name,
+            department_id,
+            department:departments(id, name, slug),
+            color_theme
+          )
+        `
       )
       .eq('id', planId)
       .maybeSingle();
     if (error) throw error;
-    return data;
+    if (!data) return null;
+    const product = data.subscription_products
+      ? {
+          id: data.subscription_products.id,
+          code: data.subscription_products.code,
+          name: data.subscription_products.name,
+          department_id: data.subscription_products.department_id,
+          department_name: data.subscription_products.department?.name || null,
+          department_slug: data.subscription_products.department?.slug || null,
+          color_theme: data.subscription_products.color_theme || null,
+        }
+      : null;
+    return {
+      id: data.id,
+      planId: data.id,
+      plan_code: data.code,
+      name: data.name,
+      price: data.price,
+      currency: data.currency,
+      metadata: data.metadata || {},
+      duration_days: data.duration_days,
+      quiz_duration_minutes: data.quiz_duration_minutes,
+      daily_question_limit: data.daily_question_limit,
+      product,
+    };
   } catch (error) {
     console.error('[Registration] Failed to fetch plan', error);
     throw new Error(
@@ -1000,50 +1043,10 @@ async function createPendingUser(payload) {
     throw new Error('Failed to get a user ID from the server.');
   }
 
-  if (data.registrationToken) {
-    pendingRegistrationToken = data.registrationToken;
-  }
-
   return {
     userId: data.userId,
     username: data.username || payload.username,
-    registrationToken: data.registrationToken,
   };
-}
-
-async function invokeCheckout(contact, userId) {
-  const supabase = await ensureSupabaseClient();
-
-  const { data, error } = await supabase.functions.invoke('paystack-initiate', {
-    body: {
-      planId: contact.planId,
-      userId,
-      registration: {
-        first_name: contact.firstName,
-        last_name: contact.lastName,
-        phone: contact.phone,
-        username: contact.username,
-      },
-    },
-  });
-
-  if (error) {
-    const userMessage = await extractEdgeFunctionError(
-      error,
-      'Unable to initialise checkout.'
-    );
-    throw new Error(userMessage);
-  }
-
-  if (data?.error) {
-    throw new Error(data.error);
-  }
-
-  if (!data || !data.reference) {
-    throw new Error('Paystack did not return a checkout reference.');
-  }
-
-  return data;
 }
 
 async function attemptPaymentVerification(reference, options = {}) {
@@ -1127,19 +1130,6 @@ async function signInWithCredentials(email, password) {
   return { success: !error, error };
 }
 
-function resetToFormView() {
-  if (successContainer && registrationContainer) {
-    successContainer.classList.add('hidden');
-    registrationContainer.classList.remove('hidden');
-  }
-  if (successCredentialsCard) successCredentialsCard.classList.add('hidden');
-  if (successGoDashboardBtn) successGoDashboardBtn.classList.add('hidden');
-  if (successTitleEl) successTitleEl.textContent = 'Launching secure checkout…';
-  if (successBodyEl)
-    successBodyEl.textContent =
-      'If nothing happens after a few seconds, please ensure pop-ups are allowed and try again.';
-}
-
 function showSuccessState(options) {
   if (!successContainer || !registrationContainer) return;
   registrationContainer.classList.add('hidden');
@@ -1212,7 +1202,6 @@ async function transitionToActiveState(contact) {
   window.localStorage.removeItem(STORAGE_CONTACT);
   window.localStorage.removeItem(STORAGE_PLAN);
   clearStoredReference();
-  pendingRegistrationToken = null;
 
   if (autoLoginSucceeded) {
     if (storedPassword) {
@@ -1330,35 +1319,6 @@ async function processPaymentVerification(reference, contact, options = {}) {
   }
 }
 
-async function handlePaymentSuccess(reference, contact) {
-  lastReference = reference;
-  rememberPaymentReference(reference);
-
-  const contactDetails = {
-    ...contact,
-    userId: contact?.userId || pendingUserId,
-    email: contact?.email,
-    reference,
-    registrationToken: pendingRegistrationToken,
-  };
-  lastContactDetails = contactDetails;
-
-  showSuccessState({
-    title: 'Verifying payment…',
-    body: 'We’re confirming your payment with Paystack. This usually takes a few seconds.',
-    showCredentials: false,
-    showDashboardCta: false,
-    reference,
-    showRetryCta: false,
-  });
-
-  activeReference = reference;
-
-  await processPaymentVerification(reference, contactDetails).finally(() => {
-    activeReference = null;
-  });
-}
-
 async function resetTodaysQuiz(userId) {
   if (!userId) return;
   try {
@@ -1404,65 +1364,6 @@ async function resetTodaysQuiz(userId) {
   }
 }
 
-function openPaystackCheckout(paystackData, contact) {
-  if (!window.PaystackPop) {
-    throw new Error('Paystack library failed to load. Please refresh the page and try again.');
-  }
-
-  activeReference = paystackData.reference;
-  lastReference = paystackData.reference;
-  rememberPaymentReference(paystackData.reference);
-  if (lastContactDetails) {
-    lastContactDetails = {
-      ...lastContactDetails,
-      reference: paystackData.reference,
-    };
-    try {
-      window.localStorage.setItem(STORAGE_CONTACT, JSON.stringify(lastContactDetails));
-    } catch (error) {
-      console.warn('[Registration] Unable to update stored contact with reference', error);
-    }
-  }
-
-  const checkoutConfig = {
-    key: paystackData.publicKey || paystackConfig.publicKey,
-    email: contact.email,
-    amount: paystackData.amount,
-    currency: paystackData.currency || 'NGN',
-    ref: paystackData.reference,
-    metadata: paystackData.metadata || {},
-    callback: (response) => {
-      const reference = response.reference || paystackData.reference;
-      handlePaymentSuccess(reference, contact).catch((error) => {
-        console.error('[Registration] Post-payment handling failed', error);
-        showFeedback(
-          'We received your payment but could not finish sign-in automatically. Please contact support with your payment reference.',
-          'error'
-        );
-      });
-    },
-    onClose: () => {
-      activeReference = null;
-      showFeedback(
-        'Checkout was closed before finishing. You can reopen it anytime by pressing Complete secure payment.',
-        'error'
-      );
-      resetToFormView();
-      setLoading(false);
-    },
-  };
-
-  showSuccessState({
-    title: 'Launching secure checkout…',
-    body: 'Paystack is opening in a secure popup. Follow the instructions to complete your payment.',
-    showCredentials: false,
-    showDashboardCta: false,
-  });
-
-  const handler = window.PaystackPop.setup(checkoutConfig);
-  handler.openIframe();
-}
-
 function prepareRegistrationPayload(planId) {
   const firstName = firstNameInput?.value.trim();
   const lastName = lastNameInput?.value.trim();
@@ -1481,6 +1382,7 @@ function prepareRegistrationPayload(planId) {
     phone,
     username: generatedUsername,
     password: storedPassword,
+    planSnapshot: activePlanSnapshot,
   };
 }
 
@@ -1569,33 +1471,32 @@ async function handleFormSubmit(event) {
 
     persistContact(contact);
 
-    showFeedback('Preparing payment checkout…', 'info');
+    showFeedback('Signing you in…', 'info');
 
-    const paystackData = await invokeCheckout(contact, userId);
-    const publicKey = paystackData.paystack_public_key || paystackConfig.publicKey;
-    if (!publicKey) {
-      throw new Error('Missing Paystack configuration. Contact support.');
+    const supabase = await ensureSupabaseClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: registrationPayload.email,
+      password: storedPassword,
+    });
+
+    if (signInError) {
+      console.error('[Registration] Auto sign-in failed', signInError);
+      throw new Error(
+        'Your profile was created, but we could not sign you in automatically. Please use the login form with the password you just set.'
+      );
     }
 
-    const metadata = {
-      ...paystackData.metadata,
-      contact: {
-        first_name: contact.firstName,
-        last_name: contact.lastName,
-        phone: contact.phone,
-        username: contact.username,
-      },
-    };
-
     clearFeedback();
-    openPaystackCheckout(
-      {
-        ...paystackData,
-        publicKey,
-        metadata,
-      },
-      contact
-    );
+    showFeedback('Account created! Redirecting to secure payment…', 'success');
+
+    await wait(900);
+
+    const params = new URLSearchParams();
+    if (planId) params.set('planId', planId);
+    window.location.href = params.toString()
+      ? `resume-registration.html?${params.toString()}`
+      : 'resume-registration.html';
+    return;
   } catch (error) {
     console.error('[Registration] Checkout initialisation failed', error);
     showFeedback(error.message || 'Unexpected error occurred. Please try again.', 'error');

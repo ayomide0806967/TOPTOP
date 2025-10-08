@@ -83,8 +83,6 @@ const elements = {
   mobileLogout: document.querySelector('[data-role="mobile-logout"]'),
   userGreeting: document.querySelector('[data-role="user-greeting"]'),
   userEmail: document.querySelector('[data-role="user-email"]'),
-  progressBar: document.querySelector('[data-role="progress-bar"]'),
-  progressLabel: document.querySelector('[data-role="progress-label"]'),
   subscriptionCard: document.querySelector('[data-role="subscription-card"]'),
   planHeading: document.querySelector('[data-role="plan-heading"]'),
   planSubheading: document.querySelector('[data-role="plan-subheading"]'),
@@ -92,7 +90,26 @@ const elements = {
   planCollection: document.querySelector('[data-role="plan-collection"]'),
   extraSetsSection: document.querySelector('[data-role="extra-sets-section"]'),
   extraSetsList: document.querySelector('[data-role="extra-sets-list"]'),
-}; 
+  sidebar: document.getElementById('app-sidebar'),
+  navOverlay: document.querySelector('[data-role="nav-overlay"]'),
+  navToggle: document.querySelector('[data-role="nav-toggle"]'),
+  navClose: document.querySelector('[data-role="nav-close"]'),
+  navButtons: Array.from(document.querySelectorAll('aside [data-nav-target]')),
+  views: Array.from(document.querySelectorAll('[data-view]')),
+  dashboardContent: document.querySelector('[data-role="dashboard-content"]'),
+  paymentGate: document.querySelector('[data-role="payment-gate"]'),
+  gatedBadge: document.querySelector('[data-role="gated-badge"]'),
+  gatedTitle: document.querySelector('[data-role="gated-title"]'),
+  gatedBody: document.querySelector('[data-role="gated-body"]'),
+  gatedAction: document.querySelector('[data-role="gated-action"]'),
+  profileForm: document.querySelector('[data-role="profile-form"]'),
+  profileNameInput: document.querySelector('[data-role="profile-name"]'),
+  profilePhoneInput: document.querySelector('[data-role="profile-phone"]'),
+  profilePasswordInput: document.querySelector('[data-role="profile-password"]'),
+  profilePasswordConfirmInput: document.querySelector('[data-role="profile-password-confirm"]'),
+  profileFeedback: document.querySelector('[data-role="profile-feedback"]'),
+  profileEmail: document.querySelector('[data-role="profile-email"]'),
+};
 
 const state = {
   supabase: null,
@@ -181,6 +198,114 @@ const STATUS_SORT_WEIGHT = {
   inactive: 5,
   none: 6,
 };
+
+const ACTIVE_PLAN_STATUSES = new Set(['active', 'trialing']);
+
+function setNavAvailability(hasActivePlan) {
+  elements.navButtons.forEach((button) => {
+    const requiresActive = button.dataset.navRequiresActive === 'true';
+    if (!requiresActive) {
+      button.disabled = false;
+      return;
+    }
+    button.disabled = !hasActivePlan;
+  });
+}
+
+function setActiveView(targetView) {
+  if (!targetView) return;
+  let matched = false;
+  elements.views.forEach((section) => {
+    const isMatch = section.dataset.view === targetView;
+    section.classList.toggle('hidden', !isMatch);
+    if (isMatch) matched = true;
+  });
+  if (!matched) return;
+
+  elements.navButtons.forEach((button) => {
+    const isActive = button.dataset.navTarget === targetView;
+    button.classList.toggle('nav-button--active', isActive);
+    if (isActive) {
+      button.setAttribute('aria-current', 'page');
+    } else {
+      button.removeAttribute('aria-current');
+    }
+  });
+}
+
+function openSidebar() {
+  if (window.matchMedia('(min-width: 1024px)').matches) return;
+  if (elements.sidebar) {
+    elements.sidebar.classList.remove('-translate-x-full');
+  }
+  elements.navOverlay?.classList.remove('hidden');
+}
+
+function closeSidebar(force = false) {
+  if (!force && window.matchMedia('(min-width: 1024px)').matches) {
+    elements.navOverlay?.classList.add('hidden');
+    return;
+  }
+  if (elements.sidebar) {
+    elements.sidebar.classList.add('-translate-x-full');
+  }
+  elements.navOverlay?.classList.add('hidden');
+}
+
+function toggleSidebar() {
+  if (window.matchMedia('(min-width: 1024px)').matches) return;
+  if (!elements.sidebar) return;
+  const isHidden = elements.sidebar.classList.contains('-translate-x-full');
+  if (isHidden) {
+    openSidebar();
+  } else {
+    closeSidebar(true);
+  }
+}
+
+function handleWindowResize() {
+  if (window.matchMedia('(min-width: 1024px)').matches) {
+    elements.navOverlay?.classList.add('hidden');
+    if (elements.sidebar) {
+      elements.sidebar.classList.remove('-translate-x-full');
+    }
+  } else if (elements.sidebar) {
+    elements.sidebar.classList.add('-translate-x-full');
+  }
+}
+
+function handleSidebarEscape(event) {
+  if (event.key === 'Escape') {
+    closeSidebar(true);
+  }
+}
+
+function bindNavigation() {
+  elements.navToggle?.addEventListener('click', toggleSidebar);
+  elements.navClose?.addEventListener('click', () => closeSidebar(true));
+  elements.navOverlay?.addEventListener('click', () => closeSidebar(true));
+
+  elements.navButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      if (button.disabled) return;
+      const target = button.dataset.navTarget;
+      setActiveView(target);
+      closeSidebar(true);
+    });
+  });
+
+  const gatePlanButton = document.querySelector('[data-role="payment-gate"] [data-nav-target="plan"]');
+  if (gatePlanButton) {
+    gatePlanButton.addEventListener('click', () => {
+      setActiveView('plan');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
+  window.addEventListener('resize', handleWindowResize);
+  document.addEventListener('keydown', handleSidebarEscape);
+  handleWindowResize();
+}
 
 function showToast(message, type = 'info') {
   if (!elements.toast) return;
@@ -1143,6 +1268,9 @@ function updateHeader() {
   if (emailEl && state.user?.email) {
     emailEl.textContent = state.user.email;
   }
+  if (elements.profileEmail && state.user?.email) {
+    elements.profileEmail.textContent = state.user.email;
+  }
 }
 
 function toPercent(numerator, denominator) {
@@ -1150,16 +1278,169 @@ function toPercent(numerator, denominator) {
   return Math.round((numerator / denominator) * 100);
 }
 
+function updatePaymentGate(profile) {
+  if (!elements.paymentGate || !elements.dashboardContent) return;
+
+  const subscriptionStatus = (profile?.subscription_status || 'inactive').toLowerCase();
+  const registrationStage = profile?.registration_stage || (subscriptionStatus === 'pending_payment' ? 'awaiting_payment' : 'active');
+  const hasActivePlan = ACTIVE_PLAN_STATUSES.has(subscriptionStatus);
+  const pendingPlan = profile?.pending_plan_snapshot || null;
+
+  setNavAvailability(hasActivePlan);
+
+  if (hasActivePlan) {
+    elements.paymentGate.classList.add('hidden');
+    elements.dashboardContent.classList.remove('hidden');
+    return;
+  }
+
+  const planName = pendingPlan?.name || 'your plan';
+  const badgeLabel = registrationStage === 'awaiting_payment' ? 'Payment pending' : 'No active plan';
+  const title = registrationStage === 'awaiting_payment'
+    ? 'Almost there—finish activating your plan'
+    : 'Add a plan to unlock personalised drills';
+  const message = registrationStage === 'awaiting_payment'
+    ? `We saved ${planName}. Complete checkout now to unlock daily exams, streak tracking, and bonus questions.`
+    : 'Choose the plan that fits your goals. Once activated, your personalised study schedule appears here.';
+  const actionHref = registrationStage === 'awaiting_payment' ? 'resume-registration.html' : 'subscription-plans.html';
+  const actionLabel = registrationStage === 'awaiting_payment' ? 'Finish payment' : 'Browse plans';
+
+  if (elements.gatedBadge) elements.gatedBadge.textContent = badgeLabel;
+  if (elements.gatedTitle) elements.gatedTitle.textContent = title;
+  if (elements.gatedBody) elements.gatedBody.textContent = message;
+  if (elements.gatedAction) {
+    elements.gatedAction.textContent = actionLabel;
+    elements.gatedAction.setAttribute('href', actionHref);
+  }
+
+  elements.paymentGate.classList.remove('hidden');
+  elements.dashboardContent.classList.add('hidden');
+  setActiveView('dashboard');
+}
+
+function populateProfileForm() {
+  if (!elements.profileForm) return;
+  if (elements.profileNameInput && state.profile?.full_name) {
+    elements.profileNameInput.value = state.profile.full_name;
+  }
+  if (elements.profilePhoneInput) {
+    elements.profilePhoneInput.value = state.profile?.phone || '';
+  }
+  if (elements.profilePasswordInput) {
+    elements.profilePasswordInput.value = '';
+  }
+  if (elements.profilePasswordConfirmInput) {
+    elements.profilePasswordConfirmInput.value = '';
+  }
+  if (elements.profileFeedback) {
+    elements.profileFeedback.classList.add('hidden');
+    elements.profileFeedback.textContent = '';
+  }
+}
+
+async function handleProfileSubmit(event) {
+  event.preventDefault();
+  if (!elements.profileForm) return;
+
+  const nameInput = elements.profileNameInput;
+  const phoneInput = elements.profilePhoneInput;
+  const passwordInput = elements.profilePasswordInput;
+  const confirmInput = elements.profilePasswordConfirmInput;
+  const feedback = elements.profileFeedback;
+
+  const fullName = nameInput?.value?.trim() || '';
+  const phone = phoneInput?.value?.trim() || '';
+  const newPassword = passwordInput?.value?.trim() || '';
+  const confirmPassword = confirmInput?.value?.trim() || '';
+
+  if (!fullName) {
+    if (feedback) {
+      feedback.textContent = 'Enter your full name before saving.';
+      feedback.className = 'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
+      feedback.classList.remove('hidden');
+    }
+    nameInput?.focus();
+    return;
+  }
+
+  if (newPassword || confirmPassword) {
+    if (newPassword.length < 8) {
+      if (feedback) {
+        feedback.textContent = 'Passwords must be at least 8 characters long.';
+        feedback.className = 'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
+        feedback.classList.remove('hidden');
+      }
+      passwordInput?.focus();
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      if (feedback) {
+        feedback.textContent = 'Passwords do not match. Re-enter the same password in both fields.';
+        feedback.className = 'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
+        feedback.classList.remove('hidden');
+      }
+      confirmInput?.focus();
+      return;
+    }
+  }
+
+  try {
+    const updates = {};
+    if (fullName) {
+      updates.full_name = fullName;
+      const [firstName, ...rest] = fullName.split(' ');
+      updates.first_name = firstName || null;
+      updates.last_name = rest.join(' ').trim() || null;
+    }
+    if (phone) {
+      updates.phone = phone;
+    }
+
+    if (Object.keys(updates).length) {
+      const { error: profileError } = await state.supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', state.user.id);
+      if (profileError) {
+        throw profileError;
+      }
+    }
+
+    if (newPassword) {
+      const { error: passwordError } = await state.supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (passwordError) {
+        throw passwordError;
+      }
+    }
+
+    if (feedback) {
+      feedback.textContent = 'Profile updated successfully.';
+      feedback.className = 'rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-700';
+      feedback.classList.remove('hidden');
+    }
+
+    await ensureProfile();
+    populateProfileForm();
+  } catch (error) {
+    console.error('[Dashboard] profile update failed', error);
+    if (feedback) {
+      const message = error?.message || 'Unable to update profile right now. Please try again later.';
+      feedback.textContent = message;
+      feedback.className = 'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
+      feedback.classList.remove('hidden');
+    }
+  } finally {
+    if (elements.profilePasswordInput) elements.profilePasswordInput.value = '';
+    if (elements.profilePasswordConfirmInput) elements.profilePasswordConfirmInput.value = '';
+  }
+}
+
 function updateQuizSection() {
   // Hide timer and progress bar on main dashboard
   if (elements.quizTimer) {
     elements.quizTimer.classList.add('hidden');
-  }
-  if (elements.progressBar) {
-    elements.progressBar.style.width = '0%';
-  }
-  if (elements.progressLabel) {
-    elements.progressLabel.textContent = '';
   }
 
   // Update quiz card based on today's quiz status
@@ -1870,6 +2151,7 @@ async function loadSubscriptions() {
   }
 
   renderSubscription();
+  updatePaymentGate(state.profile);
 }
 
 async function ensureProfile() {
@@ -1877,7 +2159,9 @@ async function ensureProfile() {
   try {
     const { data, error } = await state.supabase
       .from('profiles')
-      .select('id, full_name, role, last_seen_at, subscription_status, default_subscription_id')
+      .select(
+        'id, full_name, role, last_seen_at, subscription_status, default_subscription_id, registration_stage, pending_plan_id, pending_plan_snapshot, phone'
+      )
       .eq('id', state.user.id)
       .maybeSingle();
     if (error) throw error;
@@ -1891,7 +2175,9 @@ async function ensureProfile() {
           role: 'learner',
           last_seen_at: new Date().toISOString(),
         })
-        .select('id, full_name, role, last_seen_at, subscription_status, default_subscription_id')
+        .select(
+          'id, full_name, role, last_seen_at, subscription_status, default_subscription_id, registration_stage, pending_plan_id, pending_plan_snapshot, phone'
+        )
         .single();
       if (insertError) throw insertError;
       state.profile = inserted;
@@ -1900,7 +2186,9 @@ async function ensureProfile() {
         .from('profiles')
         .update({ last_seen_at: new Date().toISOString() })
         .eq('id', state.user.id)
-        .select('id, full_name, role, last_seen_at, subscription_status, default_subscription_id')
+        .select(
+          'id, full_name, role, last_seen_at, subscription_status, default_subscription_id, registration_stage, pending_plan_id, pending_plan_snapshot, phone'
+        )
         .single();
       if (!updateError && updated) {
         state.profile = updated;
@@ -1910,6 +2198,8 @@ async function ensureProfile() {
     }
 
     state.defaultSubscriptionId = state.profile?.default_subscription_id || null;
+    updatePaymentGate(state.profile);
+    populateProfileForm();
   } catch (error) {
     console.error('[Dashboard] ensureProfile failed', error);
     showToast('Unable to load profile', 'error');
@@ -1917,13 +2207,16 @@ async function ensureProfile() {
       full_name: fallbackName,
       subscription_status: 'inactive',
       default_subscription_id: null,
+      registration_stage: 'profile_created',
     };
     state.defaultSubscriptionId = null;
+    updatePaymentGate(state.profile);
+    populateProfileForm();
   }
 }
 
 async function handleLogout() {
-  closeMobileMenu();
+  closeSidebar(true);
   try {
     await state.supabase.auth.signOut();
     clearSessionFingerprint();
@@ -1932,52 +2225,6 @@ async function handleLogout() {
     console.error('[Dashboard] signOut failed', error);
     showToast('Unable to sign out. Please try again.', 'error');
   }
-}
-
-function toggleMobileMenu(force) {
-  const menu = elements.mobileMenu;
-  const toggle = elements.mobileMenuToggle;
-  if (!menu || !toggle) return;
-  const isOpen = !menu.classList.contains('hidden');
-  const shouldOpen = force ?? !isOpen;
-  if (shouldOpen) {
-    menu.classList.remove('hidden');
-    toggle.setAttribute('aria-expanded', 'true');
-  } else {
-    menu.classList.add('hidden');
-    toggle.setAttribute('aria-expanded', 'false');
-  }
-}
-
-function closeMobileMenu() {
-  toggleMobileMenu(false);
-}
-
-function handleMobileClick(event) {
-  event.preventDefault();
-  event.stopPropagation();
-  toggleMobileMenu();
-}
-
-function handleMobileTouch(event) {
-  event.preventDefault();
-  event.stopPropagation();
-  toggleMobileMenu();
-}
-
-function handleMobileMenuOutsideClick(event) {
-  const menu = elements.mobileMenu;
-  const wrapper = elements.mobileMenuWrapper;
-  if (!menu || menu.classList.contains('hidden')) return;
-  if (wrapper && wrapper.contains(event.target)) {
-    if (elements.mobileMenuToggle?.contains(event.target)) {
-      return;
-    }
-    if (menu.contains(event.target)) {
-      return;
-    }
-  }
-  closeMobileMenu();
 }
 
 async function initialise() {
@@ -1996,31 +2243,25 @@ async function initialise() {
       }
     });
 
+    bindNavigation();
+    setActiveView('dashboard');
+
     await ensureProfile();
     await loadSubscriptions();
+    updatePaymentGate(state.profile);
     updateHeader();
 
     // Bind event listeners
     elements.resumeBtn?.addEventListener('click', startOrResumeQuiz);
     elements.regenerateBtn?.addEventListener('click', regenerateQuiz);
     elements.logoutBtn?.addEventListener('click', handleLogout);
-    elements.mobileMenuToggle?.addEventListener('click', handleMobileClick);
-    elements.mobileMenuToggle?.addEventListener('touchend', handleMobileTouch, {
-      passive: false,
-    });
-    elements.mobileHome?.addEventListener('click', () => {
-      closeMobileMenu();
-      window.location.href = 'admin-board.html';
-    });
     elements.mobileLogout?.addEventListener('click', handleLogout);
+    elements.planBrowseBtn?.addEventListener('click', () => {
+      window.location.href = 'subscription-plans.html';
+    });
     elements.planCollection?.addEventListener('click', handlePlanCollectionClick);
     elements.extraSetsList?.addEventListener('click', handleExtraSetsClick);
-
-    if (elements.mobileMenu) {
-      document.addEventListener('click', handleMobileMenuOutsideClick);
-      document.addEventListener('keydown', handleEscapeKey);
-      window.addEventListener('resize', closeMobileMenu);
-    }
+    elements.profileForm?.addEventListener('submit', handleProfileSubmit);
 
     // Load data without auto-generating quiz
     await loadScheduleHealth();
@@ -2033,22 +2274,12 @@ async function initialise() {
   }
 }
 
-function handleEscapeKey(event) {
-  if (event.key === 'Escape') {
-    closeMobileMenu();
-  }
-}
-
 function cleanup() {
-  if (elements.mobileMenu) {
-    document.removeEventListener('click', handleMobileMenuOutsideClick);
-    document.removeEventListener('keydown', handleEscapeKey);
-    window.removeEventListener('resize', closeMobileMenu);
-    elements.mobileMenuToggle?.removeEventListener('click', handleMobileClick);
-    elements.mobileMenuToggle?.removeEventListener('touchend', handleMobileTouch);
-  }
+  window.removeEventListener('resize', handleWindowResize);
+  document.removeEventListener('keydown', handleSidebarEscape);
   elements.planCollection?.removeEventListener('click', handlePlanCollectionClick);
   elements.extraSetsList?.removeEventListener('click', handleExtraSetsClick);
+  elements.profileForm?.removeEventListener('submit', handleProfileSubmit);
 }
 
 window.addEventListener('beforeunload', cleanup);

@@ -930,6 +930,7 @@ function persistRegistrationPlan(planId) {
   if (!entry || !entry.plan) return;
 
   const plan = entry.plan;
+  const product = entry.product;
   const payload = {
     planId: plan.id || planId,
     id: plan.id || planId,
@@ -939,6 +940,19 @@ function persistRegistrationPlan(planId) {
     metadata: plan.metadata || {},
     duration_days: plan.duration_days,
     quiz_duration_minutes: plan.quiz_duration_minutes,
+    daily_question_limit: plan.daily_question_limit,
+    plan_code: plan.code,
+    product: product
+      ? {
+          id: product.id,
+          code: product.code,
+          name: product.name,
+          department_id: product.department_id,
+          department_name: product.department_name,
+          department_slug: product.department_slug,
+          color_theme: product.color_theme,
+        }
+      : null,
   };
 
   try {

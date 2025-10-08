@@ -91,7 +91,7 @@ serve(async (req) => {
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
     const body = await req.json();
-    const { email, firstName, lastName, phone, username, password } = body ?? {};
+    const { email, firstName, lastName, phone, username, password, planId } = body ?? {};
 
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const sanitizedFirstName = String(firstName || '').trim();
@@ -99,6 +99,7 @@ serve(async (req) => {
     const sanitizedPhone = typeof phone === 'string' ? phone.trim() : '';
     const normalizedPhone = sanitizedPhone || null;
     const normalizedUsername = String(username || '').trim().toLowerCase();
+    const normalizedPlanId = typeof planId === 'string' ? planId.trim() : '';
     const rawPassword = String(password || '');
 
     if (!normalizedEmail || !sanitizedFirstName || !sanitizedLastName) {
@@ -220,6 +221,70 @@ serve(async (req) => {
     const hashedToken = await hashToken(registrationToken);
     const expiresAt = new Date(Date.now() + TOKEN_TTL_MS).toISOString();
 
+    let planSnapshot: Record<string, unknown> | null = null;
+
+    if (normalizedPlanId) {
+      const { data: planRecord, error: planError } = await supabaseAdmin
+        .from('subscription_plans')
+        .select(
+          `
+            id,
+            code,
+            name,
+            price,
+            currency,
+            questions,
+            quizzes,
+            participants,
+            daily_question_limit,
+            duration_days,
+            product:subscription_products!subscription_plans_product_id_fkey(
+              id,
+              code,
+              name,
+              department_id,
+              department:departments(id, name, slug)
+            )
+          `,
+        )
+        .eq('id', normalizedPlanId)
+        .maybeSingle();
+
+      if (planError && planError.code !== 'PGRST116') {
+        throw planError;
+      }
+
+      if (planRecord) {
+        planSnapshot = {
+          id: planRecord.id,
+          code: planRecord.code,
+          name: planRecord.name,
+          price: planRecord.price,
+          currency: planRecord.currency,
+          questions: planRecord.questions,
+          quizzes: planRecord.quizzes,
+          participants: planRecord.participants,
+          daily_question_limit: planRecord.daily_question_limit,
+          duration_days: planRecord.duration_days,
+          product: planRecord.product
+            ? {
+                id: planRecord.product.id,
+                code: planRecord.product.code,
+                name: planRecord.product.name,
+                department_id: planRecord.product.department_id,
+                department: planRecord.product.department
+                  ? {
+                      id: planRecord.product.department.id,
+                      name: planRecord.product.department.name,
+                      slug: planRecord.product.department.slug,
+                    }
+                  : null,
+              }
+            : null,
+        };
+      }
+    }
+
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .upsert(
@@ -234,6 +299,11 @@ serve(async (req) => {
           subscription_status: 'pending_payment',
           registration_token: hashedToken,
           registration_token_expires_at: expiresAt,
+          registration_stage: 'awaiting_payment',
+          pending_plan_id: normalizedPlanId || null,
+          pending_plan_snapshot: planSnapshot,
+          pending_plan_selected_at: new Date().toISOString(),
+          pending_plan_expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
         },
         { onConflict: 'id' },
       );
@@ -246,6 +316,9 @@ serve(async (req) => {
       userId,
       username: normalizedUsername,
       registrationToken,
+      registrationStage: 'awaiting_payment',
+      pendingPlanId: normalizedPlanId || null,
+      pendingPlanSnapshot: planSnapshot,
     });
   } catch (error) {
     console.error('[create-pending-user] Error:', error);
