@@ -123,6 +123,8 @@ const state = {
   extraQuestionSets: [],
 };
 
+let navigationBound = false;
+
 const NOTICE_TONE_CLASSES = {
   positive: ['border-emerald-200', 'bg-emerald-50', 'text-emerald-800'],
   warning: ['border-amber-200', 'bg-amber-50', 'text-amber-800'],
@@ -290,6 +292,8 @@ function handleSidebarEscape(event) {
 }
 
 function bindNavigation() {
+  if (navigationBound) return;
+  navigationBound = true;
   elements.navToggle?.addEventListener('click', toggleSidebar);
   elements.navClose?.addEventListener('click', () => closeSidebar(true));
   elements.navOverlay?.addEventListener('click', () => closeSidebar(true));
@@ -2262,9 +2266,6 @@ async function initialise() {
       }
     });
 
-    bindNavigation();
-    setActiveView('dashboard');
-
     await ensureProfile();
     await loadSubscriptions();
     updatePaymentGate(state.profile);
@@ -2302,5 +2303,8 @@ function cleanup() {
 }
 
 window.addEventListener('beforeunload', cleanup);
+
+bindNavigation();
+setActiveView('dashboard');
 
 initialise();
