@@ -53,10 +53,24 @@ const OFFLINE_URL = new URL('./offline.html', BASE_URL).href;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(STATIC_CACHE)
-      .then((cache) => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting())
+    (async () => {
+      const cache = await caches.open(STATIC_CACHE);
+      for (const entry of APP_SHELL) {
+        try {
+          const url = new URL(entry, BASE_URL).href;
+          const request = new Request(url, { cache: 'reload' });
+          const response = await fetch(request);
+          if (!response || !response.ok) {
+            throw new Error(`Pre-cache failed: ${url} responded with ${response?.status}`);
+          }
+          await cache.put(request, response);
+        } catch (error) {
+          // Missing assets should not block install; log for diagnostics and continue.
+          console.warn('[ServiceWorker] Failed to precache resource', entry, error);
+        }
+      }
+      await self.skipWaiting();
+    })()
   );
 });
 

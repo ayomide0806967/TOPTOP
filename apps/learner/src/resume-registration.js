@@ -9,6 +9,11 @@ const planDailyLimitEl = document.querySelector('[data-role="plan-daily-limit"]'
 const planDurationEl = document.querySelector('[data-role="plan-duration"]');
 const planPriceEl = document.querySelector('[data-role="plan-price"]');
 const planChipEl = document.querySelector('[data-role="plan-chip"]');
+const planEditor = document.querySelector('[data-role="plan-editor"]');
+const planEditorToggle = document.querySelector('[data-role="toggle-plan-editor"]');
+const planEditorDepartment = document.querySelector('[data-role="plan-editor-department"]');
+const planEditorPlan = document.querySelector('[data-role="plan-editor-plan"]');
+const planEditorHelp = document.querySelector('[data-role="plan-editor-help"]');
 const payButton = document.getElementById('payButton');
 const successSection = document.getElementById('successSection');
 const footerYear = document.getElementById('footerYear');
@@ -28,7 +33,13 @@ const state = {
   supabase: null,
   user: null,
   profile: null,
+  products: [],
+  departments: [],
+  generalProducts: [],
+  planLookup: new Map(),
+  selectedDepartment: '',
   selectedPlan: null,
+  productsLoaded: false,
   activeReference: null,
   isLoading: false,
 };
@@ -148,6 +159,67 @@ async function fetchPlanFromSupabase(planId) {
   }
 }
 
+function groupProducts(rows) {
+  const map = new Map();
+  rows.forEach((row) => {
+    if (!row) return;
+    const productId = row.id || row.product_id;
+    if (!productId) return;
+    if (!map.has(productId)) {
+      map.set(productId, {
+        id: productId,
+        code: row.product_code,
+        name: row.product_name,
+        description: row.description,
+        product_type: row.product_type,
+        is_active: row.is_active,
+        department_id: row.department_id,
+        department_name: row.department_name,
+        department_slug: row.department_slug,
+        color_theme: row.color_theme,
+        plans: [],
+      });
+    }
+    if (row.plan_id) {
+      map.get(productId).plans.push({
+        id: row.plan_id,
+        code: row.plan_code,
+        name: row.plan_name,
+        price: row.price,
+        currency: row.currency,
+        questions: row.questions,
+        quizzes: row.quizzes,
+        participants: row.participants,
+        is_active: row.plan_is_active,
+        daily_question_limit: row.daily_question_limit,
+        duration_days: row.duration_days,
+        plan_tier: row.plan_tier,
+        quiz_duration_minutes: row.quiz_duration_minutes,
+      });
+    }
+  });
+
+  return Array.from(map.values()).filter(
+    (product) => product.is_active && product.plans.some((plan) => plan.is_active)
+  );
+}
+
+function deriveDepartments(products) {
+  const lookup = new Map();
+  products.forEach((product) => {
+    if (!product.department_id) return;
+    if (!lookup.has(product.department_id)) {
+      lookup.set(product.department_id, {
+        id: product.department_id,
+        name: product.department_name,
+        slug: product.department_slug || product.department_id,
+        color: product.color_theme || product.department_slug || 'default',
+      });
+    }
+  });
+  return Array.from(lookup.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function populateContactCard(profile) {
   const metadata = state.user?.user_metadata || {};
   const fullName =
@@ -189,10 +261,22 @@ async function ensurePendingPlanContext() {
   }
 
   if (!plan) {
+    state.selectedPlan = null;
+    state.profile.pending_plan_id = null;
+    state.profile.pending_plan_snapshot = null;
     showBanner(
-      'We could not find your selected plan. Please return to the pricing page and start again.',
-      'error'
+      'We could not find the saved plan. Pick a plan below to continue checkout.',
+      'warning'
     );
+    const ready = await ensureProductsLoaded();
+    if (ready) {
+      planEditor?.classList.remove('hidden');
+      planEditorToggle?.classList.remove('hidden');
+      if (planEditorToggle) {
+        planEditorToggle.textContent = 'Hide plan selector';
+      }
+      populatePlanEditor('');
+    }
     updatePayButtonState();
     return null;
   }
@@ -202,25 +286,33 @@ async function ensurePendingPlanContext() {
   }
 
   window.localStorage.setItem(STORAGE_PENDING_PLAN_ID, plan.id);
-  window.localStorage.setItem(
-    STORAGE_PLAN,
-    JSON.stringify({
-      planId: plan.id,
-      id: plan.id,
-      name: plan.name,
-      price: plan.price,
-      currency: plan.currency,
-      metadata: plan.metadata || {},
-      duration_days: plan.duration_days,
-      quiz_duration_minutes: plan.quiz_duration_minutes,
-      daily_question_limit: plan.daily_question_limit,
-      product: plan.product || plan.subscription_product || null,
-    })
-  );
-
-  state.selectedPlan = plan;
-  renderPlanDetails(plan);
+  const product = plan.product || plan.subscription_product || {};
+  state.selectedPlan = {
+    ...plan,
+    product,
+  };
+  state.profile.pending_plan_id = state.selectedPlan.id;
+  state.profile.pending_plan_snapshot = state.selectedPlan;
+  state.profile.registration_stage = 'awaiting_payment';
+  state.selectedDepartment = product.department_id || (product.id && !product.department_id ? 'general' : state.selectedDepartment) || '';
+  persistPlanSnapshot(state.selectedPlan);
+  renderPlanDetails(state.selectedPlan);
   updatePayButtonState();
+
+  const ready = await ensureProductsLoaded();
+  if (ready) {
+    if (state.selectedPlan && !state.planLookup.has(state.selectedPlan.id)) {
+      state.planLookup.set(state.selectedPlan.id, {
+        plan: state.selectedPlan,
+        product: state.selectedPlan.product || {},
+      });
+    }
+    populatePlanEditor(state.selectedPlan.id);
+    if (planEditorToggle) {
+      planEditorToggle.textContent = 'Change plan';
+    }
+  }
+
   return plan;
 }
 
@@ -313,6 +405,192 @@ function buildContactPayload() {
       metadata.username ||
       (email ? email.split('@')[0] : `user-${Date.now()}`),
   };
+}
+
+async function loadProducts() {
+  if (!state.supabase) {
+    throw new Error('Supabase client missing.');
+  }
+  const { data, error } = await state.supabase
+    .from('subscription_products_with_plans')
+    .select('*')
+    .order('department_name', { ascending: true })
+    .order('price', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  const products = groupProducts(data || []);
+  state.products = products;
+  state.departments = deriveDepartments(products);
+  state.generalProducts = products.filter((product) => !product.department_id);
+  if (state.generalProducts.length) {
+    state.departments.push({ id: 'general', name: 'General Access', slug: 'general', color: 'default' });
+  }
+  state.planLookup = new Map();
+
+  products.forEach((product) => {
+    product.plans
+      .filter((plan) => plan.is_active)
+      .forEach((plan) => {
+        state.planLookup.set(plan.id, {
+          plan: {
+            ...plan,
+            currency: plan.currency || 'NGN',
+            product,
+          },
+          product,
+        });
+      });
+  });
+
+  state.productsLoaded = true;
+}
+
+async function ensureProductsLoaded() {
+  if (state.productsLoaded) return true;
+  try {
+    await loadProducts();
+    return true;
+  } catch (error) {
+    console.error('[ResumeRegistration] Failed to load plans', error);
+    showBanner(
+      'We could not load available plans right now. Please refresh the page or try again later.',
+      'error'
+    );
+    return false;
+  }
+}
+
+function persistPlanSnapshot(plan) {
+  if (!plan) return;
+  window.localStorage.setItem(
+    STORAGE_PLAN,
+    JSON.stringify({
+      planId: plan.id,
+      id: plan.id,
+      name: plan.name,
+      price: plan.price,
+      currency: plan.currency,
+      metadata: plan.metadata || {},
+      duration_days: plan.duration_days,
+      quiz_duration_minutes: plan.quiz_duration_minutes,
+      daily_question_limit: plan.daily_question_limit,
+      product: plan.product || plan.subscription_product || null,
+    })
+  );
+}
+
+function populatePlanEditor(currentPlanId) {
+  if (!planEditor || !planEditorDepartment || !planEditorPlan) return;
+  if (!state.productsLoaded || !state.products.length) {
+    planEditorDepartment.innerHTML = '<option value="">No departments available</option>';
+    planEditorPlan.innerHTML = '<option value="">No plans available</option>';
+    if (planEditorHelp) {
+      planEditorHelp.textContent =
+        'Unable to load additional plans right now. You can retry or contact support for help.';
+    }
+    return;
+  }
+
+  const departmentOptions = state.departments.map((dept) => ({ id: dept.id, name: dept.name }));
+
+  if (!state.selectedDepartment && state.selectedPlan?.product?.department_id) {
+    state.selectedDepartment = state.selectedPlan.product.department_id;
+  }
+  if (!state.selectedDepartment && departmentOptions.length) {
+    state.selectedDepartment = departmentOptions[0].id;
+  }
+
+  planEditorDepartment.innerHTML = departmentOptions
+    .map((dept) => `<option value="${dept.id}">${dept.name}</option>`)
+    .join('');
+  planEditorDepartment.value = state.selectedDepartment || '';
+
+  const sourceProducts = state.selectedDepartment === 'general'
+    ? state.generalProducts
+    : state.products.filter((product) => product.department_id === state.selectedDepartment);
+
+  const plansForDepartment = sourceProducts.flatMap((product) =>
+    product.plans
+      .filter((plan) => plan.is_active)
+      .map((plan) => ({ plan, product }))
+  );
+
+  if (!plansForDepartment.length) {
+    planEditorPlan.innerHTML = '<option value="">No plans available yet</option>';
+    if (planEditorHelp) {
+      planEditorHelp.textContent = 'No active plans for this department. Choose a different department.';
+    }
+    return;
+  }
+
+  planEditorPlan.innerHTML = plansForDepartment
+    .map(({ plan }) => `<option value="${plan.id}">${plan.name} — ${formatCurrency(plan.price, plan.currency || 'NGN')}</option>`)
+    .join('');
+
+  const targetPlanId = currentPlanId || state.selectedPlan?.id || plansForDepartment[0].plan.id;
+
+  if (!planEditorPlan.querySelector(`option[value="${targetPlanId}"]`)) {
+    const fallbackEntry = state.planLookup.get(targetPlanId);
+    if (fallbackEntry) {
+      const label = `${fallbackEntry.plan.name} — ${formatCurrency(fallbackEntry.plan.price, fallbackEntry.plan.currency || 'NGN')}`;
+      planEditorPlan.insertAdjacentHTML('afterbegin', `<option value="${targetPlanId}">${label}</option>`);
+    }
+  }
+
+  planEditorPlan.value = targetPlanId;
+
+  const currentEntry = state.planLookup.get(targetPlanId) || plansForDepartment.find(({ plan }) => plan.id === targetPlanId);
+  if (currentEntry) {
+    const fullPlan = currentEntry.plan || currentEntry;
+    const product = currentEntry.product || fullPlan.product || {};
+    state.selectedPlan = {
+      ...fullPlan,
+      product,
+    };
+    state.selectedDepartment = product.department_id || state.selectedDepartment;
+    renderPlanDetails(state.selectedPlan);
+    persistPlanSnapshot(state.selectedPlan);
+    if (state.profile) {
+      state.profile.pending_plan_id = state.selectedPlan.id;
+      state.profile.pending_plan_snapshot = state.selectedPlan;
+    }
+  }
+
+  if (planEditorHelp) {
+    const productName = plansForDepartment[0]?.product?.name || 'your department';
+    planEditorHelp.textContent = `Update your selection for ${productName}. Your payment will reference the plan shown above.`;
+  }
+}
+
+function handleDepartmentSelection(event) {
+  state.selectedDepartment = event.target.value;
+  populatePlanEditor(state.selectedPlan?.id || '');
+  updatePayButtonState();
+}
+
+function handlePlanSelection(event) {
+  const planId = event.target.value;
+  const lookup = state.planLookup.get(planId);
+  if (!lookup) {
+    showBanner('We could not load that plan. Please choose another option.', 'warning');
+    return;
+  }
+  const plan = {
+    ...lookup.plan,
+    product: lookup.product,
+  };
+  state.selectedPlan = plan;
+  state.selectedDepartment = plan.product?.department_id || state.selectedDepartment;
+  state.profile.pending_plan_id = plan.id;
+  state.profile.pending_plan_snapshot = plan;
+  state.profile.registration_stage = 'awaiting_payment';
+  window.localStorage.setItem(STORAGE_PENDING_PLAN_ID, plan.id);
+  renderPlanDetails(plan);
+  persistPlanSnapshot(plan);
+  updatePayButtonState();
 }
 
 async function extractEdgeFunctionError(error, fallbackMessage) {
@@ -551,6 +829,23 @@ function bindEventListeners() {
       startCheckout();
     }
   });
+
+  planEditorToggle?.addEventListener('click', async () => {
+    const willOpen = planEditor?.classList.contains('hidden');
+    if (willOpen) {
+      const ready = await ensureProductsLoaded();
+      if (!ready) return;
+      populatePlanEditor(state.selectedPlan?.id || '');
+      planEditor?.classList.remove('hidden');
+      planEditorToggle.textContent = 'Hide plan selector';
+    } else {
+      planEditor?.classList.add('hidden');
+      planEditorToggle.textContent = 'Change plan';
+    }
+  });
+
+  planEditorDepartment?.addEventListener('change', handleDepartmentSelection);
+  planEditorPlan?.addEventListener('change', handlePlanSelection);
 }
 
 async function initialise() {

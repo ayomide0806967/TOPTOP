@@ -97,6 +97,42 @@
               ></div>
 
               <button
+                type="button"
+                data-role="toggle-plan-editor"
+                class="inline-flex items-center justify-center rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-cyan-200 hover:text-cyan-700"
+              >
+                Change plan
+              </button>
+
+              <div
+                data-role="plan-editor"
+                class="hidden space-y-4 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-4"
+              >
+                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                  Update selection
+                </p>
+                <label class="grid gap-2 text-sm">
+                  <span class="font-medium text-slate-600">Department</span>
+                  <select
+                    data-role="plan-editor-department"
+                    class="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600"
+                  >
+                    <option value="">Loading departments…</option>
+                  </select>
+                </label>
+                <label class="grid gap-2 text-sm">
+                  <span class="font-medium text-slate-600">Plan</span>
+                  <select
+                    data-role="plan-editor-plan"
+                    class="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600"
+                  >
+                    <option value="">Select a department first…</option>
+                  </select>
+                </label>
+                <p class="text-xs text-slate-500" data-role="plan-editor-help"></p>
+              </div>
+
+              <button
                 id="payButton"
                 type="button"
                 class="inline-flex items-center justify-center rounded-xl bg-cyan-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-800 disabled:cursor-not-allowed disabled:bg-slate-400"
