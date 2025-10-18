@@ -839,10 +839,15 @@ function isMissingColumnError(error, columnName) {
     .filter((value) => typeof value === 'string' && value.length)
     .map((value) => value.toLowerCase());
   if (!parts.length) return false;
-  const columnNeedle = `column ${columnName.toLowerCase()}`;
-  return parts.some(
-    (part) => part.includes(columnNeedle) && part.includes('does not exist')
-  );
+
+  const normalizedColumn = columnName.toLowerCase().replace(/["']/g, '');
+  return parts.some((part) => {
+    if (!part.includes('does not exist')) return false;
+    if (part.includes(`column ${normalizedColumn}`)) return true;
+    return new RegExp(
+      `column\\s+[\\w".]+\\.${normalizedColumn}(?![\\w"])`
+    ).test(part);
+  });
 }
 
 function sanitizeDateInput(value) {

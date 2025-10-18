@@ -103,6 +103,62 @@ const elements = {
   extraSetsList: document.querySelector('[data-role="extra-sets-list"]'),
   bonusNavButton: document.querySelector('[data-nav-target="bonus"]'),
   bonusNotification: document.querySelector('[data-role="bonus-notification"]'),
+  communityNavButton: document.querySelector('[data-nav-target="community"]'),
+  communityNotification: document.querySelector(
+    '[data-role="community-notification"]'
+  ),
+  communityThreadList: document.querySelector(
+    '[data-role="community-thread-list"]'
+  ),
+  communityEmptyState: document.querySelector(
+    '[data-role="community-empty-state"]'
+  ),
+  communityThreadView: document.querySelector(
+    '[data-role="community-thread-view"]'
+  ),
+  communityThreadTitle: document.querySelector(
+    '[data-role="community-thread-title"]'
+  ),
+  communityThreadMeta: document.querySelector(
+    '[data-role="community-thread-meta"]'
+  ),
+  communityMessageList: document.querySelector(
+    '[data-role="community-message-list"]'
+  ),
+  communityReplyForm: document.querySelector(
+    '[data-role="community-reply-form"]'
+  ),
+  communityReplyInput: document.querySelector(
+    '[data-role="community-reply-input"]'
+  ),
+  communityReplyAttachments: document.querySelector(
+    '[data-role="community-reply-attachments"]'
+  ),
+  communityReplyFile: document.querySelector('[data-role="community-reply-file"]'),
+  communityReplySubmit: document.querySelector(
+    '[data-role="community-reply-submit"]'
+  ),
+  communityThreadComposer: document.querySelector(
+    '[data-role="community-thread-composer"]'
+  ),
+  communityThreadForm: document.querySelector(
+    '[data-role="community-thread-form"]'
+  ),
+  communityThreadTitleInput: document.querySelector(
+    '[data-role="community-thread-title"]'
+  ),
+  communityThreadMessageInput: document.querySelector(
+    '[data-role="community-thread-message"]'
+  ),
+  communityThreadAttachments: document.querySelector(
+    '[data-role="community-thread-attachments"]'
+  ),
+  communityThreadFileInput: document.querySelector(
+    '[data-role="community-thread-file"]'
+  ),
+  communityThreadSubmit: document.querySelector(
+    '[data-role="community-thread-submit"]'
+  ),
   navButtons: Array.from(
     document.querySelectorAll('[data-role="nav-buttons"] [data-nav-target]')
   ),
@@ -138,9 +194,25 @@ const state = {
   extraQuestionSets: [],
   extraPlanId: null,
   isLoadingExtraSets: false,
+  community: {
+    threads: [],
+    reads: new Map(),
+    selectedThreadId: null,
+    postsByThread: new Map(),
+    userCache: new Map(),
+    attachmentUrls: new Map(),
+    isLoadingThreads: false,
+    loadingThreadId: null,
+    isCreatingThread: false,
+    isSendingReply: false,
+    composerAttachments: [],
+    replyAttachments: [],
+    subscription: null,
+  },
 };
 
 let navigationBound = false;
+let communityHandlersBound = false;
 
 const NOTICE_TONE_CLASSES = {
   positive: ['border-emerald-200', 'bg-emerald-50', 'text-emerald-800'],
@@ -226,6 +298,18 @@ const DEFAULT_ASSIGNMENT_RULES = Object.freeze({
 const ASSIGNMENT_MODES = new Set(['full_set', 'fixed_count', 'percentage']);
 
 const ACTIVE_PLAN_STATUSES = new Set(['active', 'trialing']);
+
+const COMMUNITY_ATTACHMENT_SIZE_LIMIT = 5 * 1024 * 1024;
+const COMMUNITY_MAX_ATTACHMENTS = 4;
+const COMMUNITY_ALLOWED_FILE_TYPES = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+]);
+const COMMUNITY_IMAGE_PREFIX = 'image/';
 
 function setNavAvailability(hasActivePlan) {
   elements.navButtons.forEach((button) => {
@@ -339,6 +423,86 @@ function formatDateTime(dateString) {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
+}
+
+function describeRelativeTime(dateString) {
+  if (!dateString) return '';
+  const timestamp = new Date(dateString);
+  if (Number.isNaN(timestamp.getTime())) return '';
+  const diffSeconds = Math.floor((Date.now() - timestamp.getTime()) / 1000);
+  if (diffSeconds < 5) return 'Just now';
+  if (diffSeconds < 60) return `${diffSeconds}s ago`;
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m ago`;
+  }
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  }
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) {
+    return `${diffDays}d ago`;
+  }
+  return formatDate(dateString);
+}
+
+function formatFileSize(bytes) {
+  const numeric = Number(bytes);
+  if (!Number.isFinite(numeric) || numeric < 0) return '—';
+  if (numeric < 1024) return `${numeric} B`;
+  if (numeric < 1024 ** 2) return `${(numeric / 1024).toFixed(1)} KB`;
+  if (numeric < 1024 ** 3) return `${(numeric / 1024 ** 2).toFixed(1)} MB`;
+  return `${(numeric / 1024 ** 3).toFixed(1)} GB`;
+}
+
+function validateCommunityAttachment(file) {
+  if (!file) return 'File missing.';
+  if (file.size > COMMUNITY_ATTACHMENT_SIZE_LIMIT) {
+    return 'Files are limited to 5 MB each.';
+  }
+  if (!file.type) {
+    return 'Unsupported file type.';
+  }
+  if (
+    !file.type.startsWith(COMMUNITY_IMAGE_PREFIX) &&
+    !COMMUNITY_ALLOWED_FILE_TYPES.has(file.type)
+  ) {
+    return 'Unsupported file type.';
+  }
+  return null;
+}
+
+function createAttachmentDraft(file) {
+  return {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
+    file,
+    previewUrl: file.type?.startsWith(COMMUNITY_IMAGE_PREFIX)
+      ? URL.createObjectURL(file)
+      : null,
+  };
+}
+
+function revokeAttachmentDraft(draft) {
+  if (draft?.previewUrl) {
+    URL.revokeObjectURL(draft.previewUrl);
+  }
+}
+
+function pluralize(word, count) {
+  return `${count} ${word}${count === 1 ? '' : 's'}`;
+}
+
+function createThreadExcerpt(text) {
+  if (!text) return '';
+  return text.trim().slice(0, 160);
+}
+
+function buildPostExcerpt(content, attachments = []) {
+  if (content && content.trim()) {
+    return createThreadExcerpt(content);
+  }
+  return attachments.length ? 'Shared an attachment' : '';
 }
 
 function escapeHtml(value) {
@@ -2099,9 +2263,1057 @@ function updateBonusNavNotification() {
   }
 }
 
+function updateCommunityNavNotification() {
+  const badge = elements.communityNotification;
+  if (!badge) return;
+
+  const threads = Array.isArray(state.community?.threads)
+    ? state.community.threads
+    : [];
+  const unreadCount = threads.reduce((total, thread) => {
+    const lastActivity =
+      thread.lastPostedAt || thread.updatedAt || thread.createdAt;
+    if (!lastActivity) return total;
+    const lastTs = new Date(lastActivity).getTime();
+    if (!Number.isFinite(lastTs)) return total;
+    const readIso = state.community.reads.get(thread.id);
+    if (!readIso) return total + 1;
+    const readTs = new Date(readIso).getTime();
+    if (!Number.isFinite(readTs)) return total;
+    return lastTs > readTs ? total + 1 : total;
+  }, 0);
+
+  if (unreadCount > 0) {
+    badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
+    badge.classList.add('is-visible');
+    badge.setAttribute('aria-hidden', 'false');
+  } else {
+    badge.textContent = '';
+    badge.classList.remove('is-visible');
+    badge.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function sortCommunityThreads() {
+  if (!Array.isArray(state.community?.threads)) return;
+  state.community.threads.sort((a, b) => {
+    const aTs = new Date(
+      a.lastPostedAt || a.updatedAt || a.createdAt
+    ).getTime();
+    const bTs = new Date(
+      b.lastPostedAt || b.updatedAt || b.createdAt
+    ).getTime();
+    return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
+  });
+}
+
+async function ensureCommunityProfiles(userIds = []) {
+  if (!state.supabase || !Array.isArray(userIds) || !userIds.length) return;
+  const unique = Array.from(new Set(userIds.filter(Boolean)));
+  const missing = unique.filter((id) => !state.community.userCache.has(id));
+  if (!missing.length) return;
+  try {
+    const { data, error } = await state.supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', missing);
+    if (error) throw error;
+    (data || []).forEach((row) => {
+      state.community.userCache.set(row.id, row.full_name || 'Learner');
+    });
+  } catch (error) {
+    console.error('[Community] ensureCommunityProfiles failed', error);
+  }
+}
+
+function getCommunityUserName(userId) {
+  if (!userId) return 'Learner';
+  if (userId === state.user?.id) return 'You';
+  const cached = state.community.userCache.get(userId);
+  return cached || 'Learner';
+}
+
+function renderCommunityThreads() {
+  const list = elements.communityThreadList;
+  if (!list) return;
+
+  if (state.community.isLoadingThreads) {
+    list.innerHTML = `
+      <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+        Loading threads…
+      </div>
+    `;
+    return;
+  }
+
+  if (!state.community.threads.length) {
+    list.innerHTML = `
+      <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+        Be the first to start a conversation today.
+      </div>
+    `;
+    return;
+  }
+
+  const cards = state.community.threads
+    .map((thread) => {
+      const isActive = state.community.selectedThreadId === thread.id;
+      const lastActivity =
+        thread.lastPostedAt || thread.updatedAt || thread.createdAt;
+      const readIso = state.community.reads.get(thread.id);
+      const unread =
+        lastActivity &&
+        (!readIso ||
+          new Date(lastActivity).getTime() > new Date(readIso).getTime());
+      const authorName = getCommunityUserName(
+        thread.lastPostAuthorId || thread.createdBy
+      );
+      const metaParts = [
+        authorName,
+        describeRelativeTime(lastActivity),
+        pluralize('message', Math.max(1, Number(thread.postCount ?? 0))),
+      ].filter(Boolean);
+      const metaHtml = metaParts
+        .map((part, index) =>
+          index === 0
+            ? `<span>${escapeHtml(part)}</span>`
+            : `<span>•</span><span>${escapeHtml(part)}</span>`
+        )
+        .join('');
+      const excerpt = thread.lastPostExcerpt?.trim()
+        ? escapeHtml(thread.lastPostExcerpt.trim())
+        : 'Conversation just getting started.';
+
+      return `
+        <article
+          class="community-thread-card${isActive ? ' community-thread-card--active' : ''}"
+          data-thread-id="${escapeHtml(thread.id)}"
+        >
+          <div class="community-thread-card__title">
+            ${escapeHtml(thread.title || 'Untitled thread')}
+          </div>
+          <div class="community-thread-card__meta">
+            ${metaHtml}
+            ${
+              unread
+                ? '<span class="community-thread-card__badge">New</span>'
+                : ''
+            }
+          </div>
+          <p class="community-thread-card__snippet">${excerpt}</p>
+        </article>
+      `;
+    })
+    .join('');
+
+  list.innerHTML = cards;
+}
+
+function scrollCommunityMessagesToBottom() {
+  if (!elements.communityMessageList) return;
+  elements.communityMessageList.scrollTop =
+    elements.communityMessageList.scrollHeight;
+}
+
+async function hydrateCommunityAttachments() {
+  if (!elements.communityMessageList) return;
+  const nodes = Array.from(
+    elements.communityMessageList.querySelectorAll('[data-attachment-path]')
+  );
+  if (!nodes.length) return;
+
+  await Promise.all(
+    nodes.map(async (node) => {
+      const path = node.dataset.attachmentPath;
+      if (!path) return;
+      try {
+        const url = await getCommunityAttachmentUrl(path);
+        if (!url) return;
+        if (node.dataset.attachmentType === 'image') {
+          node.setAttribute('src', url);
+        } else {
+          node.setAttribute('href', url);
+          node.setAttribute('target', '_blank');
+          node.setAttribute('rel', 'noopener noreferrer');
+        }
+        node.removeAttribute('data-attachment-path');
+      } catch (error) {
+        console.error('[Community] hydrate attachment failed', error);
+      }
+    })
+  );
+}
+
+function renderCommunityThread(threadId, options = {}) {
+  const { scrollToBottom = false } = options;
+  const detail = elements.communityThreadView;
+  const emptyState = elements.communityEmptyState;
+  if (!detail || !emptyState) return;
+
+  const thread = state.community.threads.find((item) => item.id === threadId);
+  if (!thread) {
+    detail.classList.add('hidden');
+    emptyState.classList.remove('hidden');
+    return;
+  }
+
+  emptyState.classList.add('hidden');
+  detail.classList.remove('hidden');
+
+  if (elements.communityThreadTitle) {
+    elements.communityThreadTitle.textContent =
+      thread.title || 'Untitled thread';
+  }
+
+  if (elements.communityThreadMeta) {
+    const owner = getCommunityUserName(thread.createdBy);
+    const parts = [
+      `Started by ${owner === 'You' ? 'you' : owner}`,
+      describeRelativeTime(thread.createdAt),
+      pluralize('message', Math.max(1, Number(thread.postCount ?? 0))),
+    ];
+    elements.communityThreadMeta.textContent = parts.join(' • ');
+  }
+
+  const list = elements.communityMessageList;
+  if (!list) return;
+
+  const posts = state.community.postsByThread.get(threadId) || [];
+  if (state.community.loadingThreadId === threadId && !posts.length) {
+    list.innerHTML = `
+      <div class="text-sm text-slate-500 px-2 py-4">
+        Loading replies…
+      </div>
+    `;
+    return;
+  }
+
+  if (!posts.length) {
+    list.innerHTML = `
+      <div class="text-sm text-slate-500 px-2 py-4">
+        No replies yet. Share the first update to get things going.
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = posts
+    .map((post) => {
+      const isSelf = post.authorId === state.user?.id;
+      const authorName = getCommunityUserName(post.authorId);
+      const bodyHtml = escapeHtml(post.content || '')
+        .replace(/\n/g, '<br />')
+        .trim();
+      const attachmentsHtml =
+        Array.isArray(post.attachments) && post.attachments.length
+          ? `
+            <div class="community-message-attachments">
+              ${post.attachments
+                .map((attachment) => {
+                  const pathAttr = escapeHtml(attachment.storage_path || '');
+                  const label = escapeHtml(
+                    attachment.file_name || 'Attachment'
+                  );
+                  if (
+                    attachment.mime_type?.startsWith(COMMUNITY_IMAGE_PREFIX)
+                  ) {
+                    return `
+                      <div class="community-attachment-preview">
+                        <img
+                          class="community-attachment-image"
+                          alt="${label}"
+                          data-attachment-path="${pathAttr}"
+                          data-attachment-type="image"
+                        />
+                      </div>
+                    `;
+                  }
+                  return `
+                    <a
+                      class="community-attachment-chip"
+                      data-attachment-path="${pathAttr}"
+                      data-attachment-type="file"
+                      title="${label}"
+                    >
+                      <span>${label}</span>
+                      <span>${formatFileSize(attachment.size_bytes)}</span>
+                    </a>
+                  `;
+                })
+                .join('')}
+            </div>
+          `
+          : '';
+      return `
+        <div class="community-message${
+          isSelf ? ' community-message--self' : ''
+        }" data-message-id="${escapeHtml(post.id)}">
+          <span class="community-message-author">${escapeHtml(
+            authorName
+          )}</span>
+          <div class="community-message-body">${
+            bodyHtml || '<span class="text-slate-400">Attachment only</span>'
+          }</div>
+          ${attachmentsHtml}
+          <span class="community-message-time">${escapeHtml(
+            formatDateTime(post.createdAt)
+          )}</span>
+        </div>
+      `;
+    })
+    .join('');
+
+  if (scrollToBottom) {
+    requestAnimationFrame(() => {
+      scrollCommunityMessagesToBottom();
+    });
+  }
+
+  requestAnimationFrame(() => {
+    hydrateCommunityAttachments().catch((error) => {
+      console.error('[Community] hydrate attachments failed', error);
+    });
+  });
+}
+
+function renderCommunityAttachmentDrafts(container, drafts) {
+  if (!container) return;
+  if (!Array.isArray(drafts) || !drafts.length) {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = drafts
+    .map((draft) => {
+      const label = escapeHtml(draft.file.name);
+      const size = formatFileSize(draft.file.size);
+      return `
+        <div class="community-attachment-chip" data-id="${escapeHtml(draft.id)}">
+          <span>${label}</span>
+          <span>${size}</span>
+          <button type="button" data-action="remove-attachment" data-id="${escapeHtml(
+            draft.id
+          )}">Remove</button>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+function resetCommunityComposer() {
+  elements.communityThreadForm?.reset();
+  state.community.composerAttachments.forEach(revokeAttachmentDraft);
+  state.community.composerAttachments = [];
+  renderCommunityAttachmentDrafts(
+    elements.communityThreadAttachments,
+    state.community.composerAttachments
+  );
+}
+
+function resetCommunityReplyComposer() {
+  elements.communityReplyForm?.reset();
+  state.community.replyAttachments.forEach(revokeAttachmentDraft);
+  state.community.replyAttachments = [];
+  renderCommunityAttachmentDrafts(
+    elements.communityReplyAttachments,
+    state.community.replyAttachments
+  );
+}
+
+function toggleCommunityComposer(show) {
+  const modal = elements.communityThreadComposer;
+  if (!modal) return;
+  if (show) {
+    modal.classList.remove('hidden');
+    document.body.dataset.communityScrollLock = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  } else {
+    modal.classList.add('hidden');
+    if (document.body.dataset.communityScrollLock !== undefined) {
+      document.body.style.overflow =
+        document.body.dataset.communityScrollLock || '';
+      delete document.body.dataset.communityScrollLock;
+    }
+    resetCommunityComposer();
+  }
+}
+
+function closeCommunityThread() {
+  state.community.selectedThreadId = null;
+  renderCommunityThreads();
+  if (elements.communityThreadView) {
+    elements.communityThreadView.classList.add('hidden');
+  }
+  if (elements.communityEmptyState) {
+    elements.communityEmptyState.classList.remove('hidden');
+  }
+}
+
+async function getCommunityAttachmentUrl(path) {
+  if (!state.supabase || !path) return null;
+  const cached = state.community.attachmentUrls.get(path);
+  if (cached && cached.expiresAt > Date.now() + 5000) {
+    return cached.url;
+  }
+  const { data, error } = await state.supabase
+    .storage.from('community-uploads')
+    .createSignedUrl(path, 60 * 60);
+  if (error) {
+    throw error;
+  }
+  const url = data?.signedUrl || null;
+  if (url) {
+    state.community.attachmentUrls.set(path, {
+      url,
+      expiresAt: Date.now() + 55 * 60 * 1000,
+    });
+  }
+  return url;
+}
+
+async function loadCommunityThreads(options = {}) {
+  if (!state.supabase || !state.user) return;
+  const {
+    preserveSelection = true,
+    focusThreadId = null,
+    showLoading = false,
+  } = options;
+
+  if (state.community.isLoadingThreads) return;
+  state.community.isLoadingThreads = true;
+  if (showLoading) {
+    renderCommunityThreads();
+  }
+
+  try {
+    const [{ data: threadsData, error: threadsError }, { data: readsData }] =
+      await Promise.all([
+        state.supabase
+          .from('community_thread_summaries')
+          .select(
+            'id, title, created_by, created_at, updated_at, last_posted_at, last_post_author_id, last_post_excerpt, post_count'
+          )
+          .order('last_posted_at', { ascending: false, nullsLast: true })
+          .order('updated_at', { ascending: false })
+          .limit(50),
+        state.supabase
+          .from('community_thread_reads')
+          .select('thread_id, last_read_at')
+          .eq('user_id', state.user.id),
+      ]);
+    if (threadsError) throw threadsError;
+
+    const readsMap = new Map();
+    (readsData || []).forEach((row) => {
+      if (row?.thread_id && row.last_read_at) {
+        readsMap.set(row.thread_id, row.last_read_at);
+      }
+    });
+    state.community.reads = readsMap;
+
+    state.community.threads = (threadsData || []).map((row) => ({
+      id: row.id,
+      title: row.title || 'Untitled thread',
+      createdBy: row.created_by,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      lastPostedAt: row.last_posted_at || row.updated_at,
+      lastPostAuthorId: row.last_post_author_id || row.created_by,
+      lastPostExcerpt: row.last_post_excerpt || '',
+      postCount: Math.max(1, Number(row.post_count ?? 0)),
+    }));
+
+    const profileIds = [
+      ...state.community.threads.map((thread) => thread.createdBy),
+      ...state.community.threads
+        .map((thread) => thread.lastPostAuthorId)
+        .filter(Boolean),
+    ];
+    await ensureCommunityProfiles(profileIds);
+
+    sortCommunityThreads();
+    renderCommunityThreads();
+
+    if (!preserveSelection) {
+      state.community.selectedThreadId = null;
+    } else if (
+      state.community.selectedThreadId &&
+      !state.community.threads.some(
+        (thread) => thread.id === state.community.selectedThreadId
+      )
+    ) {
+      state.community.selectedThreadId = null;
+    }
+
+    if (focusThreadId) {
+      state.community.selectedThreadId = focusThreadId;
+    }
+
+    updateCommunityNavNotification();
+
+    if (state.community.selectedThreadId) {
+      renderCommunityThread(state.community.selectedThreadId);
+    }
+  } catch (error) {
+    console.error('[Community] loadCommunityThreads failed', error);
+    if (!state.community.threads.length) {
+      renderCommunityThreads();
+    }
+    showToast('Unable to load community threads right now.', 'error');
+  } finally {
+    state.community.isLoadingThreads = false;
+  }
+}
+
+async function loadCommunityThreadPosts(threadId, options = {}) {
+  if (!state.supabase || !threadId) return;
+  const { scrollToLatest = false } = options;
+  state.community.loadingThreadId = threadId;
+  renderCommunityThread(threadId);
+
+  try {
+    const { data, error } = await state.supabase
+      .from('community_posts')
+      .select(
+        'id, thread_id, author_id, content, created_at, community_post_attachments (id, storage_path, file_name, mime_type, size_bytes)'
+      )
+      .eq('thread_id', threadId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+
+    const posts = (data || []).map((row) => ({
+      id: row.id,
+      threadId: row.thread_id,
+      authorId: row.author_id,
+      content: row.content || '',
+      createdAt: row.created_at,
+      attachments: Array.isArray(row.community_post_attachments)
+        ? row.community_post_attachments.map((attachment) => ({
+            id: attachment.id,
+            storage_path: attachment.storage_path,
+            file_name: attachment.file_name,
+            mime_type: attachment.mime_type,
+            size_bytes: attachment.size_bytes,
+          }))
+        : [],
+    }));
+
+    await ensureCommunityProfiles(
+      posts.map((post) => post.authorId).filter(Boolean)
+    );
+
+    state.community.postsByThread.set(threadId, posts);
+    renderCommunityThread(threadId, { scrollToBottom: scrollToLatest });
+    markCommunityThreadRead(threadId).catch((error) => {
+      console.error('[Community] mark read failed', error);
+    });
+  } catch (error) {
+    console.error('[Community] loadCommunityThreadPosts failed', error);
+    showToast('Unable to load thread messages.', 'error');
+  } finally {
+    state.community.loadingThreadId = null;
+  }
+}
+
+async function markCommunityThreadRead(threadId) {
+  if (!state.supabase || !threadId) return;
+  try {
+    const { data, error } = await state.supabase.rpc(
+      'community_mark_thread_read',
+      {
+        p_thread_id: threadId,
+      }
+    );
+    if (error) throw error;
+    if (data?.last_read_at) {
+      state.community.reads.set(threadId, data.last_read_at);
+      updateCommunityNavNotification();
+    }
+  } catch (error) {
+    console.error('[Community] markCommunityThreadRead failed', error);
+  }
+}
+
+async function uploadCommunityAttachments(threadId, postId, drafts) {
+  if (!state.supabase || !threadId || !postId) return [];
+  if (!Array.isArray(drafts) || !drafts.length) return [];
+
+  const uploaded = [];
+  for (const draft of drafts) {
+    const file = draft.file;
+    const sanitizedName = file.name
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, '-')
+      .replace(/-+/g, '-');
+    const path = `${state.user.id}/${threadId}/${postId}/${Date.now()}-${sanitizedName}`;
+    const { error: storageError } = await state.supabase.storage
+      .from('community-uploads')
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+    if (storageError) {
+      throw storageError;
+    }
+
+    const { data: attachmentData, error: metaError } = await state.supabase
+      .from('community_post_attachments')
+      .insert({
+        post_id: postId,
+        storage_path: path,
+        file_name: file.name,
+        mime_type: file.type || null,
+        size_bytes: file.size,
+      })
+      .select('id, storage_path, file_name, mime_type, size_bytes')
+      .single();
+    if (metaError) {
+      throw metaError;
+    }
+    uploaded.push(attachmentData);
+  }
+
+  return uploaded;
+}
+
+function handleCommunityThreadFileChange(event) {
+  const files = Array.from(event.target.files || []);
+  if (!files.length) return;
+
+  let remaining =
+    COMMUNITY_MAX_ATTACHMENTS - state.community.composerAttachments.length;
+  if (remaining <= 0) {
+    showToast(
+      `You can attach up to ${COMMUNITY_MAX_ATTACHMENTS} files per post.`,
+      'error'
+    );
+    event.target.value = '';
+    return;
+  }
+
+  let errorMessage = null;
+  for (const file of files) {
+    if (remaining <= 0) break;
+    const validationError = validateCommunityAttachment(file);
+    if (validationError) {
+      errorMessage = validationError;
+      continue;
+    }
+    state.community.composerAttachments.push(createAttachmentDraft(file));
+    remaining -= 1;
+  }
+
+  if (errorMessage) {
+    showToast(errorMessage, 'error');
+  }
+
+  renderCommunityAttachmentDrafts(
+    elements.communityThreadAttachments,
+    state.community.composerAttachments
+  );
+  event.target.value = '';
+}
+
+function handleCommunityReplyFileChange(event) {
+  const files = Array.from(event.target.files || []);
+  if (!files.length) return;
+
+  let remaining =
+    COMMUNITY_MAX_ATTACHMENTS - state.community.replyAttachments.length;
+  if (remaining <= 0) {
+    showToast(
+      `You can attach up to ${COMMUNITY_MAX_ATTACHMENTS} files per post.`,
+      'error'
+    );
+    event.target.value = '';
+    return;
+  }
+
+  let errorMessage = null;
+  for (const file of files) {
+    if (remaining <= 0) break;
+    const validationError = validateCommunityAttachment(file);
+    if (validationError) {
+      errorMessage = validationError;
+      continue;
+    }
+    state.community.replyAttachments.push(createAttachmentDraft(file));
+    remaining -= 1;
+  }
+
+  if (errorMessage) {
+    showToast(errorMessage, 'error');
+  }
+
+  renderCommunityAttachmentDrafts(
+    elements.communityReplyAttachments,
+    state.community.replyAttachments
+  );
+  event.target.value = '';
+}
+
+function handleCommunityThreadAttachmentsClick(event) {
+  const button = event.target.closest('[data-action="remove-attachment"]');
+  if (!button) return;
+  const id = button.dataset.id;
+  if (!id) return;
+  state.community.composerAttachments = state.community.composerAttachments.filter(
+    (draft) => {
+      if (draft.id === id) {
+        revokeAttachmentDraft(draft);
+        return false;
+      }
+      return true;
+    }
+  );
+  renderCommunityAttachmentDrafts(
+    elements.communityThreadAttachments,
+    state.community.composerAttachments
+  );
+}
+
+function handleCommunityReplyAttachmentsClick(event) {
+  const button = event.target.closest('[data-action="remove-attachment"]');
+  if (!button) return;
+  const id = button.dataset.id;
+  if (!id) return;
+  state.community.replyAttachments = state.community.replyAttachments.filter(
+    (draft) => {
+      if (draft.id === id) {
+        revokeAttachmentDraft(draft);
+        return false;
+      }
+      return true;
+    }
+  );
+  renderCommunityAttachmentDrafts(
+    elements.communityReplyAttachments,
+    state.community.replyAttachments
+  );
+}
+
+function handleCommunityThreadListClick(event) {
+  const card = event.target.closest('[data-thread-id]');
+  if (!card) return;
+  const threadId = card.dataset.threadId;
+  if (!threadId) return;
+  openCommunityThread(threadId, { scrollToLatest: false });
+}
+
+function handleCommunityActionClick(event) {
+  const actionEl = event.target.closest('[data-action]');
+  if (!actionEl) return;
+  const action = actionEl.dataset.action;
+  if (!action || !action.startsWith('community-')) return;
+
+  switch (action) {
+    case 'community-open-composer':
+      event.preventDefault();
+      toggleCommunityComposer(true);
+      break;
+    case 'community-close-composer':
+      event.preventDefault();
+      toggleCommunityComposer(false);
+      break;
+    case 'community-refresh':
+      event.preventDefault();
+      loadCommunityThreads({ preserveSelection: true, showLoading: true });
+      break;
+    case 'community-close-thread':
+      event.preventDefault();
+      closeCommunityThread();
+      break;
+    case 'community-mark-read':
+      event.preventDefault();
+      if (state.community.selectedThreadId) {
+        markCommunityThreadRead(state.community.selectedThreadId).catch(
+          (error) => {
+            console.error('[Community] mark read via action failed', error);
+          }
+        );
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+async function handleCommunityThreadSubmit(event) {
+  event.preventDefault();
+  if (!state.supabase || state.community.isCreatingThread) return;
+
+  const title = elements.communityThreadTitleInput?.value?.trim() || '';
+  const message =
+    elements.communityThreadMessageInput?.value?.trim() || '';
+  const attachments = state.community.composerAttachments || [];
+
+  if (!title) {
+    showToast('Add a thread title before posting.', 'error');
+    return;
+  }
+  if (!message && !attachments.length) {
+    showToast('Share a message or attach a file to start the thread.', 'error');
+    return;
+  }
+
+  state.community.isCreatingThread = true;
+  elements.communityThreadSubmit?.setAttribute('disabled', 'disabled');
+
+  try {
+    const { data: threadData, error: threadError } = await state.supabase
+      .from('community_threads')
+      .insert({
+        title,
+        created_by: state.user.id,
+      })
+      .select('id, title, created_by, created_at, updated_at')
+      .single();
+    if (threadError) throw threadError;
+
+    const { data: postData, error: postError } = await state.supabase
+      .from('community_posts')
+      .insert({
+        thread_id: threadData.id,
+        author_id: state.user.id,
+        content: message,
+      })
+      .select('id, created_at')
+      .single();
+    if (postError) throw postError;
+
+    const uploaded = await uploadCommunityAttachments(
+      threadData.id,
+      postData.id,
+      attachments
+    );
+    const attachmentRows = uploaded.map((item) => ({
+      id: item.id,
+      storage_path: item.storage_path,
+      file_name: item.file_name,
+      mime_type: item.mime_type,
+      size_bytes: item.size_bytes,
+    }));
+
+    const newPost = {
+      id: postData.id,
+      threadId: threadData.id,
+      authorId: state.user.id,
+      content: message,
+      createdAt: postData.created_at,
+      attachments: attachmentRows,
+    };
+
+    state.community.postsByThread.set(threadData.id, [newPost]);
+
+    const newThread = {
+      id: threadData.id,
+      title: threadData.title || title,
+      createdBy: threadData.created_by,
+      createdAt: threadData.created_at,
+      updatedAt: threadData.updated_at,
+      lastPostedAt: newPost.createdAt,
+      lastPostAuthorId: newPost.authorId,
+      lastPostExcerpt: buildPostExcerpt(newPost.content, attachmentRows),
+      postCount: 1,
+    };
+
+    state.community.threads.push(newThread);
+    sortCommunityThreads();
+
+    state.community.selectedThreadId = newThread.id;
+    state.community.reads.set(newThread.id, newPost.createdAt);
+    toggleCommunityComposer(false);
+    renderCommunityThreads();
+    renderCommunityThread(newThread.id, { scrollToBottom: true });
+    updateCommunityNavNotification();
+    showToast('Thread posted successfully.', 'success');
+  } catch (error) {
+    console.error('[Community] handleCommunityThreadSubmit failed', error);
+    showToast('Unable to post your thread right now.', 'error');
+  } finally {
+    state.community.isCreatingThread = false;
+    elements.communityThreadSubmit?.removeAttribute('disabled');
+  }
+}
+
+async function handleCommunityReplySubmit(event) {
+  event.preventDefault();
+  if (!state.supabase || state.community.isSendingReply) return;
+  const threadId = state.community.selectedThreadId;
+  if (!threadId) {
+    showToast('Select a thread before replying.', 'error');
+    return;
+  }
+
+  const message = elements.communityReplyInput?.value?.trim() || '';
+  const attachments = state.community.replyAttachments || [];
+  if (!message && !attachments.length) {
+    showToast('Share a message or attach a file before sending.', 'error');
+    return;
+  }
+
+  state.community.isSendingReply = true;
+  elements.communityReplySubmit?.setAttribute('disabled', 'disabled');
+
+  try {
+    const { data: postData, error: postError } = await state.supabase
+      .from('community_posts')
+      .insert({
+        thread_id: threadId,
+        author_id: state.user.id,
+        content: message,
+      })
+      .select('id, created_at')
+      .single();
+    if (postError) throw postError;
+
+    const uploaded = await uploadCommunityAttachments(
+      threadId,
+      postData.id,
+      attachments
+    );
+    const attachmentRows = uploaded.map((item) => ({
+      id: item.id,
+      storage_path: item.storage_path,
+      file_name: item.file_name,
+      mime_type: item.mime_type,
+      size_bytes: item.size_bytes,
+    }));
+
+    const newPost = {
+      id: postData.id,
+      threadId,
+      authorId: state.user.id,
+      content: message,
+      createdAt: postData.created_at,
+      attachments: attachmentRows,
+    };
+
+    const posts = state.community.postsByThread.get(threadId) || [];
+    posts.push(newPost);
+    state.community.postsByThread.set(threadId, posts);
+
+    const thread = state.community.threads.find((item) => item.id === threadId);
+    if (thread) {
+      thread.lastPostedAt = newPost.createdAt;
+      thread.lastPostAuthorId = newPost.authorId;
+      thread.lastPostExcerpt = buildPostExcerpt(
+        newPost.content,
+        attachmentRows
+      );
+      thread.postCount = posts.length;
+    }
+
+    state.community.reads.set(threadId, newPost.createdAt);
+    sortCommunityThreads();
+    renderCommunityThreads();
+    renderCommunityThread(threadId, { scrollToBottom: true });
+    updateCommunityNavNotification();
+    resetCommunityReplyComposer();
+  } catch (error) {
+    console.error('[Community] handleCommunityReplySubmit failed', error);
+    showToast('Unable to send your reply right now.', 'error');
+  } finally {
+    state.community.isSendingReply = false;
+    elements.communityReplySubmit?.removeAttribute('disabled');
+  }
+}
+
+function openCommunityThread(threadId, options = {}) {
+  if (!threadId) return;
+  const { scrollToLatest = false, forceReload = false } = options;
+  const threadChanged =
+    state.community.selectedThreadId !== threadId || forceReload;
+  state.community.selectedThreadId = threadId;
+  renderCommunityThreads();
+
+  const posts = state.community.postsByThread.get(threadId) || [];
+  if (!posts.length || forceReload) {
+    renderCommunityThread(threadId);
+    loadCommunityThreadPosts(threadId, { scrollToLatest: true });
+    return;
+  }
+
+  renderCommunityThread(threadId, { scrollToBottom: scrollToLatest });
+  if (threadChanged) {
+    markCommunityThreadRead(threadId).catch((error) => {
+      console.error('[Community] mark read on open failed', error);
+    });
+  }
+}
+
+function registerCommunityHandlers() {
+  if (communityHandlersBound) return;
+  elements.communityThreadList?.addEventListener(
+    'click',
+    handleCommunityThreadListClick
+  );
+  elements.communityThreadForm?.addEventListener(
+    'submit',
+    handleCommunityThreadSubmit
+  );
+  elements.communityReplyForm?.addEventListener(
+    'submit',
+    handleCommunityReplySubmit
+  );
+  elements.communityThreadFileInput?.addEventListener(
+    'change',
+    handleCommunityThreadFileChange
+  );
+  elements.communityReplyFile?.addEventListener(
+    'change',
+    handleCommunityReplyFileChange
+  );
+  elements.communityThreadAttachments?.addEventListener(
+    'click',
+    handleCommunityThreadAttachmentsClick
+  );
+  elements.communityReplyAttachments?.addEventListener(
+    'click',
+    handleCommunityReplyAttachmentsClick
+  );
+  document.addEventListener('click', handleCommunityActionClick);
+  communityHandlersBound = true;
+}
+
+function subscribeToCommunityRealtime() {
+  if (!state.supabase) return;
+  if (state.community.subscription) {
+    state.community.subscription.unsubscribe();
+    state.community.subscription = null;
+  }
+
+  const channel = state.supabase
+    .channel('learner-community')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'community_threads' },
+      () => {
+        loadCommunityThreads({ preserveSelection: true });
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'community_posts' },
+      (payload) => {
+        const threadId = payload.new?.thread_id;
+        if (!threadId) return;
+        if (state.community.selectedThreadId === threadId) {
+          loadCommunityThreadPosts(threadId, { scrollToLatest: true });
+        } else {
+          loadCommunityThreads({ preserveSelection: true });
+        }
+      }
+    )
+    .subscribe();
+
+  state.community.subscription = channel;
+}
+
 function handleVisibilityChange() {
   if (document.visibilityState === 'visible') {
     loadExtraQuestionSets();
+    loadCommunityThreads({ preserveSelection: true });
   }
 }
 
@@ -2853,12 +4065,16 @@ async function initialise() {
     elements.extraSetsList?.addEventListener('click', handleExtraSetsClick);
     elements.profileForm?.addEventListener('submit', handleProfileSubmit);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    registerCommunityHandlers();
+    renderCommunityThreads();
 
     // Load data without auto-generating quiz
     await loadScheduleHealth();
     await checkTodayQuiz();
     await refreshHistory();
     await loadExtraQuestionSets();
+    await loadCommunityThreads();
+    subscribeToCommunityRealtime();
   } catch (error) {
     console.error('[Dashboard] initialisation failed', error);
     showToast('Something went wrong while loading the dashboard.', 'error');
@@ -2873,6 +4089,47 @@ function cleanup() {
   elements.extraSetsList?.removeEventListener('click', handleExtraSetsClick);
   elements.profileForm?.removeEventListener('submit', handleProfileSubmit);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
+  if (communityHandlersBound) {
+    elements.communityThreadList?.removeEventListener(
+      'click',
+      handleCommunityThreadListClick
+    );
+    elements.communityThreadForm?.removeEventListener(
+      'submit',
+      handleCommunityThreadSubmit
+    );
+    elements.communityReplyForm?.removeEventListener(
+      'submit',
+      handleCommunityReplySubmit
+    );
+    elements.communityThreadFileInput?.removeEventListener(
+      'change',
+      handleCommunityThreadFileChange
+    );
+    elements.communityReplyFile?.removeEventListener(
+      'change',
+      handleCommunityReplyFileChange
+    );
+    elements.communityThreadAttachments?.removeEventListener(
+      'click',
+      handleCommunityThreadAttachmentsClick
+    );
+    elements.communityReplyAttachments?.removeEventListener(
+      'click',
+      handleCommunityReplyAttachmentsClick
+    );
+    document.removeEventListener('click', handleCommunityActionClick);
+    communityHandlersBound = false;
+  }
+  if (state.community.subscription) {
+    try {
+      state.community.subscription.unsubscribe();
+    } catch (error) {
+      console.debug('[Community] unsubscribe failed', error);
+    }
+    state.community.subscription = null;
+  }
+  toggleCommunityComposer(false);
 }
 
 window.addEventListener('beforeunload', cleanup);
