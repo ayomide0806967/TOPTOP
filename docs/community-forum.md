@@ -1,49 +1,42 @@
-# Learner Community Forum
+# Learner Community Stream
 
 ## Overview
 
-The learner dashboard now includes a minimalist “Community” tab in the bottom navigation. It provides threaded conversations where authenticated learners can post updates, share tips, and attach lightweight files (images, PDF/Office docs, plain text). Attachments are private to authenticated users and are served via signed URLs.
+The learner dashboard includes a lightweight “Community” tab so every authenticated learner can drop quick updates, celebrate wins, or ask for help. The interface now behaves like a single shared chat room—no threads or extra cards—so messages appear in chronological order with inline file previews. Attachments remain private to authenticated users and are served via short-lived signed URLs.
 
 ## Data model
 
-Supabase migrations add the following tables and helpers:
+Recent Supabase migrations introduce a flat message stream:
 
-- `community_threads`: top-level conversations with title, author, and timestamps.
-- `community_posts`: individual messages belonging to a thread.
-- `community_post_attachments`: metadata for uploaded files stored in the `community-uploads` bucket.
-- `community_thread_reads`: tracks per-user read markers for badge counts.
-- `community_thread_summaries`: view exposing last activity metadata for the dashboard.
-- `community_mark_thread_read(thread_id uuid)`: RPC that upserts read markers and returns the new state.
+- `community_stream_messages`: top-level messages with author, content, and timestamps.
+- `community_stream_attachments`: metadata for optional uploads linked to each message.
 
-Row level security allows any authenticated learner to read conversations, author their own content, and remove their own attachments, while administrators (checked via `public.is_admin()`) retain moderation capabilities (update/delete).
+Both tables enforce row level security. Any authenticated learner can read the stream, insert new messages, and manage (update/delete) content they authored, while `public.is_admin()` users retain full moderation control. Attachments continue to live in the private `community-uploads` bucket (5 MB cap, curated MIME allowlist), so no storage changes are required.
 
-Attachments live in the private `community-uploads` storage bucket limited to 5 MB per file with a curated allowlist (`image/*`, PDF, Word, Excel, plain text). The front-end generates signed URLs on demand and caches them briefly.
+Legacy tables (`community_threads`, `community_posts`, etc.) remain for historical data but are no longer used by the learner UI.
 
 ## Front-end changes
 
-- The bottom nav expands to five buttons (`Dashboard`, `Plan`, `Bonus`, `Community`, `Profile`) and the existing badge component now also powers unread counts for community threads.
-- `apps/learner/src/dashboard.js` manages community state:
-  - Fetch thread summaries + read markers.
-  - Render thread list, detail view, reply composer, and attachment previews.
-  - Handle thread creation and replies with client-side validation and attachment uploads.
-  - Maintain local caches for profiles, posts, attachment URLs, and unread counts.
-  - Subscribe to Supabase realtime changes on `community_threads` and `community_posts` for live updates.
-- `apps/learner/admin-board.html` bundles new minimalist styles for the community UI (thread list cards, message bubbles, composer modal).
-
-The feature reuses existing Supabase client utilities and toasts; all new DOM hooks live under `data-role="community-*"` selectors to avoid clashing with other sections.
+- `apps/learner/admin-board.html` now renders a single-column chat surface with a scrollable message list and a compact composer. Previous thread panels and empty-state cards were removed.
+- `apps/learner/src/dashboard.js` manages the new stream state:
+  - Fetches the latest 200 `community_stream_messages` with their attachments.
+  - Renders chat bubbles, hydrates attachment previews via signed URLs, and keeps a simple in-memory cache of author display names.
+  - Handles message posting, attachment validation/upload, and optimistic UI updates.
+  - Subscribes to Supabase realtime `INSERT` events on `community_stream_messages` so everyone sees new activity immediately.
+- The community badge in the bottom nav now simply clears itself (no unread counter) because the experience is one continuous room.
 
 ## Admin & moderation follow-up
 
-- Add an admin dashboard view (future work) to review/report threads, bulk delete content, or pin announcements.
-- Consider rate limiting (Supabase Edge function or RPC) to avoid spam.
-- Expand the realtime channel to handle UPDATE/DELETE events if moderation tools mutate data directly.
-- Add analytics (e.g., thread/post counts, attachments volume) once the community gains traction.
+- Add an admin dashboard view for bulk moderation (delete messages/attachments, or temporarily mute learners).
+- Introduce lightweight rate limiting or flood control via an RPC/Edge Function if spam becomes a risk.
+- Extend realtime subscriptions to cover `DELETE` events once moderation tools are live.
+- Capture analytics (message volume, attachment counts) after adoption stabilises.
 
 ## Local testing
 
 1. Apply migrations: `supabase db push`.
-2. Start the learner dashboard (existing workflow) and sign in as a learner with an active plan.
-3. Use the Community tab to create a thread, attach a small image, and reply from a second account/browser.
-4. Confirm unread badge counts clear after opening or tapping “Mark as read”.
+2. Launch the learner dashboard and log in with an active plan.
+3. Open the Community tab, post a message, and optionally attach a 5 MB-or-smaller file.
+4. Sign in with a second learner in another browser/incognito window to confirm realtime delivery and attachment visibility.
 
-> ⚠️ The forum currently relies on default Supabase storage quotas; watch attachment usage and consider lifecycle policies if needed.
+> ⚠️ Attachment storage still relies on the default Supabase quota—monitor usage and consider lifecycle policies if the room becomes very active.

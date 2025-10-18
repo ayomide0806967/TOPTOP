@@ -107,57 +107,27 @@ const elements = {
   communityNotification: document.querySelector(
     '[data-role="community-notification"]'
   ),
-  communityThreadList: document.querySelector(
-    '[data-role="community-thread-list"]'
-  ),
+  communityShell: document.querySelector('[data-role="community-shell"]'),
   communityEmptyState: document.querySelector(
     '[data-role="community-empty-state"]'
-  ),
-  communityThreadView: document.querySelector(
-    '[data-role="community-thread-view"]'
-  ),
-  communityThreadTitle: document.querySelector(
-    '[data-role="community-thread-title"]'
-  ),
-  communityThreadMeta: document.querySelector(
-    '[data-role="community-thread-meta"]'
   ),
   communityMessageList: document.querySelector(
     '[data-role="community-message-list"]'
   ),
-  communityReplyForm: document.querySelector(
-    '[data-role="community-reply-form"]'
+  communityMessageForm: document.querySelector(
+    '[data-role="community-message-form"]'
   ),
-  communityReplyInput: document.querySelector(
-    '[data-role="community-reply-input"]'
+  communityMessageInput: document.querySelector(
+    '[data-role="community-message-input"]'
   ),
-  communityReplyAttachments: document.querySelector(
-    '[data-role="community-reply-attachments"]'
+  communityMessageAttachments: document.querySelector(
+    '[data-role="community-message-attachments"]'
   ),
-  communityReplyFile: document.querySelector('[data-role="community-reply-file"]'),
-  communityReplySubmit: document.querySelector(
-    '[data-role="community-reply-submit"]'
+  communityMessageFileInput: document.querySelector(
+    '[data-role="community-message-file"]'
   ),
-  communityThreadComposer: document.querySelector(
-    '[data-role="community-thread-composer"]'
-  ),
-  communityThreadForm: document.querySelector(
-    '[data-role="community-thread-form"]'
-  ),
-  communityThreadTitleInput: document.querySelector(
-    '[data-role="community-thread-title"]'
-  ),
-  communityThreadMessageInput: document.querySelector(
-    '[data-role="community-thread-message"]'
-  ),
-  communityThreadAttachments: document.querySelector(
-    '[data-role="community-thread-attachments"]'
-  ),
-  communityThreadFileInput: document.querySelector(
-    '[data-role="community-thread-file"]'
-  ),
-  communityThreadSubmit: document.querySelector(
-    '[data-role="community-thread-submit"]'
+  communityMessageSubmit: document.querySelector(
+    '[data-role="community-message-submit"]'
   ),
   navButtons: Array.from(
     document.querySelectorAll('[data-role="nav-buttons"] [data-nav-target]')
@@ -195,20 +165,13 @@ const state = {
   extraPlanId: null,
   isLoadingExtraSets: false,
   community: {
-    threads: [],
-    reads: new Map(),
-    selectedThreadId: null,
-    postsByThread: new Map(),
+    messages: [],
     userCache: new Map(),
     attachmentUrls: new Map(),
-    isLoadingThreads: false,
-    loadingThreadId: null,
-    isCreatingThread: false,
-    isSendingReply: false,
-    composerAttachments: [],
-    replyAttachments: [],
+    attachmentDrafts: [],
+    isLoadingMessages: false,
+    isSendingMessage: false,
     subscription: null,
-    isComposingThread: false,
   },
 };
 
@@ -426,28 +389,6 @@ function formatDateTime(dateString) {
   });
 }
 
-function describeRelativeTime(dateString) {
-  if (!dateString) return '';
-  const timestamp = new Date(dateString);
-  if (Number.isNaN(timestamp.getTime())) return '';
-  const diffSeconds = Math.floor((Date.now() - timestamp.getTime()) / 1000);
-  if (diffSeconds < 5) return 'Just now';
-  if (diffSeconds < 60) return `${diffSeconds}s ago`;
-  const diffMinutes = Math.floor(diffSeconds / 60);
-  if (diffMinutes < 60) {
-    return `${diffMinutes}m ago`;
-  }
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) {
-    return `${diffHours}h ago`;
-  }
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) {
-    return `${diffDays}d ago`;
-  }
-  return formatDate(dateString);
-}
-
 function formatFileSize(bytes) {
   const numeric = Number(bytes);
   if (!Number.isFinite(numeric) || numeric < 0) return '—';
@@ -488,22 +429,6 @@ function revokeAttachmentDraft(draft) {
   if (draft?.previewUrl) {
     URL.revokeObjectURL(draft.previewUrl);
   }
-}
-
-function pluralize(word, count) {
-  return `${count} ${word}${count === 1 ? '' : 's'}`;
-}
-
-function createThreadExcerpt(text) {
-  if (!text) return '';
-  return text.trim().slice(0, 160);
-}
-
-function buildPostExcerpt(content, attachments = []) {
-  if (content && content.trim()) {
-    return createThreadExcerpt(content);
-  }
-  return attachments.length ? 'Shared an attachment' : '';
 }
 
 function escapeHtml(value) {
@@ -2268,44 +2193,9 @@ function updateCommunityNavNotification() {
   const badge = elements.communityNotification;
   if (!badge) return;
 
-  const threads = Array.isArray(state.community?.threads)
-    ? state.community.threads
-    : [];
-  const unreadCount = threads.reduce((total, thread) => {
-    const lastActivity =
-      thread.lastPostedAt || thread.updatedAt || thread.createdAt;
-    if (!lastActivity) return total;
-    const lastTs = new Date(lastActivity).getTime();
-    if (!Number.isFinite(lastTs)) return total;
-    const readIso = state.community.reads.get(thread.id);
-    if (!readIso) return total + 1;
-    const readTs = new Date(readIso).getTime();
-    if (!Number.isFinite(readTs)) return total;
-    return lastTs > readTs ? total + 1 : total;
-  }, 0);
-
-  if (unreadCount > 0) {
-    badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
-    badge.classList.add('is-visible');
-    badge.setAttribute('aria-hidden', 'false');
-  } else {
-    badge.textContent = '';
-    badge.classList.remove('is-visible');
-    badge.setAttribute('aria-hidden', 'true');
-  }
-}
-
-function sortCommunityThreads() {
-  if (!Array.isArray(state.community?.threads)) return;
-  state.community.threads.sort((a, b) => {
-    const aTs = new Date(
-      a.lastPostedAt || a.updatedAt || a.createdAt
-    ).getTime();
-    const bTs = new Date(
-      b.lastPostedAt || b.updatedAt || b.createdAt
-    ).getTime();
-    return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
-  });
+  badge.textContent = '';
+  badge.classList.remove('is-visible');
+  badge.setAttribute('aria-hidden', 'true');
 }
 
 async function ensureCommunityProfiles(userIds = []) {
@@ -2334,196 +2224,48 @@ function getCommunityUserName(userId) {
   return cached || 'Learner';
 }
 
-function renderCommunityThreads() {
-  const list = elements.communityThreadList;
-  if (!list) return;
-
-  if (state.community.isLoadingThreads) {
-    list.innerHTML = `
-      <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-        Loading threads…
-      </div>
-    `;
-    return;
-  }
-
-  if (!state.community.threads.length) {
-    list.innerHTML = `
-      <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-        Be the first to start a conversation today.
-      </div>
-    `;
-    return;
-  }
-
-  const cards = state.community.threads
-    .map((thread) => {
-      const isActive = state.community.selectedThreadId === thread.id;
-      const lastActivity =
-        thread.lastPostedAt || thread.updatedAt || thread.createdAt;
-      const readIso = state.community.reads.get(thread.id);
-      const unread =
-        lastActivity &&
-        (!readIso ||
-          new Date(lastActivity).getTime() > new Date(readIso).getTime());
-      const authorName = getCommunityUserName(
-        thread.lastPostAuthorId || thread.createdBy
-      );
-      const metaParts = [
-        authorName,
-        describeRelativeTime(lastActivity),
-        pluralize('message', Math.max(1, Number(thread.postCount ?? 0))),
-      ].filter(Boolean);
-      const metaHtml = metaParts
-        .map((part, index) =>
-          index === 0
-            ? `<span>${escapeHtml(part)}</span>`
-            : `<span>•</span><span>${escapeHtml(part)}</span>`
-        )
-        .join('');
-      const excerpt = thread.lastPostExcerpt?.trim()
-        ? escapeHtml(thread.lastPostExcerpt.trim())
-        : 'Conversation just getting started.';
-
-      return `
-        <article
-          class="community-thread-card${isActive ? ' community-thread-card--active' : ''}"
-          data-thread-id="${escapeHtml(thread.id)}"
-        >
-          <div class="community-thread-card__title">
-            ${escapeHtml(thread.title || 'Untitled thread')}
-          </div>
-          <div class="community-thread-card__meta">
-            ${metaHtml}
-            ${
-              unread
-                ? '<span class="community-thread-card__badge">New</span>'
-                : ''
-            }
-          </div>
-          <p class="community-thread-card__snippet">${excerpt}</p>
-        </article>
-      `;
-    })
-    .join('');
-
-  list.innerHTML = cards;
-}
-
-function scrollCommunityMessagesToBottom() {
-  if (!elements.communityMessageList) return;
-  elements.communityMessageList.scrollTop =
-    elements.communityMessageList.scrollHeight;
-}
-
-async function hydrateCommunityAttachments() {
-  if (!elements.communityMessageList) return;
-  const nodes = Array.from(
-    elements.communityMessageList.querySelectorAll('[data-attachment-path]')
-  );
-  if (!nodes.length) return;
-
-  await Promise.all(
-    nodes.map(async (node) => {
-      const path = node.dataset.attachmentPath;
-      if (!path) return;
-      try {
-        const url = await getCommunityAttachmentUrl(path);
-        if (!url) return;
-        if (node.dataset.attachmentType === 'image') {
-          node.setAttribute('src', url);
-        } else {
-          node.setAttribute('href', url);
-          node.setAttribute('target', '_blank');
-          node.setAttribute('rel', 'noopener noreferrer');
-        }
-        node.removeAttribute('data-attachment-path');
-      } catch (error) {
-        console.error('[Community] hydrate attachment failed', error);
-      }
-    })
-  );
-}
-
-function renderCommunityThread(threadId, options = {}) {
+function renderCommunityMessages(options = {}) {
   const { scrollToBottom = false } = options;
-  const detail = elements.communityThreadView;
+  const list = elements.communityMessageList;
   const emptyState = elements.communityEmptyState;
-  const composer = elements.communityThreadComposer;
-  if (!detail || !emptyState) return;
+  if (!list || !emptyState) return;
 
-  if (state.community.isComposingThread) {
-    detail.classList.add('hidden');
+  const messages = Array.isArray(state.community?.messages)
+    ? state.community.messages
+    : [];
+
+  if (state.community.isLoadingMessages && !messages.length) {
     emptyState.classList.add('hidden');
-    composer?.classList.remove('hidden');
-    renderCommunityAttachmentDrafts(
-      elements.communityThreadAttachments,
-      state.community.composerAttachments
-    );
+    list.classList.remove('hidden');
+    list.innerHTML = `
+      <div class="text-sm text-slate-500 px-2 py-4">
+        Loading messages…
+      </div>
+    `;
     return;
   }
 
-  composer?.classList.add('hidden');
-
-  const thread = state.community.threads.find((item) => item.id === threadId);
-  if (!thread) {
-    detail.classList.add('hidden');
+  if (!messages.length) {
+    list.classList.add('hidden');
     emptyState.classList.remove('hidden');
     return;
   }
 
   emptyState.classList.add('hidden');
-  detail.classList.remove('hidden');
+  list.classList.remove('hidden');
 
-  if (elements.communityThreadTitle) {
-    elements.communityThreadTitle.textContent =
-      thread.title || 'Untitled thread';
-  }
-
-  if (elements.communityThreadMeta) {
-    const owner = getCommunityUserName(thread.createdBy);
-    const parts = [
-      `Started by ${owner === 'You' ? 'you' : owner}`,
-      describeRelativeTime(thread.createdAt),
-      pluralize('message', Math.max(1, Number(thread.postCount ?? 0))),
-    ];
-    elements.communityThreadMeta.textContent = parts.join(' • ');
-  }
-
-  const list = elements.communityMessageList;
-  if (!list) return;
-
-  const posts = state.community.postsByThread.get(threadId) || [];
-  if (state.community.loadingThreadId === threadId && !posts.length) {
-    list.innerHTML = `
-      <div class="text-sm text-slate-500 px-2 py-4">
-        Loading replies…
-      </div>
-    `;
-    return;
-  }
-
-  if (!posts.length) {
-    list.innerHTML = `
-      <div class="text-sm text-slate-500 px-2 py-4">
-        No replies yet. Share the first update to get things going.
-      </div>
-    `;
-    return;
-  }
-
-  list.innerHTML = posts
-    .map((post) => {
-      const isSelf = post.authorId === state.user?.id;
-      const authorName = getCommunityUserName(post.authorId);
-      const bodyHtml = escapeHtml(post.content || '')
+  list.innerHTML = messages
+    .map((message) => {
+      const isSelf = message.authorId === state.user?.id;
+      const authorName = getCommunityUserName(message.authorId);
+      const bodyHtml = escapeHtml(message.content || '')
         .replace(/\n/g, '<br />')
         .trim();
       const attachmentsHtml =
-        Array.isArray(post.attachments) && post.attachments.length
+        Array.isArray(message.attachments) && message.attachments.length
           ? `
             <div class="community-message-attachments">
-              ${post.attachments
+              ${message.attachments
                 .map((attachment) => {
                   const pathAttr = escapeHtml(attachment.storage_path || '');
                   const label = escapeHtml(
@@ -2562,7 +2304,7 @@ function renderCommunityThread(threadId, options = {}) {
       return `
         <div class="community-message${
           isSelf ? ' community-message--self' : ''
-        }" data-message-id="${escapeHtml(post.id)}">
+        }" data-message-id="${escapeHtml(message.id)}">
           <span class="community-message-author">${escapeHtml(
             authorName
           )}</span>
@@ -2571,7 +2313,7 @@ function renderCommunityThread(threadId, options = {}) {
           }</div>
           ${attachmentsHtml}
           <span class="community-message-time">${escapeHtml(
-            formatDateTime(post.createdAt)
+            formatDateTime(message.createdAt)
           )}</span>
         </div>
       `;
@@ -2591,9 +2333,11 @@ function renderCommunityThread(threadId, options = {}) {
   });
 }
 
-function renderCommunityAttachmentDrafts(container, drafts) {
+function renderCommunityAttachmentDrafts() {
+  const container = elements.communityMessageAttachments;
   if (!container) return;
-  if (!Array.isArray(drafts) || !drafts.length) {
+  const drafts = state.community.attachmentDrafts || [];
+  if (!drafts.length) {
     container.innerHTML = '';
     return;
   }
@@ -2616,50 +2360,45 @@ function renderCommunityAttachmentDrafts(container, drafts) {
 }
 
 function resetCommunityComposer() {
-  elements.communityThreadForm?.reset();
-  state.community.composerAttachments.forEach(revokeAttachmentDraft);
-  state.community.composerAttachments = [];
-  renderCommunityAttachmentDrafts(
-    elements.communityThreadAttachments,
-    state.community.composerAttachments
+  elements.communityMessageForm?.reset();
+  state.community.attachmentDrafts.forEach(revokeAttachmentDraft);
+  state.community.attachmentDrafts = [];
+  renderCommunityAttachmentDrafts();
+}
+
+function scrollCommunityMessagesToBottom() {
+  if (!elements.communityMessageList) return;
+  elements.communityMessageList.scrollTop =
+    elements.communityMessageList.scrollHeight;
+}
+
+async function hydrateCommunityAttachments() {
+  if (!elements.communityMessageList) return;
+  const nodes = Array.from(
+    elements.communityMessageList.querySelectorAll('[data-attachment-path]')
   );
-}
+  if (!nodes.length) return;
 
-function resetCommunityReplyComposer() {
-  elements.communityReplyForm?.reset();
-  state.community.replyAttachments.forEach(revokeAttachmentDraft);
-  state.community.replyAttachments = [];
-  renderCommunityAttachmentDrafts(
-    elements.communityReplyAttachments,
-    state.community.replyAttachments
+  await Promise.all(
+    nodes.map(async (node) => {
+      const path = node.dataset.attachmentPath;
+      if (!path) return;
+      try {
+        const url = await getCommunityAttachmentUrl(path);
+        if (!url) return;
+        if (node.dataset.attachmentType === 'image') {
+          node.setAttribute('src', url);
+        } else {
+          node.setAttribute('href', url);
+          node.setAttribute('target', '_blank');
+          node.setAttribute('rel', 'noopener noreferrer');
+        }
+        node.removeAttribute('data-attachment-path');
+      } catch (error) {
+        console.error('[Community] hydrate attachment failed', error);
+      }
+    })
   );
-}
-
-function showCommunityComposer() {
-  state.community.isComposingThread = true;
-  state.community.selectedThreadId = null;
-  resetCommunityComposer();
-  renderCommunityThreads();
-  renderCommunityThread(null);
-  requestAnimationFrame(() => {
-    elements.communityThreadTitleInput?.focus();
-  });
-}
-
-function hideCommunityComposer({ reset = true } = {}) {
-  if (reset) {
-    resetCommunityComposer();
-  }
-  state.community.isComposingThread = false;
-  const threadId = state.community.selectedThreadId || null;
-  renderCommunityThreads();
-  renderCommunityThread(threadId);
-}
-
-function closeCommunityThread() {
-  state.community.selectedThreadId = null;
-  state.community.isComposingThread = false;
-  hideCommunityComposer({ reset: false });
 }
 
 async function getCommunityAttachmentUrl(path) {
@@ -2684,128 +2423,34 @@ async function getCommunityAttachmentUrl(path) {
   return url;
 }
 
-async function loadCommunityThreads(options = {}) {
+async function loadCommunityMessages(options = {}) {
   if (!state.supabase || !state.user) return;
-  const {
-    preserveSelection = true,
-    focusThreadId = null,
-    showLoading = false,
-  } = options;
+  const { showLoading = false, scrollToLatest = false } = options;
 
-  if (state.community.isLoadingThreads) return;
-  state.community.isLoadingThreads = true;
+  if (state.community.isLoadingMessages) return;
+  state.community.isLoadingMessages = true;
+
   if (showLoading) {
-    renderCommunityThreads();
+    renderCommunityMessages();
   }
-
-  try {
-    const [{ data: threadsData, error: threadsError }, { data: readsData }] =
-      await Promise.all([
-        state.supabase
-          .from('community_thread_summaries')
-          .select(
-            'id, title, created_by, created_at, updated_at, last_posted_at, last_post_author_id, last_post_excerpt, post_count'
-          )
-          .order('last_posted_at', { ascending: false, nullsLast: true })
-          .order('updated_at', { ascending: false })
-          .limit(50),
-        state.supabase
-          .from('community_thread_reads')
-          .select('thread_id, last_read_at')
-          .eq('user_id', state.user.id),
-      ]);
-    if (threadsError) throw threadsError;
-
-    const readsMap = new Map();
-    (readsData || []).forEach((row) => {
-      if (row?.thread_id && row.last_read_at) {
-        readsMap.set(row.thread_id, row.last_read_at);
-      }
-    });
-    state.community.reads = readsMap;
-
-    state.community.threads = (threadsData || []).map((row) => ({
-      id: row.id,
-      title: row.title || 'Untitled thread',
-      createdBy: row.created_by,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      lastPostedAt: row.last_posted_at || row.updated_at,
-      lastPostAuthorId: row.last_post_author_id || row.created_by,
-      lastPostExcerpt: row.last_post_excerpt || '',
-      postCount: Math.max(1, Number(row.post_count ?? 0)),
-    }));
-
-    const profileIds = [
-      ...state.community.threads.map((thread) => thread.createdBy),
-      ...state.community.threads
-        .map((thread) => thread.lastPostAuthorId)
-        .filter(Boolean),
-    ];
-    await ensureCommunityProfiles(profileIds);
-
-    sortCommunityThreads();
-    renderCommunityThreads();
-
-    if (!preserveSelection) {
-      state.community.selectedThreadId = null;
-    } else if (
-      state.community.selectedThreadId &&
-      !state.community.threads.some(
-        (thread) => thread.id === state.community.selectedThreadId
-      )
-    ) {
-      state.community.selectedThreadId = null;
-    }
-
-    if (focusThreadId) {
-      state.community.selectedThreadId = focusThreadId;
-    }
-
-    updateCommunityNavNotification();
-
-    if (state.community.isComposingThread) {
-      renderCommunityThread(null);
-    } else if (state.community.selectedThreadId) {
-      renderCommunityThread(state.community.selectedThreadId);
-    } else {
-      renderCommunityThread(null);
-    }
-  } catch (error) {
-    console.error('[Community] loadCommunityThreads failed', error);
-    if (!state.community.threads.length) {
-      renderCommunityThreads();
-    }
-    showToast('Unable to load community threads right now.', 'error');
-  } finally {
-    state.community.isLoadingThreads = false;
-  }
-}
-
-async function loadCommunityThreadPosts(threadId, options = {}) {
-  if (!state.supabase || !threadId) return;
-  const { scrollToLatest = false } = options;
-  state.community.loadingThreadId = threadId;
-  renderCommunityThread(threadId);
 
   try {
     const { data, error } = await state.supabase
-      .from('community_posts')
+      .from('community_stream_messages')
       .select(
-        'id, thread_id, author_id, content, created_at, community_post_attachments (id, storage_path, file_name, mime_type, size_bytes)'
+        'id, author_id, content, created_at, community_stream_attachments (id, storage_path, file_name, mime_type, size_bytes)'
       )
-      .eq('thread_id', threadId)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .limit(200);
     if (error) throw error;
 
-    const posts = (data || []).map((row) => ({
+    const messages = (data || []).map((row) => ({
       id: row.id,
-      threadId: row.thread_id,
       authorId: row.author_id,
       content: row.content || '',
       createdAt: row.created_at,
-      attachments: Array.isArray(row.community_post_attachments)
-        ? row.community_post_attachments.map((attachment) => ({
+      attachments: Array.isArray(row.community_stream_attachments)
+        ? row.community_stream_attachments.map((attachment) => ({
             id: attachment.id,
             storage_path: attachment.storage_path,
             file_name: attachment.file_name,
@@ -2815,44 +2460,29 @@ async function loadCommunityThreadPosts(threadId, options = {}) {
         : [],
     }));
 
+    state.community.messages = messages;
+
     await ensureCommunityProfiles(
-      posts.map((post) => post.authorId).filter(Boolean)
+      messages.map((message) => message.authorId).filter(Boolean)
     );
 
-    state.community.postsByThread.set(threadId, posts);
-    renderCommunityThread(threadId, { scrollToBottom: scrollToLatest });
-    markCommunityThreadRead(threadId).catch((error) => {
-      console.error('[Community] mark read failed', error);
+    renderCommunityMessages({
+      scrollToBottom: scrollToLatest || messages.length <= 20,
     });
+    updateCommunityNavNotification();
   } catch (error) {
-    console.error('[Community] loadCommunityThreadPosts failed', error);
-    showToast('Unable to load thread messages.', 'error');
-  } finally {
-    state.community.loadingThreadId = null;
-  }
-}
-
-async function markCommunityThreadRead(threadId) {
-  if (!state.supabase || !threadId) return;
-  try {
-    const { data, error } = await state.supabase.rpc(
-      'community_mark_thread_read',
-      {
-        p_thread_id: threadId,
-      }
-    );
-    if (error) throw error;
-    if (data?.last_read_at) {
-      state.community.reads.set(threadId, data.last_read_at);
-      updateCommunityNavNotification();
+    console.error('[Community] loadCommunityMessages failed', error);
+    if (!state.community.messages.length) {
+      renderCommunityMessages();
     }
-  } catch (error) {
-    console.error('[Community] markCommunityThreadRead failed', error);
+    showToast('Unable to load community messages right now.', 'error');
+  } finally {
+    state.community.isLoadingMessages = false;
   }
 }
 
-async function uploadCommunityAttachments(threadId, postId, drafts) {
-  if (!state.supabase || !threadId || !postId) return [];
+async function uploadCommunityStreamAttachments(messageId, drafts) {
+  if (!state.supabase || !messageId) return [];
   if (!Array.isArray(drafts) || !drafts.length) return [];
 
   const uploaded = [];
@@ -2862,7 +2492,7 @@ async function uploadCommunityAttachments(threadId, postId, drafts) {
       .toLowerCase()
       .replace(/[^a-z0-9._-]+/g, '-')
       .replace(/-+/g, '-');
-    const path = `${state.user.id}/${threadId}/${postId}/${Date.now()}-${sanitizedName}`;
+    const path = `${state.user.id}/stream/${messageId}/${Date.now()}-${sanitizedName}`;
     const { error: storageError } = await state.supabase.storage
       .from('community-uploads')
       .upload(path, file, {
@@ -2874,9 +2504,9 @@ async function uploadCommunityAttachments(threadId, postId, drafts) {
     }
 
     const { data: attachmentData, error: metaError } = await state.supabase
-      .from('community_post_attachments')
+      .from('community_stream_attachments')
       .insert({
-        post_id: postId,
+        message_id: messageId,
         storage_path: path,
         file_name: file.name,
         mime_type: file.type || null,
@@ -2893,15 +2523,15 @@ async function uploadCommunityAttachments(threadId, postId, drafts) {
   return uploaded;
 }
 
-function handleCommunityThreadFileChange(event) {
+function handleCommunityFileChange(event) {
   const files = Array.from(event.target.files || []);
   if (!files.length) return;
 
   let remaining =
-    COMMUNITY_MAX_ATTACHMENTS - state.community.composerAttachments.length;
+    COMMUNITY_MAX_ATTACHMENTS - state.community.attachmentDrafts.length;
   if (remaining <= 0) {
     showToast(
-      `You can attach up to ${COMMUNITY_MAX_ATTACHMENTS} files per post.`,
+      `You can attach up to ${COMMUNITY_MAX_ATTACHMENTS} files per message.`,
       'error'
     );
     event.target.value = '';
@@ -2914,9 +2544,9 @@ function handleCommunityThreadFileChange(event) {
     const validationError = validateCommunityAttachment(file);
     if (validationError) {
       errorMessage = validationError;
-      continue;
+      break;
     }
-    state.community.composerAttachments.push(createAttachmentDraft(file));
+    state.community.attachmentDrafts.push(createAttachmentDraft(file));
     remaining -= 1;
   }
 
@@ -2924,372 +2554,90 @@ function handleCommunityThreadFileChange(event) {
     showToast(errorMessage, 'error');
   }
 
-  renderCommunityAttachmentDrafts(
-    elements.communityThreadAttachments,
-    state.community.composerAttachments
-  );
+  renderCommunityAttachmentDrafts();
   event.target.value = '';
 }
 
-function handleCommunityReplyFileChange(event) {
-  const files = Array.from(event.target.files || []);
-  if (!files.length) return;
-
-  let remaining =
-    COMMUNITY_MAX_ATTACHMENTS - state.community.replyAttachments.length;
-  if (remaining <= 0) {
-    showToast(
-      `You can attach up to ${COMMUNITY_MAX_ATTACHMENTS} files per post.`,
-      'error'
-    );
-    event.target.value = '';
-    return;
-  }
-
-  let errorMessage = null;
-  for (const file of files) {
-    if (remaining <= 0) break;
-    const validationError = validateCommunityAttachment(file);
-    if (validationError) {
-      errorMessage = validationError;
-      continue;
-    }
-    state.community.replyAttachments.push(createAttachmentDraft(file));
-    remaining -= 1;
-  }
-
-  if (errorMessage) {
-    showToast(errorMessage, 'error');
-  }
-
-  renderCommunityAttachmentDrafts(
-    elements.communityReplyAttachments,
-    state.community.replyAttachments
-  );
-  event.target.value = '';
-}
-
-function handleCommunityThreadAttachmentsClick(event) {
+function handleCommunityAttachmentsClick(event) {
   const button = event.target.closest('[data-action="remove-attachment"]');
   if (!button) return;
   const id = button.dataset.id;
   if (!id) return;
-  state.community.composerAttachments = state.community.composerAttachments.filter(
-    (draft) => {
-      if (draft.id === id) {
-        revokeAttachmentDraft(draft);
-        return false;
-      }
-      return true;
-    }
-  );
-  renderCommunityAttachmentDrafts(
-    elements.communityThreadAttachments,
-    state.community.composerAttachments
-  );
+
+  const drafts = state.community.attachmentDrafts;
+  const index = drafts.findIndex((draft) => draft.id === id);
+  if (index === -1) return;
+
+  const [removed] = drafts.splice(index, 1);
+  revokeAttachmentDraft(removed);
+  renderCommunityAttachmentDrafts();
 }
 
-function handleCommunityReplyAttachmentsClick(event) {
-  const button = event.target.closest('[data-action="remove-attachment"]');
-  if (!button) return;
-  const id = button.dataset.id;
-  if (!id) return;
-  state.community.replyAttachments = state.community.replyAttachments.filter(
-    (draft) => {
-      if (draft.id === id) {
-        revokeAttachmentDraft(draft);
-        return false;
-      }
-      return true;
-    }
-  );
-  renderCommunityAttachmentDrafts(
-    elements.communityReplyAttachments,
-    state.community.replyAttachments
-  );
-}
-
-function handleCommunityThreadListClick(event) {
-  const card = event.target.closest('[data-thread-id]');
-  if (!card) return;
-  const threadId = card.dataset.threadId;
-  if (!threadId) return;
-  openCommunityThread(threadId, { scrollToLatest: false });
-}
-
-function handleCommunityActionClick(event) {
-  const actionEl = event.target.closest('[data-action]');
-  if (!actionEl) return;
-  const action = actionEl.dataset.action;
-  if (!action || !action.startsWith('community-')) return;
-
-  switch (action) {
-    case 'community-open-composer':
-      event.preventDefault();
-      showCommunityComposer();
-      break;
-    case 'community-close-composer':
-      event.preventDefault();
-      hideCommunityComposer();
-      break;
-    case 'community-refresh':
-      event.preventDefault();
-      loadCommunityThreads({ preserveSelection: true, showLoading: true });
-      break;
-    case 'community-close-thread':
-      event.preventDefault();
-      closeCommunityThread();
-      break;
-    case 'community-mark-read':
-      event.preventDefault();
-      if (state.community.selectedThreadId) {
-        markCommunityThreadRead(state.community.selectedThreadId).catch(
-          (error) => {
-            console.error('[Community] mark read via action failed', error);
-          }
-        );
-      }
-      break;
-    default:
-      break;
-  }
-}
-
-async function handleCommunityThreadSubmit(event) {
+async function handleCommunityMessageSubmit(event) {
   event.preventDefault();
-  if (!state.supabase || state.community.isCreatingThread) return;
+  if (!state.supabase || state.community.isSendingMessage) return;
 
-  const title = elements.communityThreadTitleInput?.value?.trim() || '';
-  const message =
-    elements.communityThreadMessageInput?.value?.trim() || '';
-  const attachments = state.community.composerAttachments || [];
-
-  if (!title) {
-    showToast('Add a thread title before posting.', 'error');
-    return;
-  }
-  if (!message && !attachments.length) {
-    showToast('Share a message or attach a file to start the thread.', 'error');
-    return;
-  }
-
-  state.community.isCreatingThread = true;
-  elements.communityThreadSubmit?.setAttribute('disabled', 'disabled');
-
-  try {
-    const { data: threadData, error: threadError } = await state.supabase
-      .from('community_threads')
-      .insert({
-        title,
-        created_by: state.user.id,
-      })
-      .select('id, title, created_by, created_at, updated_at')
-      .single();
-    if (threadError) throw threadError;
-
-    const { data: postData, error: postError } = await state.supabase
-      .from('community_posts')
-      .insert({
-        thread_id: threadData.id,
-        author_id: state.user.id,
-        content: message,
-      })
-      .select('id, created_at')
-      .single();
-    if (postError) throw postError;
-
-    const uploaded = await uploadCommunityAttachments(
-      threadData.id,
-      postData.id,
-      attachments
-    );
-    const attachmentRows = uploaded.map((item) => ({
-      id: item.id,
-      storage_path: item.storage_path,
-      file_name: item.file_name,
-      mime_type: item.mime_type,
-      size_bytes: item.size_bytes,
-    }));
-
-    const newPost = {
-      id: postData.id,
-      threadId: threadData.id,
-      authorId: state.user.id,
-      content: message,
-      createdAt: postData.created_at,
-      attachments: attachmentRows,
-    };
-
-    state.community.postsByThread.set(threadData.id, [newPost]);
-
-    const newThread = {
-      id: threadData.id,
-      title: threadData.title || title,
-      createdBy: threadData.created_by,
-      createdAt: threadData.created_at,
-      updatedAt: threadData.updated_at,
-      lastPostedAt: newPost.createdAt,
-      lastPostAuthorId: newPost.authorId,
-      lastPostExcerpt: buildPostExcerpt(newPost.content, attachmentRows),
-      postCount: 1,
-    };
-
-    state.community.threads.push(newThread);
-    sortCommunityThreads();
-
-    state.community.selectedThreadId = newThread.id;
-    state.community.reads.set(newThread.id, newPost.createdAt);
-    hideCommunityComposer();
-    renderCommunityThread(newThread.id, { scrollToBottom: true });
-    updateCommunityNavNotification();
-    showToast('Thread posted successfully.', 'success');
-  } catch (error) {
-    console.error('[Community] handleCommunityThreadSubmit failed', error);
-    showToast('Unable to post your thread right now.', 'error');
-  } finally {
-    state.community.isCreatingThread = false;
-    elements.communityThreadSubmit?.removeAttribute('disabled');
-  }
-}
-
-async function handleCommunityReplySubmit(event) {
-  event.preventDefault();
-  if (!state.supabase || state.community.isSendingReply) return;
-  const threadId = state.community.selectedThreadId;
-  if (!threadId) {
-    showToast('Select a thread before replying.', 'error');
-    return;
-  }
-
-  const message = elements.communityReplyInput?.value?.trim() || '';
-  const attachments = state.community.replyAttachments || [];
+  const message = elements.communityMessageInput?.value?.trim() || '';
+  const attachments = state.community.attachmentDrafts || [];
   if (!message && !attachments.length) {
     showToast('Share a message or attach a file before sending.', 'error');
     return;
   }
 
-  state.community.isSendingReply = true;
-  elements.communityReplySubmit?.setAttribute('disabled', 'disabled');
+  state.community.isSendingMessage = true;
+  elements.communityMessageSubmit?.setAttribute('disabled', 'disabled');
 
   try {
-    const { data: postData, error: postError } = await state.supabase
-      .from('community_posts')
+    const { data: messageData, error: insertError } = await state.supabase
+      .from('community_stream_messages')
       .insert({
-        thread_id: threadId,
         author_id: state.user.id,
         content: message,
       })
       .select('id, created_at')
       .single();
-    if (postError) throw postError;
+    if (insertError) throw insertError;
 
-    const uploaded = await uploadCommunityAttachments(
-      threadId,
-      postData.id,
+    const uploaded = await uploadCommunityStreamAttachments(
+      messageData.id,
       attachments
     );
-    const attachmentRows = uploaded.map((item) => ({
-      id: item.id,
-      storage_path: item.storage_path,
-      file_name: item.file_name,
-      mime_type: item.mime_type,
-      size_bytes: item.size_bytes,
-    }));
 
-    const newPost = {
-      id: postData.id,
-      threadId,
+    const newMessage = {
+      id: messageData.id,
       authorId: state.user.id,
       content: message,
-      createdAt: postData.created_at,
-      attachments: attachmentRows,
+      createdAt: messageData.created_at,
+      attachments: uploaded,
     };
 
-    const posts = state.community.postsByThread.get(threadId) || [];
-    posts.push(newPost);
-    state.community.postsByThread.set(threadId, posts);
-
-    const thread = state.community.threads.find((item) => item.id === threadId);
-    if (thread) {
-      thread.lastPostedAt = newPost.createdAt;
-      thread.lastPostAuthorId = newPost.authorId;
-      thread.lastPostExcerpt = buildPostExcerpt(
-        newPost.content,
-        attachmentRows
-      );
-      thread.postCount = posts.length;
-    }
-
-    state.community.reads.set(threadId, newPost.createdAt);
-    sortCommunityThreads();
-    renderCommunityThreads();
-    renderCommunityThread(threadId, { scrollToBottom: true });
+    state.community.messages.push(newMessage);
+    resetCommunityComposer();
+    renderCommunityMessages({ scrollToBottom: true });
     updateCommunityNavNotification();
-    resetCommunityReplyComposer();
   } catch (error) {
-    console.error('[Community] handleCommunityReplySubmit failed', error);
-    showToast('Unable to send your reply right now.', 'error');
+    console.error('[Community] handleCommunityMessageSubmit failed', error);
+    showToast('Unable to send your message right now.', 'error');
   } finally {
-    state.community.isSendingReply = false;
-    elements.communityReplySubmit?.removeAttribute('disabled');
-  }
-}
-
-function openCommunityThread(threadId, options = {}) {
-  if (!threadId) return;
-  const { scrollToLatest = false, forceReload = false } = options;
-  const threadChanged =
-    state.community.selectedThreadId !== threadId || forceReload;
-  state.community.isComposingThread = false;
-  state.community.selectedThreadId = threadId;
-  renderCommunityThreads();
-
-  const posts = state.community.postsByThread.get(threadId) || [];
-  if (!posts.length || forceReload) {
-    renderCommunityThread(threadId);
-    loadCommunityThreadPosts(threadId, { scrollToLatest: true });
-    return;
-  }
-
-  renderCommunityThread(threadId, { scrollToBottom: scrollToLatest });
-  if (threadChanged) {
-    markCommunityThreadRead(threadId).catch((error) => {
-      console.error('[Community] mark read on open failed', error);
-    });
+    state.community.isSendingMessage = false;
+    elements.communityMessageSubmit?.removeAttribute('disabled');
   }
 }
 
 function registerCommunityHandlers() {
   if (communityHandlersBound) return;
-  elements.communityThreadList?.addEventListener(
-    'click',
-    handleCommunityThreadListClick
-  );
-  elements.communityThreadForm?.addEventListener(
+  elements.communityMessageForm?.addEventListener(
     'submit',
-    handleCommunityThreadSubmit
+    handleCommunityMessageSubmit
   );
-  elements.communityReplyForm?.addEventListener(
-    'submit',
-    handleCommunityReplySubmit
-  );
-  elements.communityThreadFileInput?.addEventListener(
+  elements.communityMessageFileInput?.addEventListener(
     'change',
-    handleCommunityThreadFileChange
+    handleCommunityFileChange
   );
-  elements.communityReplyFile?.addEventListener(
-    'change',
-    handleCommunityReplyFileChange
-  );
-  elements.communityThreadAttachments?.addEventListener(
+  elements.communityMessageAttachments?.addEventListener(
     'click',
-    handleCommunityThreadAttachmentsClick
+    handleCommunityAttachmentsClick
   );
-  elements.communityReplyAttachments?.addEventListener(
-    'click',
-    handleCommunityReplyAttachmentsClick
-  );
-  document.addEventListener('click', handleCommunityActionClick);
   communityHandlersBound = true;
 }
 
@@ -3301,25 +2649,12 @@ function subscribeToCommunityRealtime() {
   }
 
   const channel = state.supabase
-    .channel('learner-community')
+    .channel('learner-community-stream')
     .on(
       'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'community_threads' },
+      { event: 'INSERT', schema: 'public', table: 'community_stream_messages' },
       () => {
-        loadCommunityThreads({ preserveSelection: true });
-      }
-    )
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'community_posts' },
-      (payload) => {
-        const threadId = payload.new?.thread_id;
-        if (!threadId) return;
-        if (state.community.selectedThreadId === threadId) {
-          loadCommunityThreadPosts(threadId, { scrollToLatest: true });
-        } else {
-          loadCommunityThreads({ preserveSelection: true });
-        }
+        loadCommunityMessages({ scrollToLatest: true });
       }
     )
     .subscribe();
@@ -3330,7 +2665,7 @@ function subscribeToCommunityRealtime() {
 function handleVisibilityChange() {
   if (document.visibilityState === 'visible') {
     loadExtraQuestionSets();
-    loadCommunityThreads({ preserveSelection: true });
+    loadCommunityMessages({ scrollToLatest: true });
   }
 }
 
@@ -4083,14 +3418,14 @@ async function initialise() {
     elements.profileForm?.addEventListener('submit', handleProfileSubmit);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     registerCommunityHandlers();
-    renderCommunityThreads();
+    renderCommunityMessages();
 
     // Load data without auto-generating quiz
     await loadScheduleHealth();
     await checkTodayQuiz();
     await refreshHistory();
     await loadExtraQuestionSets();
-    await loadCommunityThreads();
+    await loadCommunityMessages({ showLoading: true, scrollToLatest: true });
     subscribeToCommunityRealtime();
   } catch (error) {
     console.error('[Dashboard] initialisation failed', error);
@@ -4107,35 +3442,18 @@ function cleanup() {
   elements.profileForm?.removeEventListener('submit', handleProfileSubmit);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
   if (communityHandlersBound) {
-    elements.communityThreadList?.removeEventListener(
-      'click',
-      handleCommunityThreadListClick
-    );
-    elements.communityThreadForm?.removeEventListener(
+    elements.communityMessageForm?.removeEventListener(
       'submit',
-      handleCommunityThreadSubmit
+      handleCommunityMessageSubmit
     );
-    elements.communityReplyForm?.removeEventListener(
-      'submit',
-      handleCommunityReplySubmit
-    );
-    elements.communityThreadFileInput?.removeEventListener(
+    elements.communityMessageFileInput?.removeEventListener(
       'change',
-      handleCommunityThreadFileChange
+      handleCommunityFileChange
     );
-    elements.communityReplyFile?.removeEventListener(
-      'change',
-      handleCommunityReplyFileChange
-    );
-    elements.communityThreadAttachments?.removeEventListener(
+    elements.communityMessageAttachments?.removeEventListener(
       'click',
-      handleCommunityThreadAttachmentsClick
+      handleCommunityAttachmentsClick
     );
-    elements.communityReplyAttachments?.removeEventListener(
-      'click',
-      handleCommunityReplyAttachmentsClick
-    );
-    document.removeEventListener('click', handleCommunityActionClick);
     communityHandlersBound = false;
   }
   if (state.community.subscription) {
@@ -4146,7 +3464,6 @@ function cleanup() {
     }
     state.community.subscription = null;
   }
-  hideCommunityComposer({ reset: false });
 }
 
 window.addEventListener('beforeunload', cleanup);
