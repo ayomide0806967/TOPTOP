@@ -17,7 +17,7 @@ Legacy tables (`community_threads`, `community_posts`, etc.) remain for historic
 
 ## Front-end changes
 
-- `apps/learner/admin-board.html` now renders a single-column chat surface with a scrollable message list and a compact composer. Previous thread panels and empty-state cards were removed.
+- `apps/learner/admin-board.html` now renders a single-column chat surface with a scrollable message list and a compact composer, styled with the homepage gradient palette for visual consistency. Previous thread panels and empty-state cards were removed.
 - `apps/learner/src/dashboard.js` manages the new stream state:
   - Fetches the latest 200 `community_stream_messages` with their attachments.
   - Renders chat bubbles, hydrates attachment previews via signed URLs, and keeps a simple in-memory cache of author display names.
