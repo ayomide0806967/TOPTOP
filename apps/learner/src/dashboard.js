@@ -55,15 +55,27 @@ const CARD_PALETTES = {
 const elements = {
   toast: document.querySelector('[data-role="toast"]'),
   scheduleNotice: document.querySelector('[data-role="schedule-notice"]'),
-  scheduleNoticeTitle: document.querySelector('[data-role="schedule-notice-title"]'),
-  scheduleNoticeHeadline: document.querySelector('[data-role="schedule-notice-headline"]'),
-  scheduleNoticeDetail: document.querySelector('[data-role="schedule-notice-detail"]'),
-  scheduleNoticeMeta: document.querySelector('[data-role="schedule-notice-meta"]'),
+  scheduleNoticeTitle: document.querySelector(
+    '[data-role="schedule-notice-title"]'
+  ),
+  scheduleNoticeHeadline: document.querySelector(
+    '[data-role="schedule-notice-headline"]'
+  ),
+  scheduleNoticeDetail: document.querySelector(
+    '[data-role="schedule-notice-detail"]'
+  ),
+  scheduleNoticeMeta: document.querySelector(
+    '[data-role="schedule-notice-meta"]'
+  ),
   heroName: document.querySelector('[data-role="hero-name"]'),
   heroPlanHeadline: document.querySelector('[data-role="hero-plan-headline"]'),
-  heroDaysRemaining: document.querySelector('[data-role="hero-days-remaining"]'),
+  heroDaysRemaining: document.querySelector(
+    '[data-role="hero-days-remaining"]'
+  ),
   heroProgressBar: document.querySelector('[data-role="hero-progress-bar"]'),
-  heroProgressLabel: document.querySelector('[data-role="hero-progress-label"]'),
+  heroProgressLabel: document.querySelector(
+    '[data-role="hero-progress-label"]'
+  ),
   statStatus: document.querySelector('[data-role="stat-status"]'),
   statProgress: document.querySelector('[data-role="stat-progress"]'),
   statScore: document.querySelector('[data-role="stat-score"]'),
@@ -89,7 +101,11 @@ const elements = {
   planCollection: document.querySelector('[data-role="plan-collection"]'),
   extraSetsSection: document.querySelector('[data-role="extra-sets-section"]'),
   extraSetsList: document.querySelector('[data-role="extra-sets-list"]'),
-  navButtons: Array.from(document.querySelectorAll('[data-role="nav-buttons"] [data-nav-target]')),
+  bonusNavButton: document.querySelector('[data-nav-target="bonus"]'),
+  bonusNotification: document.querySelector('[data-role="bonus-notification"]'),
+  navButtons: Array.from(
+    document.querySelectorAll('[data-role="nav-buttons"] [data-nav-target]')
+  ),
   views: Array.from(document.querySelectorAll('[data-view]')),
   dashboardContent: document.querySelector('[data-role="dashboard-content"]'),
   paymentGate: document.querySelector('[data-role="payment-gate"]'),
@@ -100,8 +116,12 @@ const elements = {
   profileForm: document.querySelector('[data-role="profile-form"]'),
   profileNameInput: document.querySelector('[data-role="profile-name"]'),
   profilePhoneInput: document.querySelector('[data-role="profile-phone"]'),
-  profilePasswordInput: document.querySelector('[data-role="profile-password"]'),
-  profilePasswordConfirmInput: document.querySelector('[data-role="profile-password-confirm"]'),
+  profilePasswordInput: document.querySelector(
+    '[data-role="profile-password"]'
+  ),
+  profilePasswordConfirmInput: document.querySelector(
+    '[data-role="profile-password-confirm"]'
+  ),
   profileFeedback: document.querySelector('[data-role="profile-feedback"]'),
   profileEmail: document.querySelector('[data-role="profile-email"]'),
 };
@@ -116,6 +136,8 @@ const state = {
   subscriptions: [],
   defaultSubscriptionId: null,
   extraQuestionSets: [],
+  extraPlanId: null,
+  isLoadingExtraSets: false,
 };
 
 let navigationBound = false;
@@ -196,6 +218,13 @@ const STATUS_SORT_WEIGHT = {
   none: 6,
 };
 
+const DEFAULT_ASSIGNMENT_RULES = Object.freeze({
+  default: { mode: 'full_set', value: null },
+  overrides: [],
+});
+
+const ASSIGNMENT_MODES = new Set(['full_set', 'fixed_count', 'percentage']);
+
 const ACTIVE_PLAN_STATUSES = new Set(['active', 'trialing']);
 
 function setNavAvailability(hasActivePlan) {
@@ -245,7 +274,9 @@ function bindNavigation() {
     });
   });
 
-  const gatePlanButton = document.querySelector('[data-role="payment-gate"] [data-nav-target="plan"]');
+  const gatePlanButton = document.querySelector(
+    '[data-role="payment-gate"] [data-nav-target="plan"]'
+  );
   if (gatePlanButton) {
     gatePlanButton.addEventListener('click', () => {
       setActiveView('plan');
@@ -259,15 +290,25 @@ function showToast(message, type = 'info') {
   elements.toast.textContent = message;
   elements.toast.classList.remove('hidden');
   elements.toast.classList.remove(
-    'border-red-200', 'bg-red-50', 'text-red-700',
-    'border-emerald-200', 'bg-emerald-50', 'text-emerald-700',
-    'border-sky-200', 'bg-sky-50', 'text-sky-700'
+    'border-red-200',
+    'bg-red-50',
+    'text-red-700',
+    'border-emerald-200',
+    'bg-emerald-50',
+    'text-emerald-700',
+    'border-sky-200',
+    'bg-sky-50',
+    'text-sky-700'
   );
 
   if (type === 'error') {
     elements.toast.classList.add('border-red-200', 'bg-red-50', 'text-red-700');
   } else if (type === 'success') {
-    elements.toast.classList.add('border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
+    elements.toast.classList.add(
+      'border-emerald-200',
+      'bg-emerald-50',
+      'text-emerald-700'
+    );
   } else {
     elements.toast.classList.add('border-sky-200', 'bg-sky-50', 'text-sky-700');
   }
@@ -327,6 +368,84 @@ function formatCurrency(amount, currency = 'NGN') {
   }
 }
 
+function normalizeAssignmentValue(mode, value) {
+  if (mode === 'full_set') return null;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null;
+  }
+  if (mode === 'fixed_count') {
+    return Math.max(1, Math.round(numeric));
+  }
+  if (mode === 'percentage') {
+    return Math.min(100, Math.max(1, Math.round(numeric)));
+  }
+  return null;
+}
+
+function normalizeAssignmentRules(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const defaultSource =
+    source.default && typeof source.default === 'object' ? source.default : {};
+  const mode = ASSIGNMENT_MODES.has(defaultSource.mode)
+    ? defaultSource.mode
+    : 'full_set';
+  const normalizedDefaultValue = normalizeAssignmentValue(
+    mode,
+    defaultSource.value
+  );
+
+  const overridesSource = Array.isArray(source.overrides)
+    ? source.overrides
+    : [];
+  const overrides = overridesSource
+    .map((override) => {
+      if (!override || typeof override !== 'object') return null;
+      const planId = override.planId || override.plan_id;
+      if (!planId) return null;
+      const overrideMode = ASSIGNMENT_MODES.has(override.mode)
+        ? override.mode
+        : 'full_set';
+      const overrideValue = normalizeAssignmentValue(
+        overrideMode,
+        override.value
+      );
+      if (overrideMode !== 'full_set' && overrideValue === null) {
+        return null;
+      }
+      return {
+        planId: String(planId),
+        mode: overrideMode,
+        value: overrideMode === 'full_set' ? null : overrideValue,
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    default: {
+      mode,
+      value: mode === 'full_set' ? null : normalizedDefaultValue,
+    },
+    overrides,
+  };
+}
+
+function describeExtraAssignment(rules) {
+  const normalized = normalizeAssignmentRules(rules);
+  const baseRule = normalized.default || DEFAULT_ASSIGNMENT_RULES.default;
+  if (baseRule.mode === 'fixed_count') {
+    return baseRule.value
+      ? `${baseRule.value} question${baseRule.value === 1 ? '' : 's'} per attempt`
+      : 'Fixed number (not configured)';
+  }
+  if (baseRule.mode === 'percentage') {
+    return baseRule.value
+      ? `${baseRule.value}% of the set per attempt`
+      : 'Percentage (not configured)';
+  }
+  return 'Entire set delivered';
+}
+
 function getSubscriptionStatus(subscription) {
   if (!subscription) return 'none';
   const now = new Date();
@@ -361,7 +480,10 @@ function getPlanTimeline(subscription) {
   const expiresAt = parseDate(subscription?.expires_at);
   const now = new Date();
 
-  const totalDays = startedAt && expiresAt ? Math.max(1, daysBetween(startedAt, expiresAt)) : null;
+  const totalDays =
+    startedAt && expiresAt
+      ? Math.max(1, daysBetween(startedAt, expiresAt))
+      : null;
   const daysRemaining = expiresAt
     ? Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / DAY_IN_MS))
     : null;
@@ -369,14 +491,18 @@ function getPlanTimeline(subscription) {
     totalDays !== null && daysRemaining !== null
       ? clamp(totalDays - daysRemaining, 0, totalDays)
       : startedAt
-      ? clamp(Math.round((now.getTime() - startedAt.getTime()) / DAY_IN_MS), 0, totalDays ?? 30)
-      : null;
+        ? clamp(
+            Math.round((now.getTime() - startedAt.getTime()) / DAY_IN_MS),
+            0,
+            totalDays ?? 30
+          )
+        : null;
   const progressPercent =
     totalDays && usedDays !== null
       ? clamp(Math.round((usedDays / totalDays) * 100), 0, 100)
       : daysRemaining === 0
-      ? 100
-      : 0;
+        ? 100
+        : 0;
 
   return {
     startedAt,
@@ -397,8 +523,10 @@ function compareSubscriptions(a, b) {
     return aWeight - bWeight;
   }
 
-  const aExpires = parseDate(a?.expires_at)?.getTime() ?? Number.POSITIVE_INFINITY;
-  const bExpires = parseDate(b?.expires_at)?.getTime() ?? Number.POSITIVE_INFINITY;
+  const aExpires =
+    parseDate(a?.expires_at)?.getTime() ?? Number.POSITIVE_INFINITY;
+  const bExpires =
+    parseDate(b?.expires_at)?.getTime() ?? Number.POSITIVE_INFINITY;
   if (aExpires !== bExpires) {
     return aExpires - bExpires;
   }
@@ -413,10 +541,14 @@ function getSelectedSubscription(subscriptions = state.subscriptions || []) {
     return null;
   }
 
-  const explicit = subscriptions.find((entry) => entry.id === state.defaultSubscriptionId);
+  const explicit = subscriptions.find(
+    (entry) => entry.id === state.defaultSubscriptionId
+  );
   if (explicit) return explicit;
 
-  const activeSubs = subscriptions.filter(isSubscriptionActive).sort(compareSubscriptions);
+  const activeSubs = subscriptions
+    .filter(isSubscriptionActive)
+    .sort(compareSubscriptions);
   if (activeSubs.length) {
     return activeSubs[0];
   }
@@ -439,7 +571,9 @@ function updateHeroForSubscription(subscription, profileStatus = 'inactive') {
     }
     if (daysEl) {
       daysEl.textContent =
-        profileStatus === 'pending_payment' ? 'Pending activation' : 'No active plan yet';
+        profileStatus === 'pending_payment'
+          ? 'Pending activation'
+          : 'No active plan yet';
     }
     if (progressBarEl) {
       progressBarEl.style.width = '0%';
@@ -459,14 +593,17 @@ function updateHeroForSubscription(subscription, profileStatus = 'inactive') {
   const hasEnded = statusKey === 'expired';
 
   if (headlineEl) {
-    const label = timeline.daysRemaining !== null
-      ? `${timeline.daysRemaining} day${timeline.daysRemaining === 1 ? '' : 's'} left`
-      : timeline.expiresAt
-      ? `Renews ${formatDate(timeline.expiresAt.toISOString())}`
-      : statusKey === 'trialing'
-      ? 'Trial access is active'
-      : 'Ongoing access';
-    headlineEl.textContent = plan.name ? `${plan.name} • ${label}` : `Active plan • ${label}`;
+    const label =
+      timeline.daysRemaining !== null
+        ? `${timeline.daysRemaining} day${timeline.daysRemaining === 1 ? '' : 's'} left`
+        : timeline.expiresAt
+          ? `Renews ${formatDate(timeline.expiresAt.toISOString())}`
+          : statusKey === 'trialing'
+            ? 'Trial access is active'
+            : 'Ongoing access';
+    headlineEl.textContent = plan.name
+      ? `${plan.name} • ${label}`
+      : `Active plan • ${label}`;
   }
 
   if (daysEl) {
@@ -487,14 +624,21 @@ function updateHeroForSubscription(subscription, profileStatus = 'inactive') {
   }
 
   if (progressLabelEl) {
-    if (timeline.totalDays && timeline.usedDays !== null && timeline.daysRemaining !== null) {
+    if (
+      timeline.totalDays &&
+      timeline.usedDays !== null &&
+      timeline.daysRemaining !== null
+    ) {
       progressLabelEl.textContent = `${timeline.usedDays} of ${timeline.totalDays} days used · ${timeline.daysRemaining} to go`;
     } else if (statusKey === 'trialing') {
-      progressLabelEl.textContent = 'Trial is underway. Upgrade any time to keep your streak going.';
+      progressLabelEl.textContent =
+        'Trial is underway. Upgrade any time to keep your streak going.';
     } else if (hasEnded) {
-      progressLabelEl.textContent = 'Plan expired. Renew to continue your personalised drills.';
+      progressLabelEl.textContent =
+        'Plan expired. Renew to continue your personalised drills.';
     } else {
-      progressLabelEl.textContent = 'Your progress updates as you complete each day’s questions.';
+      progressLabelEl.textContent =
+        'Your progress updates as you complete each day’s questions.';
     }
   }
 }
@@ -502,7 +646,9 @@ function updateHeroForSubscription(subscription, profileStatus = 'inactive') {
 function createPlanCard(subscription) {
   const plan = subscription.plan || {};
   const metadata =
-    plan && plan.metadata && typeof plan.metadata === 'object' ? plan.metadata : {};
+    plan && plan.metadata && typeof plan.metadata === 'object'
+      ? plan.metadata
+      : {};
   const product = plan.product || {};
   const department = product.department || {};
   const timeline = getPlanTimeline(subscription);
@@ -511,7 +657,8 @@ function createPlanCard(subscription) {
   const isSelected = subscription.id === state.defaultSubscriptionId;
   const activeNow = isSubscriptionActive(subscription);
   const now = new Date();
-  const startsInFuture = timeline.startedAt && timeline.startedAt.getTime() > now.getTime();
+  const startsInFuture =
+    timeline.startedAt && timeline.startedAt.getTime() > now.getTime();
 
   const themeColor =
     department?.color_theme ||
@@ -545,7 +692,8 @@ function createPlanCard(subscription) {
   }
 
   const header = document.createElement('div');
-  header.className = 'flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between';
+  header.className =
+    'flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between';
 
   const headerContent = document.createElement('div');
   headerContent.className = 'space-y-1';
@@ -560,12 +708,14 @@ function createPlanCard(subscription) {
     const subtitle = document.createElement('p');
     subtitle.className = 'text-sm';
     subtitle.style.color = mutedColor;
-    subtitle.textContent = metadata?.tagline || metadata?.summary || plan.description;
+    subtitle.textContent =
+      metadata?.tagline || metadata?.summary || plan.description;
     headerContent.appendChild(subtitle);
   }
 
   const badge = document.createElement('span');
-  badge.className = 'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide';
+  badge.className =
+    'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide';
   badge.style.backgroundColor = chipBg;
   badge.style.color = chipText;
   badge.style.borderColor = chipBorder;
@@ -579,18 +729,25 @@ function createPlanCard(subscription) {
   progressWrapper.className = 'mt-3 space-y-2';
 
   const progressBar = document.createElement('div');
-  progressBar.className = 'h-2 w-full overflow-hidden rounded-full border border-white/40 bg-white/60 backdrop-blur-sm';
+  progressBar.className =
+    'h-2 w-full overflow-hidden rounded-full border border-white/40 bg-white/60 backdrop-blur-sm';
 
   const progressFill = document.createElement('div');
-  progressFill.className = 'h-full rounded-full transition-all duration-500 ease-out';
+  progressFill.className =
+    'h-full rounded-full transition-all duration-500 ease-out';
   progressFill.style.background = `linear-gradient(90deg, ${accentColor}, ${accentHover})`;
   progressFill.style.width = `${timeline.progressPercent ?? (statusKey === 'expired' ? 100 : 10)}%`;
   progressBar.appendChild(progressFill);
 
   const progressMeta = document.createElement('div');
-  progressMeta.className = 'flex flex-wrap items-center justify-between text-xs';
+  progressMeta.className =
+    'flex flex-wrap items-center justify-between text-xs';
   progressMeta.style.color = mutedColor;
-  if (timeline.totalDays && timeline.usedDays !== null && timeline.daysRemaining !== null) {
+  if (
+    timeline.totalDays &&
+    timeline.usedDays !== null &&
+    timeline.daysRemaining !== null
+  ) {
     progressMeta.textContent = `${timeline.usedDays} of ${timeline.totalDays} days used • ${timeline.daysRemaining} remaining`;
   } else if (statusKey === 'expired' && timeline.expiresAt) {
     progressMeta.textContent = `Expired ${formatDate(timeline.expiresAt.toISOString())}`;
@@ -605,7 +762,8 @@ function createPlanCard(subscription) {
   card.appendChild(progressWrapper);
 
   const detailGrid = document.createElement('dl');
-  detailGrid.className = 'mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4';
+  detailGrid.className =
+    'mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4';
 
   const addDetail = (label, value) => {
     const wrapper = document.createElement('div');
@@ -622,9 +780,10 @@ function createPlanCard(subscription) {
     detailGrid.appendChild(wrapper);
   };
 
-  const daysLabel = timeline.daysRemaining !== null
-    ? `${timeline.daysRemaining} day${timeline.daysRemaining === 1 ? '' : 's'}`
-    : '—';
+  const daysLabel =
+    timeline.daysRemaining !== null
+      ? `${timeline.daysRemaining} day${timeline.daysRemaining === 1 ? '' : 's'}`
+      : '—';
   addDetail('Days left', daysLabel);
 
   const renewLabel = timeline.expiresAt
@@ -643,7 +802,8 @@ function createPlanCard(subscription) {
   card.appendChild(detailGrid);
 
   const footer = document.createElement('div');
-  footer.className = 'mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between';
+  footer.className =
+    'mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between';
 
   const note = document.createElement('p');
   note.className = 'text-xs sm:text-sm';
@@ -660,7 +820,8 @@ function createPlanCard(subscription) {
   footer.appendChild(note);
 
   const buttonRow = document.createElement('div');
-  buttonRow.className = 'flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end w-full';
+  buttonRow.className =
+    'flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end w-full';
 
   const quizBtn = document.createElement('button');
   quizBtn.type = 'button';
@@ -668,12 +829,14 @@ function createPlanCard(subscription) {
   quizBtn.dataset.role = 'plan-quiz';
   if (activeNow) {
     quizBtn.dataset.action = 'start-quiz';
-    quizBtn.className = 'inline-flex w-full sm:w-auto items-center justify-center rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-1';
+    quizBtn.className =
+      'inline-flex w-full sm:w-auto items-center justify-center rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-1';
     quizBtn.style.background = `linear-gradient(135deg, ${accentColor}, ${accentHover})`;
     quizBtn.style.boxShadow = `0 14px 28px -18px ${accentColor}80`;
     quizBtn.textContent = 'Start daily quiz';
   } else {
-    quizBtn.className = 'inline-flex w-full sm:w-auto items-center justify-center rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wide cursor-not-allowed';
+    quizBtn.className =
+      'inline-flex w-full sm:w-auto items-center justify-center rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wide cursor-not-allowed';
     quizBtn.style.background = 'rgba(148, 163, 184, 0.25)';
     quizBtn.style.color = '#64748b';
     quizBtn.textContent = startsInFuture ? 'Activates soon' : 'Unavailable';
@@ -686,20 +849,24 @@ function createPlanCard(subscription) {
 
   if (isSelected) {
     useBtn.textContent = 'In use for daily questions';
-    useBtn.className = 'inline-flex w-full sm:w-auto items-center justify-center gap-1 rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wide shadow-sm focus:outline-none';
+    useBtn.className =
+      'inline-flex w-full sm:w-auto items-center justify-center gap-1 rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wide shadow-sm focus:outline-none';
     useBtn.style.background = accentSoft;
     useBtn.style.color = accentColor;
     useBtn.style.border = `1px solid ${accentColor}`;
     useBtn.disabled = true;
   } else if (!activeNow) {
-    useBtn.textContent = statusKey === 'expired' ? 'Renew to reactivate' : 'Activates soon';
-    useBtn.className = 'inline-flex w-full sm:w-auto items-center justify-center rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wide cursor-not-allowed';
+    useBtn.textContent =
+      statusKey === 'expired' ? 'Renew to reactivate' : 'Activates soon';
+    useBtn.className =
+      'inline-flex w-full sm:w-auto items-center justify-center rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wide cursor-not-allowed';
     useBtn.style.background = 'rgba(148, 163, 184, 0.2)';
     useBtn.style.color = '#64748b';
     useBtn.disabled = true;
   } else {
     useBtn.dataset.action = 'set-default';
-    useBtn.className = 'inline-flex w-full sm:w-auto items-center justify-center rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wide transition focus:outline-none focus:ring-2 focus:ring-offset-1';
+    useBtn.className =
+      'inline-flex w-full sm:w-auto items-center justify-center rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wide transition focus:outline-none focus:ring-2 focus:ring-offset-1';
     useBtn.style.background = 'rgba(255, 255, 255, 0.7)';
     useBtn.style.color = accentColor;
     useBtn.style.border = `1px solid ${accentColor}33`;
@@ -714,11 +881,13 @@ function createPlanCard(subscription) {
   manageBtn.type = 'button';
   manageBtn.dataset.subscriptionId = subscription.id;
   manageBtn.dataset.action = 'renew';
-  manageBtn.className = 'inline-flex w-full sm:w-auto items-center justify-center rounded-full border px-5 py-2.5 text-xs font-semibold uppercase tracking-wide transition focus:outline-none focus:ring-2 focus:ring-offset-1';
+  manageBtn.className =
+    'inline-flex w-full sm:w-auto items-center justify-center rounded-full border px-5 py-2.5 text-xs font-semibold uppercase tracking-wide transition focus:outline-none focus:ring-2 focus:ring-offset-1';
   manageBtn.style.background = 'rgba(255, 255, 255, 0.65)';
   manageBtn.style.borderColor = borderColor;
   manageBtn.style.color = mutedColor;
-  manageBtn.textContent = statusKey === 'expired' ? 'Renew plan' : 'Manage plan';
+  manageBtn.textContent =
+    statusKey === 'expired' ? 'Renew plan' : 'Manage plan';
   if (statusKey === 'expired') {
     manageBtn.style.background = 'rgba(254, 242, 242, 0.75)';
     manageBtn.style.borderColor = 'rgba(248, 113, 113, 0.45)';
@@ -749,10 +918,16 @@ function handlePlanCollectionClick(event) {
     startDailyQuizForSubscription(subscriptionId);
   } else if (action === 'locked') {
     const activeQuiz = state.todayQuiz;
-    const activeSubscriptionId = activeQuiz?.subscription_id || state.defaultSubscriptionId;
-    const activePlan = state.subscriptions.find((entry) => entry.id === activeSubscriptionId);
+    const activeSubscriptionId =
+      activeQuiz?.subscription_id || state.defaultSubscriptionId;
+    const activePlan = state.subscriptions.find(
+      (entry) => entry.id === activeSubscriptionId
+    );
     const planName = activePlan?.plan?.name || 'current plan';
-    showToast(`Submit your ${planName} quiz before starting another plan.`, 'warning');
+    showToast(
+      `Submit your ${planName} quiz before starting another plan.`,
+      'warning'
+    );
   } else if (action === 'review-results') {
     const quizId = target.dataset.quizId;
     const assignedDate = target.dataset.assignedDate;
@@ -783,9 +958,12 @@ async function setDefaultSubscription(subscriptionId) {
   }
 
   try {
-    const { data, error } = await state.supabase.rpc('set_default_subscription', {
-      p_subscription_id: subscriptionId,
-    });
+    const { data, error } = await state.supabase.rpc(
+      'set_default_subscription',
+      {
+        p_subscription_id: subscriptionId,
+      }
+    );
     if (error) throw error;
 
     const resolvedId = data?.default_subscription_id || subscriptionId;
@@ -798,7 +976,10 @@ async function setDefaultSubscription(subscriptionId) {
     renderSubscription();
   } catch (error) {
     console.error('[Dashboard] setDefaultSubscription failed', error);
-    showToast(error.message || 'Unable to switch plans. Please try again.', 'error');
+    showToast(
+      error.message || 'Unable to switch plans. Please try again.',
+      'error'
+    );
   }
 }
 
@@ -808,14 +989,19 @@ async function startDailyQuizForSubscription(subscriptionId) {
     return;
   }
 
-  const subscription = state.subscriptions.find((entry) => entry.id === subscriptionId);
+  const subscription = state.subscriptions.find(
+    (entry) => entry.id === subscriptionId
+  );
   if (!subscription) {
     showToast('Plan details were not found. Refresh and try again.', 'error');
     return;
   }
 
   if (!isSubscriptionActive(subscription)) {
-    showToast('This plan is not currently active. Please renew it first.', 'error');
+    showToast(
+      'This plan is not currently active. Please renew it first.',
+      'error'
+    );
     return;
   }
 
@@ -824,22 +1010,33 @@ async function startDailyQuizForSubscription(subscriptionId) {
   try {
     await checkTodayQuiz();
     let existingQuiz = state.todayQuiz;
-    const activeSubscriptionId = existingQuiz?.subscription_id || state.defaultSubscriptionId;
+    const activeSubscriptionId =
+      existingQuiz?.subscription_id || state.defaultSubscriptionId;
     const quizInProgress = existingQuiz && existingQuiz.status !== 'completed';
-    if (quizInProgress && activeSubscriptionId && subscriptionId !== activeSubscriptionId) {
+    if (
+      quizInProgress &&
+      activeSubscriptionId &&
+      subscriptionId !== activeSubscriptionId
+    ) {
       const activePlan = state.subscriptions.find(
-        (entry) => entry.id === activeSubscriptionId,
+        (entry) => entry.id === activeSubscriptionId
       );
       const planName = activePlan?.plan?.name || 'current plan';
-      showToast(`Submit your ${planName} quiz before starting another plan.`, 'warning');
+      showToast(
+        `Submit your ${planName} quiz before starting another plan.`,
+        'warning'
+      );
       updatePlanCollectionLabels(existingQuiz);
       return;
     }
 
     if (subscriptionId !== state.defaultSubscriptionId) {
-      const { data, error } = await state.supabase.rpc('set_default_subscription', {
-        p_subscription_id: subscriptionId,
-      });
+      const { data, error } = await state.supabase.rpc(
+        'set_default_subscription',
+        {
+          p_subscription_id: subscriptionId,
+        }
+      );
       if (error) throw error;
       const resolvedId = data?.default_subscription_id || subscriptionId;
       state.defaultSubscriptionId = resolvedId;
@@ -851,10 +1048,11 @@ async function startDailyQuizForSubscription(subscriptionId) {
       existingQuiz = state.todayQuiz;
     }
 
-    const matchesUpdated = existingQuiz && (
-      existingQuiz.subscription_id === subscriptionId ||
-      (!existingQuiz.subscription_id && subscriptionId === state.defaultSubscriptionId)
-    );
+    const matchesUpdated =
+      existingQuiz &&
+      (existingQuiz.subscription_id === subscriptionId ||
+        (!existingQuiz.subscription_id &&
+          subscriptionId === state.defaultSubscriptionId));
 
     if (existingQuiz && matchesUpdated) {
       updatePlanCollectionLabels(existingQuiz);
@@ -891,11 +1089,17 @@ async function startDailyQuizForSubscription(subscriptionId) {
     if (error) {
       const message = error.message || '';
       if (message.includes('no active subscription')) {
-        showToast('You need an active subscription to access daily questions', 'error');
+        showToast(
+          'You need an active subscription to access daily questions',
+          'error'
+        );
         return;
       }
       if (message.includes('selected subscription is no longer active')) {
-        showToast('That plan is no longer active. Choose a different plan to continue.', 'error');
+        showToast(
+          'That plan is no longer active. Choose a different plan to continue.',
+          'error'
+        );
         await loadSubscriptions();
         return;
       }
@@ -916,7 +1120,9 @@ async function startDailyQuizForSubscription(subscriptionId) {
       throw error;
     }
 
-    const quizId = Array.isArray(data) ? data[0]?.daily_quiz_id : data?.daily_quiz_id;
+    const quizId = Array.isArray(data)
+      ? data[0]?.daily_quiz_id
+      : data?.daily_quiz_id;
     if (!quizId) {
       throw new Error('Failed to generate quiz');
     }
@@ -927,7 +1133,10 @@ async function startDailyQuizForSubscription(subscriptionId) {
     window.location.href = `exam-face.html?daily_quiz_id=${quizId}`;
   } catch (error) {
     console.error('[Dashboard] startDailyQuizForSubscription failed', error);
-    showToast(error.message || 'Unable to start quiz. Please try again.', 'error');
+    showToast(
+      error.message || 'Unable to start quiz. Please try again.',
+      'error'
+    );
   }
 }
 
@@ -970,7 +1179,7 @@ function updatePlanCollectionLabels(todayQuiz) {
     const snapshot = snapshots.find(
       (entry) =>
         entry.subscriptionId === subscriptionId &&
-        entry.assignedDate === todayIso,
+        entry.assignedDate === todayIso
     );
 
     let nextLabel = 'Start daily quiz';
@@ -982,7 +1191,8 @@ function updatePlanCollectionLabels(todayQuiz) {
     const matchesSubscription =
       quiz &&
       (quiz.subscription_id === subscriptionId ||
-        (!quiz.subscription_id && subscriptionId === state.defaultSubscriptionId));
+        (!quiz.subscription_id &&
+          subscriptionId === state.defaultSubscriptionId));
 
     if (matchesSubscription) {
       assignedDate = quiz.assigned_date || todayIso;
@@ -1096,7 +1306,8 @@ function updateScheduleNotice(health) {
     case 'no_active_cycle':
       tone = 'info';
       headlineText = 'Next study slot starting soon';
-      detailText = 'Daily questions will be available once the upcoming slot begins.';
+      detailText =
+        'Daily questions will be available once the upcoming slot begins.';
       break;
     case 'error':
       tone = 'danger';
@@ -1158,7 +1369,9 @@ function renderSubscription() {
     card.classList.remove('hidden');
     if (planHeading) {
       planHeading.textContent =
-        profileStatus === 'pending_payment' ? 'Payment pending' : 'No plans yet';
+        profileStatus === 'pending_payment'
+          ? 'Payment pending'
+          : 'No plans yet';
     }
     if (planSubheading) {
       planSubheading.textContent =
@@ -1168,9 +1381,11 @@ function renderSubscription() {
     }
     collection.innerHTML = `
       <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600">
-        ${profileStatus === 'pending_payment'
-          ? 'Resume your checkout to activate the plan you selected.'
-          : 'Explore the catalogue to add a plan to your dashboard.'}
+        ${
+          profileStatus === 'pending_payment'
+            ? 'Resume your checkout to activate the plan you selected.'
+            : 'Explore the catalogue to add a plan to your dashboard.'
+        }
       </div>
     `;
     updateHeroForSubscription(null, profileStatus);
@@ -1238,8 +1453,12 @@ function toPercent(numerator, denominator) {
 function updatePaymentGate(profile) {
   if (!elements.paymentGate || !elements.dashboardContent) return;
 
-  const subscriptionStatus = (profile?.subscription_status || 'inactive').toLowerCase();
-  const registrationStage = profile?.registration_stage || (subscriptionStatus === 'pending_payment' ? 'awaiting_payment' : 'active');
+  const subscriptionStatus = (
+    profile?.subscription_status || 'inactive'
+  ).toLowerCase();
+  const registrationStage =
+    profile?.registration_stage ||
+    (subscriptionStatus === 'pending_payment' ? 'awaiting_payment' : 'active');
   const hasActivePlan = ACTIVE_PLAN_STATUSES.has(subscriptionStatus);
   const pendingPlan = profile?.pending_plan_snapshot || null;
 
@@ -1252,15 +1471,26 @@ function updatePaymentGate(profile) {
   }
 
   const planName = pendingPlan?.name || 'your plan';
-  const badgeLabel = registrationStage === 'awaiting_payment' ? 'Payment pending' : 'No active plan';
-  const title = registrationStage === 'awaiting_payment'
-    ? 'Almost there—finish activating your plan'
-    : 'Add a plan to unlock personalised drills';
-  const message = registrationStage === 'awaiting_payment'
-    ? `We saved ${planName}. Complete checkout now to unlock daily exams, streak tracking, and bonus questions.`
-    : 'Choose the plan that fits your goals. Once activated, your personalised study schedule appears here.';
-  const actionHref = registrationStage === 'awaiting_payment' ? 'resume-registration.html' : 'subscription-plans.html';
-  const actionLabel = registrationStage === 'awaiting_payment' ? 'Finish payment' : 'Browse plans';
+  const badgeLabel =
+    registrationStage === 'awaiting_payment'
+      ? 'Payment pending'
+      : 'No active plan';
+  const title =
+    registrationStage === 'awaiting_payment'
+      ? 'Almost there—finish activating your plan'
+      : 'Add a plan to unlock personalised drills';
+  const message =
+    registrationStage === 'awaiting_payment'
+      ? `We saved ${planName}. Complete checkout now to unlock daily exams, streak tracking, and bonus questions.`
+      : 'Choose the plan that fits your goals. Once activated, your personalised study schedule appears here.';
+  const actionHref =
+    registrationStage === 'awaiting_payment'
+      ? 'resume-registration.html'
+      : 'subscription-plans.html';
+  const actionLabel =
+    registrationStage === 'awaiting_payment'
+      ? 'Finish payment'
+      : 'Browse plans';
 
   if (elements.gatedBadge) elements.gatedBadge.textContent = badgeLabel;
   if (elements.gatedTitle) elements.gatedTitle.textContent = title;
@@ -1313,7 +1543,8 @@ async function handleProfileSubmit(event) {
   if (!fullName) {
     if (feedback) {
       feedback.textContent = 'Enter your full name before saving.';
-      feedback.className = 'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
+      feedback.className =
+        'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
       feedback.classList.remove('hidden');
     }
     nameInput?.focus();
@@ -1324,7 +1555,8 @@ async function handleProfileSubmit(event) {
     if (newPassword.length < 8) {
       if (feedback) {
         feedback.textContent = 'Passwords must be at least 8 characters long.';
-        feedback.className = 'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
+        feedback.className =
+          'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
         feedback.classList.remove('hidden');
       }
       passwordInput?.focus();
@@ -1332,8 +1564,10 @@ async function handleProfileSubmit(event) {
     }
     if (newPassword !== confirmPassword) {
       if (feedback) {
-        feedback.textContent = 'Passwords do not match. Re-enter the same password in both fields.';
-        feedback.className = 'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
+        feedback.textContent =
+          'Passwords do not match. Re-enter the same password in both fields.';
+        feedback.className =
+          'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
         feedback.classList.remove('hidden');
       }
       confirmInput?.focus();
@@ -1374,7 +1608,8 @@ async function handleProfileSubmit(event) {
 
     if (feedback) {
       feedback.textContent = 'Profile updated successfully.';
-      feedback.className = 'rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-700';
+      feedback.className =
+        'rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-700';
       feedback.classList.remove('hidden');
     }
 
@@ -1383,14 +1618,36 @@ async function handleProfileSubmit(event) {
   } catch (error) {
     console.error('[Dashboard] profile update failed', error);
     if (feedback) {
-      const message = error?.message || 'Unable to update profile right now. Please try again later.';
+      const message =
+        error?.message ||
+        'Unable to update profile right now. Please try again later.';
       feedback.textContent = message;
-      feedback.className = 'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
+      feedback.className =
+        'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
       feedback.classList.remove('hidden');
     }
   } finally {
     if (elements.profilePasswordInput) elements.profilePasswordInput.value = '';
-    if (elements.profilePasswordConfirmInput) elements.profilePasswordConfirmInput.value = '';
+    if (elements.profilePasswordConfirmInput)
+      elements.profilePasswordConfirmInput.value = '';
+  }
+}
+
+function setDailyButtonVariant(status) {
+  const btn = elements.resumeBtn;
+  if (!btn) return;
+  const colorClasses = [
+    'bg-red-600',
+    'hover:bg-red-700',
+    'bg-cyan-600',
+    'hover:bg-cyan-700',
+  ];
+  btn.classList.remove(...colorClasses);
+  btn.classList.add('text-white');
+  if (status === 'completed') {
+    btn.classList.add('bg-cyan-600', 'hover:bg-cyan-700');
+  } else {
+    btn.classList.add('bg-red-600', 'hover:bg-red-700');
   }
 }
 
@@ -1407,12 +1664,14 @@ function updateQuizSection() {
       elements.quizTitle.textContent = "Today's Questions";
     }
     if (elements.quizSubtitle) {
-      elements.quizSubtitle.textContent = 'Your daily practice questions are ready to generate';
+      elements.quizSubtitle.textContent =
+        'Your daily practice questions are ready to generate';
     }
     if (elements.resumeBtn) {
       elements.resumeBtn.textContent = 'Start Daily Questions';
       elements.resumeBtn.classList.remove('hidden');
     }
+    setDailyButtonVariant('pending');
     if (elements.regenerateBtn) {
       elements.regenerateBtn.classList.add('hidden');
     }
@@ -1443,6 +1702,7 @@ function updateQuizSection() {
       elements.resumeBtn.textContent = 'Review Results';
       elements.resumeBtn.classList.remove('hidden');
     }
+    setDailyButtonVariant('completed');
     if (elements.regenerateBtn) {
       elements.regenerateBtn.classList.remove('hidden');
     }
@@ -1476,6 +1736,7 @@ function updateQuizSection() {
       elements.resumeBtn.textContent = 'Continue Quiz';
       elements.resumeBtn.classList.remove('hidden');
     }
+    setDailyButtonVariant('pending');
     if (elements.regenerateBtn) {
       elements.regenerateBtn.classList.remove('hidden');
     }
@@ -1532,7 +1793,7 @@ function updateStats() {
 
 function renderHistory() {
   if (!elements.historyBody && !elements.historyCards) return;
-  
+
   if (!state.history.length) {
     // Empty state for table
     if (elements.historyBody) {
@@ -1563,7 +1824,8 @@ function renderHistory() {
     const cards = state.history
       .map((item) => {
         const statusBadge = (() => {
-          const base = 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ';
+          const base =
+            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ';
           if (item.status === 'completed') {
             return `<span class="${base} bg-emerald-100 text-emerald-700">✓ Completed</span>`;
           }
@@ -1576,16 +1838,24 @@ function renderHistory() {
         const score = item.total_questions
           ? `${item.correct_answers}/${item.total_questions}`
           : '—';
-        
+
         const percent = item.total_questions
           ? toPercent(item.correct_answers, item.total_questions)
           : 0;
 
-        const percentColor = percent >= 80 ? 'text-emerald-600' : percent >= 60 ? 'text-sky-600' : percent >= 40 ? 'text-amber-600' : 'text-red-600';
+        const percentColor =
+          percent >= 80
+            ? 'text-emerald-600'
+            : percent >= 60
+              ? 'text-sky-600'
+              : percent >= 40
+                ? 'text-amber-600'
+                : 'text-red-600';
 
-        const reviewBtn = item.status === 'completed' 
-          ? `<button onclick="window.location.href='result-face.html?daily_quiz_id=${item.id}'" class="w-full mt-3 rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-700 active:scale-95 transition-all">View Results</button>`
-          : '';
+        const reviewBtn =
+          item.status === 'completed'
+            ? `<button onclick="window.location.href='result-face.html?daily_quiz_id=${item.id}'" class="w-full mt-3 rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-700 active:scale-95 transition-all">View Results</button>`
+            : '';
 
         return `
           <div class="rounded-xl border border-slate-200 bg-white p-4 hover:border-cyan-300 hover:shadow-md transition-all">
@@ -1596,8 +1866,10 @@ function renderHistory() {
               </div>
               ${statusBadge}
             </div>
-            
-            ${item.total_questions ? `
+
+            ${
+              item.total_questions
+                ? `
               <div class="flex items-center gap-4 py-3 border-t border-slate-100">
                 <div class="flex-1">
                   <p class="text-xs text-slate-500 mb-1">Score</p>
@@ -1608,8 +1880,10 @@ function renderHistory() {
                   <p class="text-lg font-bold ${percentColor}">${percent}%</p>
                 </div>
               </div>
-            ` : '<div class="py-2 text-center text-sm text-slate-400">Not started</div>'}
-            
+            `
+                : '<div class="py-2 text-center text-sm text-slate-400">Not started</div>'
+            }
+
             ${reviewBtn}
           </div>
         `;
@@ -1639,9 +1913,10 @@ function renderHistory() {
           ? `${item.correct_answers}/${item.total_questions} (${toPercent(item.correct_answers, item.total_questions)}%)`
           : '—';
 
-        const reviewBtn = item.status === 'completed' 
-          ? `<button type="button" onclick="window.location.href='result-face.html?daily_quiz_id=${item.id}'" class="inline-flex items-center gap-2 rounded-full bg-cyan-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700 focus:outline-none focus:ring focus:ring-cyan-200">Review</button>`
-          : '—';
+        const reviewBtn =
+          item.status === 'completed'
+            ? `<button type="button" onclick="window.location.href='result-face.html?daily_quiz_id=${item.id}'" class="inline-flex items-center gap-2 rounded-full bg-cyan-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700 focus:outline-none focus:ring focus:ring-cyan-200">Review</button>`
+            : '—';
 
         return `
         <tr>
@@ -1668,17 +1943,62 @@ function renderHistory() {
   }
 }
 
+function getExtraSetAvailability(set, nowMs = Date.now()) {
+  if (!set) {
+    return {
+      isAvailable: false,
+      isUpcoming: false,
+      isExpired: true,
+      startsAt: null,
+      endsAt: null,
+    };
+  }
+  const startsAt = set.starts_at ? new Date(set.starts_at) : null;
+  const endsAt = set.ends_at ? new Date(set.ends_at) : null;
+  const isActive = Boolean(set.is_active);
+  const startsInFuture = startsAt ? startsAt.getTime() > nowMs : false;
+  const ended = endsAt ? endsAt.getTime() < nowMs : false;
+
+  return {
+    isAvailable: isActive && !startsInFuture && !ended,
+    isUpcoming: isActive && startsInFuture,
+    isExpired: ended || !isActive,
+    startsAt,
+    endsAt,
+  };
+}
+
+function deriveExtraSetStatus(set, attempts) {
+  const availability = set.availability || getExtraSetAvailability(set);
+  if (availability.isUpcoming) return 'upcoming';
+  if (availability.isAvailable) {
+    if (!attempts.length) return 'new';
+    const latest = attempts[0];
+    if (latest?.status === 'completed') {
+      return 'completed';
+    }
+    return 'in_progress';
+  }
+  if (attempts.some((attempt) => attempt.status === 'completed')) {
+    return 'completed_archived';
+  }
+  return 'inactive';
+}
+
 function describeExtraSchedule(set) {
   if (!set) return 'Available anytime';
-  const { starts_at: startsAt, ends_at: endsAt } = set;
+  const availability = set.availability || getExtraSetAvailability(set);
+  const { startsAt, endsAt } = availability;
   if (startsAt && endsAt) {
-    return `${formatDateTime(startsAt)} → ${formatDateTime(endsAt)}`;
+    return `${formatDateTime(startsAt.toISOString())} → ${formatDateTime(
+      endsAt.toISOString()
+    )}`;
   }
   if (startsAt) {
-    return `Opens ${formatDateTime(startsAt)}`;
+    return `Opens ${formatDateTime(startsAt.toISOString())}`;
   }
   if (endsAt) {
-    return `Available until ${formatDateTime(endsAt)}`;
+    return `Available until ${formatDateTime(endsAt.toISOString())}`;
   }
   return 'Available anytime';
 }
@@ -1700,6 +2020,90 @@ function describeExtraTimer(seconds) {
   return `${hours}h ${remaining}m`;
 }
 
+function renderExtraStatusChip(set) {
+  const base =
+    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold';
+  switch (set.status) {
+    case 'new':
+      return `<span class="${base} bg-indigo-100 text-indigo-700">New</span>`;
+    case 'in_progress':
+      return `<span class="${base} bg-amber-100 text-amber-700">In progress</span>`;
+    case 'completed':
+      return `<span class="${base} bg-emerald-100 text-emerald-700">Completed</span>`;
+    case 'completed_archived':
+      return `<span class="${base} bg-emerald-100 text-emerald-700">Completed</span>`;
+    case 'upcoming':
+      return `<span class="${base} bg-sky-100 text-sky-700">Opens soon</span>`;
+    default:
+      return `<span class="${base} bg-slate-200 text-slate-600">Inactive</span>`;
+  }
+}
+
+function renderExtraAttemptSummary(set) {
+  const availability = set.availability || getExtraSetAvailability(set);
+  const limitSummary =
+    set.max_attempts_per_user && set.max_attempts_per_user > 0
+      ? ` • Max ${set.max_attempts_per_user} attempt${set.max_attempts_per_user === 1 ? '' : 's'}`
+      : '';
+  if (availability.isUpcoming) {
+    if (availability.startsAt) {
+      return `Opens ${formatDateTime(availability.startsAt.toISOString())}${limitSummary}`;
+    }
+    return `Opens soon${limitSummary}`;
+  }
+
+  const completed = set.lastCompletedAttempt;
+  if (completed) {
+    const score = Number(completed.score_percent);
+    const scoreText = Number.isFinite(score)
+      ? `${score.toFixed(1)}%`
+      : `${Number(completed.correct_answers ?? 0)}/${Number(completed.total_questions ?? 0)}`;
+    const completedAt = completed.completed_at
+      ? formatDateTime(completed.completed_at)
+      : 'Recently';
+    return `Last attempt: ${scoreText} • ${completedAt}${limitSummary}`;
+  }
+
+  const latest = set.latestAttempt;
+  if (latest?.status === 'in_progress') {
+    const startedAt = latest.started_at
+      ? formatDateTime(latest.started_at)
+      : 'Recently';
+    return `Attempt in progress • Started ${startedAt}${limitSummary}`;
+  }
+
+  return `Not attempted yet.${limitSummary}`;
+}
+
+function updateBonusNavNotification() {
+  const badge = elements.bonusNotification;
+  if (!badge) return;
+  const sets = Array.isArray(state.extraQuestionSets)
+    ? state.extraQuestionSets
+    : [];
+  const newCount = sets.filter(
+    (set) =>
+      set.availability?.isAvailable &&
+      !['completed', 'completed_archived'].includes(set.status)
+  ).length;
+
+  if (newCount > 0) {
+    badge.textContent = newCount > 9 ? '9+' : String(newCount);
+    badge.classList.add('is-visible');
+    badge.setAttribute('aria-hidden', 'false');
+  } else {
+    badge.textContent = '';
+    badge.classList.remove('is-visible');
+    badge.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    loadExtraQuestionSets();
+  }
+}
+
 function renderExtraQuestionSets() {
   const section = elements.extraSetsSection;
   const list = elements.extraSetsList;
@@ -1716,14 +2120,43 @@ function renderExtraQuestionSets() {
         No bonus practice sets are available for your profile yet. Check back later!
       </div>
     `;
+    updateBonusNavNotification();
     return;
   }
 
   const cards = sets
     .map((set) => {
+      const availability = set.availability || getExtraSetAvailability(set);
       const schedule = describeExtraSchedule(set);
       const timer = describeExtraTimer(set.time_limit_seconds);
-      const canStart = Boolean(set.is_active);
+      const assignmentSummary = describeExtraAssignment(set.assignment_rules);
+      const maxAttemptsSummary = set.max_attempts_per_user
+        ? `${set.max_attempts_per_user} attempt${set.max_attempts_per_user === 1 ? '' : 's'} max`
+        : 'Unlimited attempts';
+      const canStart = Boolean(availability.isAvailable);
+      let primaryLabel = 'Start practice';
+      if (!canStart) {
+        primaryLabel = availability.isUpcoming ? 'Opens soon' : 'Unavailable';
+      } else if (set.status === 'in_progress') {
+        primaryLabel = 'Resume practice';
+      } else if (set.status === 'completed') {
+        primaryLabel = 'Retake practice';
+      }
+      const primaryClasses = canStart
+        ? 'inline-flex items-center gap-2 rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-800 focus:outline-none focus:ring focus:ring-cyan-200'
+        : 'inline-flex items-center gap-2 rounded-md bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 cursor-not-allowed';
+      const summary = escapeHtml(renderExtraAttemptSummary(set));
+      const resultAttemptId = set.lastCompletedAttempt?.id
+        ? `&attempt_id=${encodeURIComponent(set.lastCompletedAttempt.id)}`
+        : '';
+      const viewResultsButton = set.lastCompletedAttempt
+        ? `<a
+              class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-cyan-200 hover:text-cyan-700 focus:outline-none focus:ring focus:ring-cyan-200"
+              href="result-face.html?extra_question_set_id=${encodeURIComponent(set.id)}${resultAttemptId}"
+            >
+              View results
+            </a>`
+        : '';
       return `
         <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-cyan-200 hover:shadow-md">
           <header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1731,10 +2164,9 @@ function renderExtraQuestionSets() {
               <h4 class="text-lg font-semibold text-slate-900">${escapeHtml(set.title || 'Untitled set')}</h4>
               <p class="text-sm text-slate-600">${escapeHtml(set.description || 'Topical questions curated for your department.')}</p>
             </div>
-            <span class="inline-flex items-center gap-1 rounded-full ${set.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'} px-3 py-1 text-xs font-semibold">
-              ${set.is_active ? 'Active' : 'Inactive'}
-            </span>
+            ${renderExtraStatusChip(set)}
           </header>
+          <p class="mt-2 text-sm text-slate-500">${summary}</p>
           <dl class="mt-4 flex flex-wrap gap-3 text-xs text-slate-500">
             <div class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
               <span class="font-semibold text-slate-700">Questions:</span>
@@ -1748,17 +2180,26 @@ function renderExtraQuestionSets() {
               <span class="font-semibold text-slate-700">Timer:</span>
               <span>${escapeHtml(timer)}</span>
             </div>
+            <div class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+              <span class="font-semibold text-slate-700">Distribution:</span>
+              <span>${escapeHtml(assignmentSummary)}</span>
+            </div>
+            <div class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+              <span class="font-semibold text-slate-700">Attempts:</span>
+              <span>${escapeHtml(maxAttemptsSummary)}</span>
+            </div>
           </dl>
           <div class="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
-              class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition focus:outline-none focus:ring focus:ring-cyan-200 ${canStart ? 'bg-cyan-700 text-white hover:bg-cyan-800' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}"
+              class="${primaryClasses}"
               data-action="start-extra-set"
-              data-set-id="${set.id}"
+              data-set-id="${escapeHtml(set.id)}"
               ${canStart ? '' : 'disabled aria-disabled="true"'}
             >
-              ${canStart ? 'Start practice' : 'Not available'}
+              ${escapeHtml(primaryLabel)}
             </button>
+            ${viewResultsButton}
           </div>
         </article>
       `;
@@ -1767,10 +2208,128 @@ function renderExtraQuestionSets() {
 
   section.classList.remove('hidden');
   list.innerHTML = cards;
+  updateBonusNavNotification();
+}
+
+async function fetchExtraAttempts(setIds) {
+  if (
+    !state.supabase ||
+    !state.user ||
+    !Array.isArray(setIds) ||
+    !setIds.length
+  ) {
+    return new Map();
+  }
+
+  const { data, error } = await state.supabase
+    .from('extra_question_attempts')
+    .select(
+      'id, set_id, status, attempt_number, started_at, completed_at, duration_seconds, total_questions, correct_answers, score_percent'
+    )
+    .eq('user_id', state.user.id)
+    .in('set_id', setIds)
+    .order('attempt_number', { ascending: false });
+  if (error) throw error;
+
+  const map = new Map();
+  (data || []).forEach((row) => {
+    const entry = {
+      ...row,
+      score_percent:
+        row.score_percent !== null ? Number(row.score_percent) : null,
+      total_questions:
+        row.total_questions !== null ? Number(row.total_questions) : null,
+      correct_answers:
+        row.correct_answers !== null ? Number(row.correct_answers) : null,
+    };
+    if (!map.has(row.set_id)) {
+      map.set(row.set_id, []);
+    }
+    map.get(row.set_id).push(entry);
+  });
+  return map;
+}
+
+async function hydrateExtraQuestionSets(rawSets) {
+  if (!Array.isArray(rawSets) || !rawSets.length) {
+    return [];
+  }
+
+  const sanitized = rawSets
+    .map((set) => ({
+      ...set,
+      time_limit_seconds:
+        set.time_limit_seconds !== undefined ? set.time_limit_seconds : null,
+      assignment_rules: normalizeAssignmentRules(set.assignment_rules),
+      max_attempts_per_user:
+        set.max_attempts_per_user !== undefined &&
+        set.max_attempts_per_user !== null
+          ? Number(set.max_attempts_per_user)
+          : null,
+    }))
+    .filter((set) => Number(set.question_count ?? 0) > 0);
+
+  if (!sanitized.length) {
+    return [];
+  }
+
+  let attemptsBySet = new Map();
+  try {
+    attemptsBySet = await fetchExtraAttempts(
+      sanitized.map((set) => set.id).filter(Boolean)
+    );
+  } catch (error) {
+    console.error('[Dashboard] fetchExtraAttempts failed', error);
+    showToast('Unable to load bonus practice history.', 'error');
+    attemptsBySet = new Map();
+  }
+
+  const nowMs = Date.now();
+
+  const enriched = sanitized.map((set) => {
+    const attempts = attemptsBySet.get(set.id) || [];
+    const availability = getExtraSetAvailability(set, nowMs);
+    const latestAttempt = attempts[0] || null;
+    const lastCompletedAttempt =
+      attempts.find((attempt) => attempt.status === 'completed') || null;
+    const status = deriveExtraSetStatus({ ...set, availability }, attempts);
+    return {
+      ...set,
+      availability,
+      attempts,
+      latestAttempt,
+      lastCompletedAttempt,
+      status,
+    };
+  });
+
+  const weight = (set) => {
+    if (set.availability.isAvailable) return 0;
+    if (set.availability.isUpcoming) return 1;
+    return 2;
+  };
+
+  return enriched
+    .filter((set) => {
+      const hasCompleted = Boolean(set.lastCompletedAttempt);
+      return (
+        set.availability.isAvailable ||
+        set.availability.isUpcoming ||
+        hasCompleted
+      );
+    })
+    .sort((a, b) => {
+      const weightDiff = weight(a) - weight(b);
+      if (weightDiff !== 0) return weightDiff;
+      const updatedA = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+      const updatedB = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+      return updatedB - updatedA;
+    });
 }
 
 async function loadExtraQuestionSets() {
-  if (!state.supabase) return;
+  if (!state.supabase || state.isLoadingExtraSets) return;
+  state.isLoadingExtraSets = true;
 
   const list = elements.extraSetsList;
   const section = elements.extraSetsSection;
@@ -1788,32 +2347,50 @@ async function loadExtraQuestionSets() {
   try {
     const { data, error } = await state.supabase
       .from('extra_question_sets')
-      .select('id, title, description, is_active, question_count, starts_at, ends_at, time_limit_seconds, updated_at')
+      .select(
+        'id, title, description, is_active, question_count, starts_at, ends_at, time_limit_seconds, max_attempts_per_user, assignment_rules, updated_at'
+      )
       .order('updated_at', { ascending: false });
     if (error) throw error;
 
-    const sets = Array.isArray(data) ? data : [];
-    state.extraQuestionSets = sets.filter((set) => Number(set.question_count ?? 0) > 0);
+    const sets = await hydrateExtraQuestionSets(
+      Array.isArray(data) ? data : []
+    );
+    state.extraQuestionSets = sets;
     renderExtraQuestionSets();
   } catch (error) {
-    const isMissingTimer =
-      typeof error?.message === 'string' &&
-      error.message.includes('time_limit_seconds');
-    if (isMissingTimer) {
+    const errorMessage =
+      typeof error?.message === 'string' ? error.message : '';
+    const isMissingTimer = errorMessage.includes('time_limit_seconds');
+    const isMissingAssignment =
+      errorMessage.includes('assignment_rules') ||
+      errorMessage.includes('max_attempts_per_user');
+    if (isMissingTimer || isMissingAssignment) {
       try {
-        const { data: fallbackData, error: fallbackError } = await state.supabase
-          .from('extra_question_sets')
-          .select('id, title, description, is_active, question_count, starts_at, ends_at, updated_at')
-          .order('updated_at', { ascending: false });
+        const { data: fallbackData, error: fallbackError } =
+          await state.supabase
+            .from('extra_question_sets')
+            .select(
+              'id, title, description, is_active, question_count, starts_at, ends_at, updated_at'
+            )
+            .order('updated_at', { ascending: false });
         if (fallbackError) throw fallbackError;
-        const sets = Array.isArray(fallbackData) ? fallbackData : [];
-        state.extraQuestionSets = sets
-          .filter((set) => Number(set.question_count ?? 0) > 0)
-          .map((set) => ({ ...set, time_limit_seconds: null }));
+        const sets = await hydrateExtraQuestionSets(
+          (Array.isArray(fallbackData) ? fallbackData : []).map((set) => ({
+            ...set,
+            time_limit_seconds: null,
+            assignment_rules: DEFAULT_ASSIGNMENT_RULES,
+            max_attempts_per_user: null,
+          }))
+        );
+        state.extraQuestionSets = sets;
         renderExtraQuestionSets();
         return;
       } catch (fallbackError) {
-        console.error('[Dashboard] loadExtraQuestionSets fallback failed', fallbackError);
+        console.error(
+          '[Dashboard] loadExtraQuestionSets fallback failed',
+          fallbackError
+        );
         state.extraQuestionSets = [];
         if (list) {
           list.innerHTML = `
@@ -1836,6 +2413,9 @@ async function loadExtraQuestionSets() {
       `;
     }
     showToast('Unable to load bonus practice sets.', 'error');
+    updateBonusNavNotification();
+  } finally {
+    state.isLoadingExtraSets = false;
   }
 }
 
@@ -1859,15 +2439,29 @@ function handleExtraSetsClick(event) {
         text: startBtn.textContent?.trim() || null,
       },
     };
-    sessionStorage.setItem('extra_set_launch_debug', JSON.stringify(debugPayload));
+    sessionStorage.setItem(
+      'extra_set_launch_debug',
+      JSON.stringify(debugPayload)
+    );
   } catch (storageError) {
-    console.debug('[Dashboard] Unable to persist extra set launch debug info', storageError);
+    console.debug(
+      '[Dashboard] Unable to persist extra set launch debug info',
+      storageError
+    );
   }
 
-  console.debug('[Dashboard] Navigating to extra practice set', debugPayload || { setId });
+  console.debug(
+    '[Dashboard] Navigating to extra practice set',
+    debugPayload || { setId }
+  );
 
   const url = new URL('exam-face.html', window.location.href);
   url.searchParams.set('extra_question_set_id', setId);
+  const activeSubscription = getSelectedSubscription();
+  if (activeSubscription?.plan?.id) {
+    url.searchParams.set('subscription_id', activeSubscription.id);
+    url.searchParams.set('plan_id', activeSubscription.plan.id);
+  }
   window.location.href = `${url.pathname}${url.search}`;
 }
 
@@ -1907,7 +2501,9 @@ async function loadScheduleHealth() {
     return;
   }
   try {
-    const { data, error } = await state.supabase.rpc('get_user_schedule_health');
+    const { data, error } = await state.supabase.rpc(
+      'get_user_schedule_health'
+    );
     if (error) throw error;
     state.scheduleHealth = data || null;
     updateScheduleNotice(state.scheduleHealth);
@@ -1920,11 +2516,13 @@ async function loadScheduleHealth() {
 
 async function checkTodayQuiz() {
   const today = new Date().toISOString().slice(0, 10);
-  
+
   try {
     const { data: quiz, error } = await state.supabase
       .from('daily_quizzes')
-      .select('id, status, total_questions, correct_answers, started_at, completed_at, assigned_date, subscription_id')
+      .select(
+        'id, status, total_questions, correct_answers, started_at, completed_at, assigned_date, subscription_id'
+      )
       .eq('user_id', state.user.id)
       .eq('assigned_date', today)
       .maybeSingle();
@@ -1935,7 +2533,7 @@ async function checkTodayQuiz() {
     updatePlanCollectionLabels(state.todayQuiz);
   } catch (error) {
     console.error('[Dashboard] checkTodayQuiz failed', error);
-    showToast('Unable to check today\'s quiz status', 'error');
+    showToast("Unable to check today's quiz status", 'error');
   }
 }
 
@@ -1943,7 +2541,10 @@ async function startOrResumeQuiz() {
   try {
     const selectedSubscription = getSelectedSubscription();
     if (!selectedSubscription || !isSubscriptionActive(selectedSubscription)) {
-      showToast('Select an active plan to generate your daily questions.', 'error');
+      showToast(
+        'Select an active plan to generate your daily questions.',
+        'error'
+      );
       renderSubscription();
       return;
     }
@@ -1952,15 +2553,16 @@ async function startOrResumeQuiz() {
     if (!state.todayQuiz) {
       // Generate new quiz first
       showToast('Generating your daily questions...', 'info');
-      const { data: generated, error: generateError } = await state.supabase.rpc(
-        'generate_daily_quiz',
-        rpcArgs,
-      );
+      const { data: generated, error: generateError } =
+        await state.supabase.rpc('generate_daily_quiz', rpcArgs);
       if (generateError) {
         // Handle specific error messages
         const message = generateError.message || '';
         if (message.includes('no active subscription')) {
-          showToast('You need an active subscription to access daily questions', 'error');
+          showToast(
+            'You need an active subscription to access daily questions',
+            'error'
+          );
           await loadSubscriptions();
           return;
         }
@@ -1969,18 +2571,23 @@ async function startOrResumeQuiz() {
           return;
         }
         if (message.includes('selected subscription is no longer active')) {
-          showToast('That plan is no longer active. Choose a different plan to continue.', 'error');
+          showToast(
+            'That plan is no longer active. Choose a different plan to continue.',
+            'error'
+          );
           await loadSubscriptions();
           return;
         }
         throw generateError;
       }
-      
-      const quizId = Array.isArray(generated) ? generated[0]?.daily_quiz_id : generated?.daily_quiz_id;
+
+      const quizId = Array.isArray(generated)
+        ? generated[0]?.daily_quiz_id
+        : generated?.daily_quiz_id;
       if (!quizId) {
         throw new Error('Failed to generate quiz');
       }
-      
+
       // Navigate to exam page
       window.location.href = `exam-face.html?daily_quiz_id=${quizId}`;
     } else if (state.todayQuiz.status === 'completed') {
@@ -1992,37 +2599,53 @@ async function startOrResumeQuiz() {
     }
   } catch (error) {
     console.error('[Dashboard] startOrResumeQuiz failed', error);
-    showToast(error.message || 'Unable to start quiz. Please try again.', 'error');
+    showToast(
+      error.message || 'Unable to start quiz. Please try again.',
+      'error'
+    );
   }
 }
 
 async function regenerateQuiz() {
-  if (!window.confirm('Generate a fresh quiz for today? Your previous answers will be cleared.')) {
+  if (
+    !window.confirm(
+      'Generate a fresh quiz for today? Your previous answers will be cleared.'
+    )
+  ) {
     return;
   }
-  
+
   try {
     const selectedSubscription = getSelectedSubscription();
     if (!selectedSubscription || !isSubscriptionActive(selectedSubscription)) {
-      showToast('Select an active plan before regenerating questions.', 'error');
+      showToast(
+        'Select an active plan before regenerating questions.',
+        'error'
+      );
       renderSubscription();
       return;
     }
 
     showToast('Generating new questions...', 'info');
-    const { error: genError } = await state.supabase.rpc('generate_daily_quiz', {
-      p_subscription_id: selectedSubscription.id,
-    });
+    const { error: genError } = await state.supabase.rpc(
+      'generate_daily_quiz',
+      {
+        p_subscription_id: selectedSubscription.id,
+      }
+    );
     if (genError) {
       const message = genError.message || '';
       if (message.includes('selected subscription is no longer active')) {
-        showToast('That plan is no longer active. Choose a different plan to continue.', 'error');
+        showToast(
+          'That plan is no longer active. Choose a different plan to continue.',
+          'error'
+        );
         await loadSubscriptions();
         return;
       }
       throw genError;
     }
-    
+
     await checkTodayQuiz();
     await refreshHistory();
     showToast('New daily quiz generated!', 'success');
@@ -2036,7 +2659,9 @@ async function refreshHistory() {
   try {
     const { data, error } = await state.supabase
       .from('daily_quizzes')
-      .select('id, assigned_date, status, total_questions, correct_answers, completed_at')
+      .select(
+        'id, assigned_date, status, total_questions, correct_answers, completed_at'
+      )
       .eq('user_id', state.user.id)
       .order('assigned_date', { ascending: false })
       .limit(14);
@@ -2055,7 +2680,10 @@ async function loadSubscriptions() {
   if (!state.supabase || !state.user) return;
 
   try {
-    if (!state.defaultSubscriptionId && state.profile?.default_subscription_id) {
+    if (
+      !state.defaultSubscriptionId &&
+      state.profile?.default_subscription_id
+    ) {
       state.defaultSubscriptionId = state.profile.default_subscription_id;
     }
 
@@ -2094,12 +2722,15 @@ async function loadSubscriptions() {
     state.subscriptions = Array.isArray(data) ? data : [];
 
     const hasActive = state.subscriptions.some(isSubscriptionActive);
-    if (state.profile && state.profile.subscription_status !== 'pending_payment') {
+    if (
+      state.profile &&
+      state.profile.subscription_status !== 'pending_payment'
+    ) {
       state.profile.subscription_status = hasActive
         ? 'active'
         : state.subscriptions.length
-        ? 'expired'
-        : 'inactive';
+          ? 'expired'
+          : 'inactive';
     }
   } catch (error) {
     console.error('[Dashboard] loadSubscriptions failed', error);
@@ -2154,7 +2785,8 @@ async function ensureProfile() {
       }
     }
 
-    state.defaultSubscriptionId = state.profile?.default_subscription_id || null;
+    state.defaultSubscriptionId =
+      state.profile?.default_subscription_id || null;
     updatePaymentGate(state.profile);
     populateProfileForm();
   } catch (error) {
@@ -2186,7 +2818,9 @@ async function handleLogout() {
 async function initialise() {
   try {
     state.supabase = await getSupabaseClient();
-    const { data: { session } } = await state.supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await state.supabase.auth.getSession();
     if (!session?.user) {
       window.location.replace('login.html');
       return;
@@ -2211,9 +2845,13 @@ async function initialise() {
     elements.planBrowseBtn?.addEventListener('click', () => {
       window.location.href = 'subscription-plans.html';
     });
-    elements.planCollection?.addEventListener('click', handlePlanCollectionClick);
+    elements.planCollection?.addEventListener(
+      'click',
+      handlePlanCollectionClick
+    );
     elements.extraSetsList?.addEventListener('click', handleExtraSetsClick);
     elements.profileForm?.addEventListener('submit', handleProfileSubmit);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Load data without auto-generating quiz
     await loadScheduleHealth();
@@ -2227,9 +2865,13 @@ async function initialise() {
 }
 
 function cleanup() {
-  elements.planCollection?.removeEventListener('click', handlePlanCollectionClick);
+  elements.planCollection?.removeEventListener(
+    'click',
+    handlePlanCollectionClick
+  );
   elements.extraSetsList?.removeEventListener('click', handleExtraSetsClick);
   elements.profileForm?.removeEventListener('submit', handleProfileSubmit);
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
 }
 
 window.addEventListener('beforeunload', cleanup);

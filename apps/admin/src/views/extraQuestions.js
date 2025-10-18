@@ -7,6 +7,12 @@ const DEFAULT_VISIBILITY = Object.freeze({
   departmentIds: [],
   allowAllPlans: true,
   planTiers: [],
+  planIds: [],
+});
+
+const DEFAULT_ASSIGNMENT_RULES = Object.freeze({
+  default: { mode: 'full_set', value: null },
+  overrides: [],
 });
 
 function normalizeVisibility(value) {
@@ -28,6 +34,9 @@ function normalizeVisibility(value) {
     planTiers: Array.isArray(value.planTiers)
       ? value.planTiers.map(String)
       : DEFAULT_VISIBILITY.planTiers.slice(),
+    planIds: Array.isArray(value.planIds)
+      ? value.planIds.map(String)
+      : DEFAULT_VISIBILITY.planIds.slice(),
   };
 }
 
@@ -72,7 +81,10 @@ function highlightMatches(text, term) {
   const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
   const placeholderStart = '__@@__';
   const placeholderEnd = '__##__';
-  const withPlaceholders = text.replace(regex, `${placeholderStart}$1${placeholderEnd}`);
+  const withPlaceholders = text.replace(
+    regex,
+    `${placeholderStart}$1${placeholderEnd}`
+  );
   const escaped = escapeHtml(withPlaceholders);
   return escaped
     .replace(new RegExp(placeholderStart, 'g'), '<mark>')
@@ -125,7 +137,37 @@ function derivePlanTierInfo(products) {
   return { list, map };
 }
 
-function describeVisibility(rules, departmentsMap, planTierMap) {
+function derivePlanOptions(products) {
+  if (!Array.isArray(products) || !products.length) {
+    return { list: [], map: new Map() };
+  }
+
+  const list = [];
+
+  products.forEach((product) => {
+    const departmentName =
+      product.department?.name || product.name || 'General access';
+    (product.subscription_plans || []).forEach((plan) => {
+      if (!plan?.id) return;
+      const tierLabel = plan.plan_tier ? ` • Tier ${plan.plan_tier}` : '';
+      list.push({
+        id: String(plan.id),
+        name: plan.name || 'Unnamed plan',
+        tier: plan.plan_tier || null,
+        productId: product.id || null,
+        productName: product.name || null,
+        departmentName,
+        label: `${departmentName} • ${plan.name || 'Unnamed plan'}${tierLabel}`,
+      });
+    });
+  });
+
+  list.sort((a, b) => a.label.localeCompare(b.label));
+  const map = new Map(list.map((plan) => [plan.id, plan]));
+  return { list, map };
+}
+
+function describeVisibility(rules, departmentsMap, planTierMap, plansMap) {
   const parts = [];
   if (rules.allowAllDepartments) {
     parts.push('All departments');
@@ -151,15 +193,46 @@ function describeVisibility(rules, departmentsMap, planTierMap) {
       .slice(0, 3)
       .join(', ');
     const extra =
-      rules.planTiers.length > 3
-        ? ` +${rules.planTiers.length - 3} more`
-        : '';
+      rules.planTiers.length > 3 ? ` +${rules.planTiers.length - 3} more` : '';
     parts.push(`Plan tiers: ${names}${extra}`);
   } else {
     parts.push('Plan tiers: none selected');
   }
 
+  if (Array.isArray(rules.planIds) && rules.planIds.length) {
+    const planNames = rules.planIds
+      .map((id) => plansMap.get(id)?.label || plansMap.get(id)?.name || id)
+      .slice(0, 3)
+      .join(', ');
+    const extra =
+      rules.planIds.length > 3 ? ` +${rules.planIds.length - 3} more` : '';
+    parts.push(`Plans: ${planNames}${extra}`);
+  } else {
+    if (!rules.allowAllPlans && !rules.planTiers.length) {
+      parts.push('Plans: none selected');
+    }
+  }
+
   return parts.join(' • ');
+}
+
+function describeAssignment(set) {
+  const rules = set?.assignment_rules || DEFAULT_ASSIGNMENT_RULES;
+  const defaultRule = rules.default || { mode: 'full_set', value: null };
+  const mode = defaultRule.mode || 'full_set';
+  const value = defaultRule.value;
+
+  if (mode === 'fixed_count') {
+    return value
+      ? `${value} question${value === 1 ? '' : 's'} per attempt`
+      : 'Fixed number (not configured)';
+  }
+  if (mode === 'percentage') {
+    return value
+      ? `${value}% of the set per attempt`
+      : 'Percentage (not configured)';
+  }
+  return 'Entire set delivered';
 }
 
 function renderStatusBadge(set) {
@@ -201,12 +274,17 @@ function renderTimeLimitSummary(seconds) {
   return `${hours}h ${remainingMinutes}m`;
 }
 
-function renderExtraSetCard(set, departmentsMap, planTierMap) {
+function renderExtraSetCard(set, departmentsMap, planTierMap, plansMap) {
   const visibility = describeVisibility(
     normalizeVisibility(set.visibility_rules),
     departmentsMap,
-    planTierMap
+    planTierMap,
+    plansMap
   );
+  const assignmentSummary = describeAssignment(set);
+  const maxAttemptsSummary = set.max_attempts_per_user
+    ? `${set.max_attempts_per_user} attempt${set.max_attempts_per_user === 1 ? '' : 's'}`
+    : 'Unlimited attempts';
   return `
     <article class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-cyan-200 hover:shadow-md" data-role="set-card" data-id="${set.id}">
       <header class="flex items-start justify-between gap-4">
@@ -233,6 +311,14 @@ function renderExtraSetCard(set, departmentsMap, planTierMap) {
           <dt class="font-semibold text-slate-600">Audience</dt>
           <dd class="text-slate-500">${visibility}</dd>
         </div>
+        <div class="flex items-center justify-between">
+          <dt class="font-semibold text-slate-600">Distribution</dt>
+          <dd>${assignmentSummary}</dd>
+        </div>
+        <div class="flex items-center justify-between">
+          <dt class="font-semibold text-slate-600">Attempts</dt>
+          <dd>${maxAttemptsSummary}</dd>
+        </div>
       </dl>
       <footer class="mt-auto flex flex-wrap gap-2">
         <button type="button" class="rounded-md bg-cyan-700 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-800" data-role="manage-set" data-id="${set.id}">Manage questions</button>
@@ -243,7 +329,7 @@ function renderExtraSetCard(set, departmentsMap, planTierMap) {
   `;
 }
 
-function renderListView(sets, departmentsMap, planTierMap) {
+function renderListView(sets, departmentsMap, planTierMap, plansMap) {
   if (!sets.length) {
     return `
       <section class="space-y-6">
@@ -262,7 +348,9 @@ function renderListView(sets, departmentsMap, planTierMap) {
   }
 
   const cards = sets
-    .map((set) => renderExtraSetCard(set, departmentsMap, planTierMap))
+    .map((set) =>
+      renderExtraSetCard(set, departmentsMap, planTierMap, plansMap)
+    )
     .join('');
 
   return `
@@ -341,8 +429,13 @@ function renderDetailView(set, questions, context) {
   const visibility = describeVisibility(
     normalizeVisibility(set.visibility_rules),
     context.departmentsMap,
-    context.planTierMap
+    context.planTierMap,
+    context.plansMap
   );
+  const assignmentSummary = describeAssignment(set);
+  const maxAttemptsSummary = set.max_attempts_per_user
+    ? `${set.max_attempts_per_user} attempt${set.max_attempts_per_user === 1 ? '' : 's'}`
+    : 'Unlimited attempts';
 
   return `
     <section class="space-y-6">
@@ -375,7 +468,12 @@ function renderDetailView(set, questions, context) {
           <p class="mt-2 text-lg font-semibold text-slate-900">${renderTimeLimitSummary(set.time_limit_seconds)}</p>
           <p class="mt-2 text-xs text-slate-500">Control how long learners have when attempting this set.</p>
         </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:col-span-2">
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Distribution & Attempts</p>
+          <p class="mt-2 text-sm text-slate-700">${assignmentSummary}</p>
+          <p class="mt-2 text-xs text-slate-500">${maxAttemptsSummary}</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:col-span-3">
           <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Audience</p>
           <p class="mt-2 text-sm text-slate-700">${visibility}</p>
         </div>
@@ -465,7 +563,8 @@ function highlightTextareaLine(textarea, lineNumber) {
   const end = start + line.length;
   textarea.focus();
   textarea.setSelectionRange(start, end);
-  textarea.scrollTop = textarea.scrollHeight * ((lineNumber - 1) / lines.length);
+  textarea.scrollTop =
+    textarea.scrollHeight * ((lineNumber - 1) / lines.length);
   textarea.classList.add('ring-2', 'ring-red-500');
   setTimeout(() => textarea.classList.remove('ring-2', 'ring-red-500'), 1200);
 }
@@ -499,6 +598,7 @@ function bindVisibilityControls(form) {
   const deptOptions = form.querySelector('[data-role="department-options"]');
   const planToggle = form.querySelector('[data-role="toggle-plans"]');
   const planOptions = form.querySelector('[data-role="plan-options"]');
+  const planSelect = form.querySelector('[data-role="plan-select"]');
 
   const updateSection = (toggle, container) => {
     if (!toggle || !container) return;
@@ -509,24 +609,42 @@ function bindVisibilityControls(form) {
     });
   };
 
+  const updatePlanSelect = () => {
+    if (!planSelect) return;
+    const disabled = planToggle
+      ? planToggle.checked || planToggle.disabled
+      : true;
+    planSelect.disabled = disabled;
+    planSelect.classList.toggle('opacity-60', disabled);
+  };
+
   if (deptToggle && deptOptions) {
     updateSection(deptToggle, deptOptions);
-    deptToggle.addEventListener('change', () => updateSection(deptToggle, deptOptions));
+    deptToggle.addEventListener('change', () =>
+      updateSection(deptToggle, deptOptions)
+    );
   }
   if (planToggle && planOptions) {
     updateSection(planToggle, planOptions);
-    planToggle.addEventListener('change', () => updateSection(planToggle, planOptions));
+    planToggle.addEventListener('change', () =>
+      updateSection(planToggle, planOptions)
+    );
   }
+  updatePlanSelect();
+  planToggle?.addEventListener('change', updatePlanSelect);
 }
 
-function openSetEditor({ mode, set, departments, planTiers, onSave }) {
+function openSetEditor({ mode, set, departments, planTiers, plans, onSave }) {
   const visibility = normalizeVisibility(set?.visibility_rules);
   const timeLimitMinutes = set?.time_limit_seconds
     ? Math.round(Number(set.time_limit_seconds) / 60)
     : '';
 
   openModal({
-    title: mode === 'create' ? 'Create Extra Question Set' : 'Edit Extra Question Set',
+    title:
+      mode === 'create'
+        ? 'Create Extra Question Set'
+        : 'Edit Extra Question Set',
     render: ({ body, footer, close }) => {
       const departmentOptions = departments.length
         ? departments
@@ -557,6 +675,25 @@ function openSetEditor({ mode, set, departments, planTiers, onSave }) {
             )
             .join('')
         : '<p class="text-sm text-slate-500">No plan tiers detected.</p>';
+
+      const planSelectOptions = plans.length
+        ? plans
+            .map(
+              (plan) => `
+                <option value="${plan.id}" ${
+                  visibility.planIds.includes(plan.id) ? 'selected' : ''
+                }>${escapeHtml(plan.label)}</option>
+              `
+            )
+            .join('')
+        : '';
+      const assignmentRules = set?.assignment_rules || DEFAULT_ASSIGNMENT_RULES;
+      const defaultAssignmentMode = assignmentRules.default?.mode || 'full_set';
+      const defaultAssignmentValue =
+        assignmentRules.default?.value !== null &&
+        assignmentRules.default?.value !== undefined
+          ? assignmentRules.default.value
+          : '';
 
       body.innerHTML = `
         <form id="extra-set-form" class="space-y-4">
@@ -609,7 +746,43 @@ function openSetEditor({ mode, set, departments, planTiers, onSave }) {
               <div class="mt-2 grid gap-2" data-role="plan-options">
                 ${planTierOptions}
               </div>
+              <div class="mt-3 space-y-1">
+                <label class="text-xs font-semibold uppercase tracking-wide text-slate-500">Limit to specific plans</label>
+                ${
+                  plans.length
+                    ? `<select name="planIds" data-role="plan-select" multiple class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600">
+                        ${planSelectOptions}
+                      </select>
+                      <p class="text-xs text-slate-500">Leave empty to include every plan within the selected tiers.</p>`
+                    : '<p class="text-sm text-slate-500">No plans available for selection.</p>'
+                }
+              </div>
             </div>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 space-y-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Question distribution</p>
+              <label class="mt-2 block text-sm font-medium text-slate-700">
+                <span>Default delivery</span>
+                <select name="assignment_mode" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600">
+                  <option value="full_set" ${defaultAssignmentMode === 'full_set' ? 'selected' : ''}>Deliver entire set</option>
+                  <option value="fixed_count" ${defaultAssignmentMode === 'fixed_count' ? 'selected' : ''}>Deliver fixed number</option>
+                  <option value="percentage" ${defaultAssignmentMode === 'percentage' ? 'selected' : ''}>Deliver percentage</option>
+                </select>
+              </label>
+            </div>
+            <label class="block text-sm font-medium text-slate-700">
+              <span>Quantity</span>
+              <input type="number" name="assignment_value" value="${defaultAssignmentValue}" min="1" max="100" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600" ${
+                defaultAssignmentMode === 'full_set' ? 'disabled' : ''
+              } />
+              <span class="mt-1 block text-xs text-slate-500" data-role="assignment-hint"></span>
+            </label>
+            <label class="block text-sm font-medium text-slate-700">
+              <span>Maximum attempts per learner</span>
+              <input type="number" name="max_attempts_per_user" min="1" value="${set?.max_attempts_per_user ?? ''}" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600" />
+              <span class="mt-1 block text-xs text-slate-500">Leave blank for unlimited retries.</span>
+            </label>
           </div>
           <p class="hidden text-sm text-red-600" data-role="form-error"></p>
         </form>
@@ -628,6 +801,49 @@ function openSetEditor({ mode, set, departments, planTiers, onSave }) {
       cancelBtn.addEventListener('click', close);
       bindVisibilityControls(form);
 
+      const assignmentModeSelect = form.querySelector(
+        '[name="assignment_mode"]'
+      );
+      const assignmentValueInput = form.querySelector(
+        '[name="assignment_value"]'
+      );
+      const assignmentHintEl = form.querySelector(
+        '[data-role="assignment-hint"]'
+      );
+
+      const updateAssignmentControls = () => {
+        if (!assignmentModeSelect || !assignmentValueInput || !assignmentHintEl)
+          return;
+        const mode = assignmentModeSelect.value || 'full_set';
+        if (mode === 'full_set') {
+          assignmentValueInput.disabled = true;
+          assignmentValueInput.placeholder = 'Not required';
+          assignmentValueInput.value = '';
+          assignmentHintEl.textContent =
+            'Learners receive every question in the set.';
+        } else if (mode === 'fixed_count') {
+          assignmentValueInput.disabled = false;
+          assignmentValueInput.min = '1';
+          assignmentValueInput.removeAttribute('max');
+          assignmentValueInput.placeholder = 'e.g. 10';
+          assignmentHintEl.textContent =
+            'Deliver a fixed number of questions per attempt.';
+        } else {
+          assignmentValueInput.disabled = false;
+          assignmentValueInput.min = '1';
+          assignmentValueInput.max = '100';
+          assignmentValueInput.placeholder = 'e.g. 50';
+          assignmentHintEl.textContent =
+            'Deliver a percentage of the set (1-100%).';
+        }
+      };
+
+      updateAssignmentControls();
+      assignmentModeSelect?.addEventListener(
+        'change',
+        updateAssignmentControls
+      );
+
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
         errorEl.classList.add('hidden');
@@ -641,30 +857,66 @@ function openSetEditor({ mode, set, departments, planTiers, onSave }) {
           return;
         }
 
-        const allowAllDepartments = Boolean(formData.get('allowAllDepartments'));
+        const allowAllDepartments = Boolean(
+          formData.get('allowAllDepartments')
+        );
         const departmentIds = allowAllDepartments
           ? []
-          : Array.from(form.querySelectorAll('input[name="departmentIds"]:checked')).map((input) => input.value);
+          : Array.from(
+              form.querySelectorAll('input[name="departmentIds"]:checked')
+            ).map((input) => input.value);
         if (!allowAllDepartments && !departmentIds.length) {
-          errorEl.textContent = 'Select at least one department or choose “All departments”.';
+          errorEl.textContent =
+            'Select at least one department or choose “All departments”.';
           errorEl.classList.remove('hidden');
           return;
         }
 
-        const allowAllPlans = Boolean(formData.get('allowAllPlans')) || !planTiers.list.length;
+        const allowAllPlans =
+          Boolean(formData.get('allowAllPlans')) || !planTiers.list.length;
         const planTierValues = allowAllPlans
           ? []
-          : Array.from(form.querySelectorAll('input[name="planTiers"]:checked')).map((input) => input.value);
+          : Array.from(
+              form.querySelectorAll('input[name="planTiers"]:checked')
+            ).map((input) => input.value);
         if (!allowAllPlans && !planTierValues.length) {
-          errorEl.textContent = 'Select at least one plan tier or choose “All plan tiers”.';
+          errorEl.textContent =
+            'Select at least one plan tier or choose “All plan tiers”.';
           errorEl.classList.remove('hidden');
           return;
         }
 
+        const planSelectEl = form.querySelector('[name="planIds"]');
+        const planIds = allowAllPlans
+          ? []
+          : planSelectEl
+            ? Array.from(planSelectEl.selectedOptions).map(
+                (option) => option.value
+              )
+            : [];
+
         const rawTimeLimit = formData.get('time_limit_minutes');
-        const parsedTimeLimit = rawTimeLimit
-          ? Number(rawTimeLimit)
-          : null;
+        const parsedTimeLimit = rawTimeLimit ? Number(rawTimeLimit) : null;
+
+        const assignmentMode = (formData.get('assignment_mode') || 'full_set')
+          .toString()
+          .toLowerCase();
+        let assignmentValueRaw = formData.get('assignment_value');
+        if (assignmentMode !== 'full_set') {
+          assignmentValueRaw = assignmentValueRaw
+            ? assignmentValueRaw.toString().trim()
+            : '';
+          if (!assignmentValueRaw) {
+            errorEl.textContent =
+              assignmentMode === 'percentage'
+                ? 'Enter the percentage of questions to deliver.'
+                : 'Enter how many questions should be delivered per attempt.';
+            errorEl.classList.remove('hidden');
+            return;
+          }
+        }
+
+        const maxAttemptsRaw = formData.get('max_attempts_per_user');
 
         const payload = {
           title,
@@ -681,7 +933,24 @@ function openSetEditor({ mode, set, departments, planTiers, onSave }) {
             departmentIds,
             allowAllPlans,
             planTiers: planTierValues,
+            planIds,
           },
+          assignment_rules: {
+            default: {
+              mode: assignmentMode,
+              value:
+                assignmentMode === 'full_set'
+                  ? null
+                  : assignmentMode === 'percentage'
+                    ? Number(assignmentValueRaw)
+                    : Number(assignmentValueRaw),
+            },
+            overrides: [],
+          },
+          max_attempts_per_user:
+            maxAttemptsRaw !== null && maxAttemptsRaw !== undefined
+              ? maxAttemptsRaw
+              : null,
         };
 
         submitBtn.disabled = true;
@@ -709,6 +978,7 @@ function registerListHandlers(container, context, actions) {
       set: null,
       departments: context.departments,
       planTiers: context.planTiers,
+      plans: context.plans,
       async onSave(payload, close) {
         try {
           const created = await dataService.createExtraQuestionSet(payload);
@@ -749,6 +1019,7 @@ function registerListHandlers(container, context, actions) {
         set,
         departments: context.departments,
         planTiers: context.planTiers,
+        plans: context.plans,
         async onSave(payload, close) {
           await dataService.updateExtraQuestionSet(set.id, payload);
           showToast('Extra question set updated.', { type: 'success' });
@@ -794,6 +1065,7 @@ function registerDetailHandlers(container, context, actions) {
       set: context.set,
       departments: context.departments,
       planTiers: context.planTiers,
+      plans: context.plans,
       async onSave(payload, close) {
         await dataService.updateExtraQuestionSet(context.set.id, payload);
         showToast('Extra question set updated.', { type: 'success' });
@@ -812,7 +1084,9 @@ function registerDetailHandlers(container, context, actions) {
       showToast('Visibility updated.', { type: 'success' });
       actions.refresh();
     } catch (error) {
-      showToast(error?.message || 'Failed to update status.', { type: 'error' });
+      showToast(error?.message || 'Failed to update status.', {
+        type: 'error',
+      });
     }
   });
 
@@ -834,7 +1108,9 @@ function registerDetailHandlers(container, context, actions) {
     }
   });
 
-  const fileButton = container.querySelector('[data-role="trigger-file-upload"]');
+  const fileButton = container.querySelector(
+    '[data-role="trigger-file-upload"]'
+  );
   const fileInput = container.querySelector('[data-role="file-input"]');
   fileButton?.addEventListener('click', () => fileInput?.click());
   fileInput?.addEventListener('change', async (event) => {
@@ -855,7 +1131,11 @@ function registerDetailHandlers(container, context, actions) {
         ? `${count} question${count === 1 ? '' : 's'} uploaded • ${skipped} skipped`
         : `${count} question${count === 1 ? '' : 's'} uploaded successfully.`;
       showToast(toastMessage, { type: toastType });
-      if (skipped && Array.isArray(result?.parseErrors) && result.parseErrors.length) {
+      if (
+        skipped &&
+        Array.isArray(result?.parseErrors) &&
+        result.parseErrors.length
+      ) {
         const firstIssue = result.parseErrors[0];
         const detail = firstIssue?.message
           ? `First issue: ${firstIssue.message}`
@@ -864,7 +1144,9 @@ function registerDetailHandlers(container, context, actions) {
       }
       actions.refresh();
     } catch (error) {
-      showToast(error?.message || 'Failed to upload questions.', { type: 'error' });
+      showToast(error?.message || 'Failed to upload questions.', {
+        type: 'error',
+      });
     } finally {
       fileInput.value = '';
       fileButton.disabled = false;
@@ -878,7 +1160,9 @@ function registerDetailHandlers(container, context, actions) {
   const clearButton = container.querySelector('[data-role="clear-inline"]');
   const questionTable = container.querySelector('[data-role="question-table"]');
   const searchInput = container.querySelector('[data-role="question-search"]');
-  const countLabel = container.querySelector('[data-role="question-count-label"]');
+  const countLabel = container.querySelector(
+    '[data-role="question-count-label"]'
+  );
 
   const updateQuestionCountLabel = (term) => {
     if (!countLabel) return;
@@ -900,23 +1184,25 @@ function registerDetailHandlers(container, context, actions) {
   };
 
   const bindDeleteQuestionHandlers = () => {
-    container.querySelectorAll('[data-role="delete-question"]').forEach((button) => {
-      button.addEventListener('click', async () => {
-        const questionId = button.dataset.questionId;
-        if (!questionId) return;
-        const confirmation = window.confirm('Delete this question?');
-        if (!confirmation) return;
-        try {
-          await dataService.deleteExtraQuestion(context.set.id, questionId);
-          showToast('Question deleted.', { type: 'success' });
-          actions.refresh();
-        } catch (error) {
-          showToast(error?.message || 'Failed to delete question.', {
-            type: 'error',
-          });
-        }
+    container
+      .querySelectorAll('[data-role="delete-question"]')
+      .forEach((button) => {
+        button.addEventListener('click', async () => {
+          const questionId = button.dataset.questionId;
+          if (!questionId) return;
+          const confirmation = window.confirm('Delete this question?');
+          if (!confirmation) return;
+          try {
+            await dataService.deleteExtraQuestion(context.set.id, questionId);
+            showToast('Question deleted.', { type: 'success' });
+            actions.refresh();
+          } catch (error) {
+            showToast(error?.message || 'Failed to delete question.', {
+              type: 'error',
+            });
+          }
+        });
       });
-    });
   };
 
   updateQuestionCountLabel('');
@@ -942,14 +1228,20 @@ function registerDetailHandlers(container, context, actions) {
     inlineButton.textContent = 'Validating…';
     try {
       const preview = await dataService.previewAikenContent(text);
-      const questions = Array.isArray(preview?.questions) ? preview.questions : [];
-      const skippedIssues = Array.isArray(preview?.skipped) ? preview.skipped : [];
+      const questions = Array.isArray(preview?.questions)
+        ? preview.questions
+        : [];
+      const skippedIssues = Array.isArray(preview?.skipped)
+        ? preview.skipped
+        : [];
       const parseErrors = Array.isArray(preview?.errors) ? preview.errors : [];
 
       if (!questions.length) {
-        inlineError.textContent = 'No valid questions were found. Fix the highlighted issues and try again.';
+        inlineError.textContent =
+          'No valid questions were found. Fix the highlighted issues and try again.';
         inlineError?.classList.remove('hidden');
-        const firstLine = skippedIssues[0]?.startLine || parseErrors[0]?.lineNumber;
+        const firstLine =
+          skippedIssues[0]?.startLine || parseErrors[0]?.lineNumber;
         if (firstLine) {
           highlightTextareaLine(textarea, Number(firstLine));
         }
@@ -968,7 +1260,8 @@ function registerDetailHandlers(container, context, actions) {
             `${parseErrors.length} additional formatting issue${parseErrors.length === 1 ? '' : 's'} detected.`
           );
         }
-        const firstLine = skippedIssues[0]?.startLine || parseErrors[0]?.lineNumber;
+        const firstLine =
+          skippedIssues[0]?.startLine || parseErrors[0]?.lineNumber;
         inlineError.textContent = issueSummaryParts.join(' ');
         inlineError?.classList.remove('hidden');
         if (firstLine) {
@@ -1013,7 +1306,11 @@ function registerDetailHandlers(container, context, actions) {
         ? `${count} question${count === 1 ? '' : 's'} uploaded • ${skipped} skipped`
         : `${count} question${count === 1 ? '' : 's'} uploaded successfully.`;
       showToast(toastMessage, { type: toastType });
-      if (skipped && Array.isArray(result?.parseErrors) && result.parseErrors.length) {
+      if (
+        skipped &&
+        Array.isArray(result?.parseErrors) &&
+        result.parseErrors.length
+      ) {
         const firstIssue = result.parseErrors[0];
         const detail = firstIssue?.message
           ? `First issue: ${firstIssue.message}`
@@ -1051,6 +1348,7 @@ export async function extraQuestionsView(state, actions) {
 
   const departmentsMap = new Map(departments.map((dept) => [dept.id, dept]));
   const planTiers = derivePlanTierInfo(subscriptionProducts);
+  const planOptions = derivePlanOptions(subscriptionProducts);
 
   const selectedSet = sets.find(
     (set) => set.id === state.selectedExtraQuestionSetId
@@ -1062,11 +1360,18 @@ export async function extraQuestionsView(state, actions) {
     departmentsMap,
     planTiers,
     planTierMap: planTiers.map,
+    plans: planOptions.list,
+    plansMap: planOptions.map,
   };
 
   if (!selectedSet) {
     return {
-      html: renderListView(sets, departmentsMap, planTiers.map),
+      html: renderListView(
+        sets,
+        departmentsMap,
+        planTiers.map,
+        planOptions.map
+      ),
       onMount(container) {
         if (
           state.selectedExtraQuestionSetId &&

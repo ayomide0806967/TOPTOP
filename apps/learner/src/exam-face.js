@@ -31,12 +31,116 @@ const state = {
   dailyQuiz: null, // active quiz metadata (daily or free)
   freeQuizAttempt: null,
   extraSet: null,
+  extraAttempt: null,
+  extraPlanId: null,
   entries: [], // question entries
   answers: {}, // map of question entry id -> selected option index
   timerId: null,
   timerStartFrom: null,
   deadlineCheckInterval: null,
 };
+
+const DEFAULT_ASSIGNMENT_RULES = Object.freeze({
+  default: { mode: 'full_set', value: null },
+  overrides: [],
+});
+
+const ASSIGNMENT_MODES = new Set(['full_set', 'fixed_count', 'percentage']);
+
+function normalizeAssignmentValue(mode, value) {
+  if (mode === 'full_set') return null;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null;
+  }
+  if (mode === 'fixed_count') {
+    return Math.max(1, Math.round(numeric));
+  }
+  if (mode === 'percentage') {
+    return Math.min(100, Math.max(1, Math.round(numeric)));
+  }
+  return null;
+}
+
+function normalizeAssignmentRules(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const defaultSource =
+    source.default && typeof source.default === 'object' ? source.default : {};
+  const mode = ASSIGNMENT_MODES.has(defaultSource.mode)
+    ? defaultSource.mode
+    : 'full_set';
+  const normalizedDefaultValue = normalizeAssignmentValue(
+    mode,
+    defaultSource.value
+  );
+
+  const overridesSource = Array.isArray(source.overrides)
+    ? source.overrides
+    : [];
+  const overrides = overridesSource
+    .map((override) => {
+      if (!override || typeof override !== 'object') return null;
+      const planId = override.planId || override.plan_id;
+      if (!planId) return null;
+      const overrideMode = ASSIGNMENT_MODES.has(override.mode)
+        ? override.mode
+        : 'full_set';
+      const overrideValue = normalizeAssignmentValue(
+        overrideMode,
+        override.value
+      );
+      if (overrideMode !== 'full_set' && overrideValue === null) {
+        return null;
+      }
+      return {
+        planId: String(planId),
+        mode: overrideMode,
+        value: overrideMode === 'full_set' ? null : overrideValue,
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    default: {
+      mode,
+      value: mode === 'full_set' ? null : normalizedDefaultValue,
+    },
+    overrides,
+  };
+}
+
+function getEffectiveAssignmentRule(rules, planId) {
+  const normalized = rules || DEFAULT_ASSIGNMENT_RULES;
+  if (planId) {
+    const override = normalized.overrides?.find(
+      (entry) => entry.planId === planId
+    );
+    if (override) return override;
+  }
+  return normalized.default || DEFAULT_ASSIGNMENT_RULES.default;
+}
+
+function selectEntriesByRule(entries, rule) {
+  if (!Array.isArray(entries) || !entries.length) return [];
+  const mode = rule?.mode || 'full_set';
+  if (mode === 'fixed_count') {
+    const limit = Math.max(1, Math.round(rule?.value || 0));
+    return entries.slice(0, Math.min(entries.length, limit));
+  }
+  if (mode === 'percentage') {
+    const percentage = Math.min(100, Math.max(1, Math.round(rule?.value || 0)));
+    const limit = Math.max(1, Math.round((entries.length * percentage) / 100));
+    return entries.slice(0, Math.min(entries.length, limit));
+  }
+  return entries.slice();
+}
+
+function applyAssignmentRules(entries, rules, planId) {
+  const normalized = normalizeAssignmentRules(rules);
+  const effectiveRule = getEffectiveAssignmentRule(normalized, planId);
+  const selected = selectEntriesByRule(entries, effectiveRule);
+  return { selected, effectiveRule, normalizedRules: normalized };
+}
 
 // LocalStorage keys
 const STORAGE_KEYS = {
@@ -53,7 +157,10 @@ function readExtraSetLaunchDebug() {
     if (!raw) return null;
     return JSON.parse(raw);
   } catch (error) {
-    console.debug('[Exam Face] Unable to read extra set launch debug info', error);
+    console.debug(
+      '[Exam Face] Unable to read extra set launch debug info',
+      error
+    );
     return null;
   }
 }
@@ -67,8 +174,52 @@ function mergeExtraSetLaunchDebug(patch) {
     sessionStorage.setItem('extra_set_launch_debug', JSON.stringify(updated));
     return updated;
   } catch (error) {
-    console.debug('[Exam Face] Unable to persist extra set launch debug info', error);
+    console.debug(
+      '[Exam Face] Unable to persist extra set launch debug info',
+      error
+    );
     return null;
+  }
+}
+
+async function initialiseExtraPracticeAttempt(setId, questionCount) {
+  if (!state.supabase || !setId) {
+    state.extraAttempt = null;
+    return null;
+  }
+  try {
+    const { data, error } = await state.supabase.rpc(
+      'start_extra_question_attempt',
+      { p_set_id: setId }
+    );
+    if (error) throw error;
+    const attempt = data || null;
+    if (attempt) {
+      state.extraAttempt = {
+        ...attempt,
+        total_questions:
+          attempt.total_questions !== null
+            ? Number(attempt.total_questions)
+            : (questionCount ?? null),
+      };
+      if (state.dailyQuiz) {
+        state.dailyQuiz.attempt_id = attempt.id;
+        state.dailyQuiz.attempt_number = attempt.attempt_number;
+        if (!state.dailyQuiz.started_at && attempt.started_at) {
+          state.dailyQuiz.started_at = attempt.started_at;
+        }
+      }
+    } else {
+      state.extraAttempt = null;
+    }
+    return attempt;
+  } catch (error) {
+    console.error(
+      '[Exam Face] Failed to initialise extra question attempt',
+      error
+    );
+    state.extraAttempt = null;
+    throw error;
   }
 }
 
@@ -89,7 +240,12 @@ function showToast(message, type = 'info') {
 function computeTimeUsed(startedAt, completedAt) {
   const start = startedAt ? new Date(startedAt) : null;
   const end = completedAt ? new Date(completedAt) : null;
-  if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+  if (
+    !start ||
+    !end ||
+    Number.isNaN(start.getTime()) ||
+    Number.isNaN(end.getTime())
+  ) {
     return null;
   }
   const diff = Math.floor((end.getTime() - start.getTime()) / 1000);
@@ -116,7 +272,13 @@ function updateEntrySelection(entry, optionId) {
 
   if (!correctKey) {
     const options = entry.question?.question_options || [];
-    const markedCorrect = options.find((opt) => opt && (opt.is_correct || normalizeOptionKey(opt.id) === normalizeOptionKey(entry.correct_option_id)));
+    const markedCorrect = options.find(
+      (opt) =>
+        opt &&
+        (opt.is_correct ||
+          normalizeOptionKey(opt.id) ===
+            normalizeOptionKey(entry.correct_option_id))
+    );
     if (markedCorrect) {
       entry.correct_option_id = markedCorrect.id ?? markedCorrect.label;
       correctKey = normalizeOptionKey(entry.correct_option_id);
@@ -125,7 +287,11 @@ function updateEntrySelection(entry, optionId) {
 
   if (!correctKey) {
     const options = entry.question?.question_options || [];
-    const primaryMatch = options.find((opt) => normalizeOptionKey(opt.label) === normalizeOptionKey(entry.correct_option_id));
+    const primaryMatch = options.find(
+      (opt) =>
+        normalizeOptionKey(opt.label) ===
+        normalizeOptionKey(entry.correct_option_id)
+    );
     if (primaryMatch) {
       entry.correct_option_id = primaryMatch.id ?? primaryMatch.label;
       correctKey = normalizeOptionKey(entry.correct_option_id);
@@ -137,7 +303,11 @@ function updateEntrySelection(entry, optionId) {
     entry.is_correct = selectedKey === correctKey;
   } else {
     const options = entry.question?.question_options || [];
-    const selectedOption = options.find((opt) => normalizeOptionKey(opt.id) === selectedKey || normalizeOptionKey(opt.label) === selectedKey);
+    const selectedOption = options.find(
+      (opt) =>
+        normalizeOptionKey(opt.id) === selectedKey ||
+        normalizeOptionKey(opt.label) === selectedKey
+    );
     entry.is_correct = !!selectedOption?.is_correct;
     if (!entry.correct_option_id && selectedOption?.is_correct) {
       entry.correct_option_id = selectedOption.id ?? selectedOption.label;
@@ -149,10 +319,15 @@ function updateEntrySelection(entry, optionId) {
 function isEntryCorrect(entry) {
   if (!entry || !entry.selected_option_id) return false;
   const selectedKey = normalizeOptionKey(entry.selected_option_id);
-  const correctKey = entry.correct_option_key || normalizeOptionKey(entry.correct_option_id);
+  const correctKey =
+    entry.correct_option_key || normalizeOptionKey(entry.correct_option_id);
   if (correctKey) return selectedKey === correctKey;
   const options = entry.question?.question_options || [];
-  const selectedOption = options.find((opt) => normalizeOptionKey(opt.id) === selectedKey || normalizeOptionKey(opt.label) === selectedKey);
+  const selectedOption = options.find(
+    (opt) =>
+      normalizeOptionKey(opt.id) === selectedKey ||
+      normalizeOptionKey(opt.label) === selectedKey
+  );
   return !!selectedOption?.is_correct;
 }
 
@@ -161,11 +336,11 @@ function showConfirmModal(answered, skipped, total) {
     // Create modal overlay
     const overlay = document.createElement('div');
     overlay.className = 'confirm-modal-overlay';
-    
+
     // Create modal content
     const modal = document.createElement('div');
     modal.className = 'confirm-modal';
-    
+
     // Header
     const header = document.createElement('div');
     header.className = 'confirm-modal-header';
@@ -177,7 +352,7 @@ function showConfirmModal(answered, skipped, total) {
         ${skipped > 0 ? 'Review your progress before submitting' : 'Great job! You answered all questions'}
       </p>
     `;
-    
+
     // Body with stats
     const body = document.createElement('div');
     body.className = 'confirm-modal-body';
@@ -191,8 +366,10 @@ function showConfirmModal(answered, skipped, total) {
           <div style="font-size: 20px; font-weight: 700; color: #0f766e;">${answered} question${answered !== 1 ? 's' : ''}</div>
         </div>
       </div>
-      
-      ${skipped > 0 ? `
+
+      ${
+        skipped > 0
+          ? `
         <div class="confirm-stat">
           <div class="confirm-stat-icon" style="background: #fef3c7;">
             <span style="font-size: 24px;">⏭️</span>
@@ -202,8 +379,10 @@ function showConfirmModal(answered, skipped, total) {
             <div style="font-size: 20px; font-weight: 700; color: #d97706;">${skipped} question${skipped !== 1 ? 's' : ''}</div>
           </div>
         </div>
-      ` : ''}
-      
+      `
+          : ''
+      }
+
       <div class="confirm-stat">
         <div class="confirm-stat-icon" style="background: #e0f2fe;">
           <span style="font-size: 24px;">📝</span>
@@ -213,20 +392,24 @@ function showConfirmModal(answered, skipped, total) {
           <div style="font-size: 20px; font-weight: 700; color: #0369a1;">${total}</div>
         </div>
       </div>
-      
-      ${skipped > 0 ? `
+
+      ${
+        skipped > 0
+          ? `
         <div style="margin-top: 16px; padding: 12px; background: #fef3c7; border-radius: 10px; border-left: 4px solid #f59e0b;">
           <p style="margin: 0; font-size: 14px; color: #92400e; font-weight: 500;">
             ⚠️ You have ${skipped} unanswered question${skipped !== 1 ? 's' : ''}. You can go back to review them.
           </p>
         </div>
-      ` : ''}
+      `
+          : ''
+      }
     `;
-    
+
     // Footer with buttons
     const footer = document.createElement('div');
     footer.className = 'confirm-modal-footer';
-    
+
     const cancelBtn = document.createElement('button');
     cancelBtn.className = 'confirm-btn confirm-btn-cancel';
     cancelBtn.textContent = 'Go Back';
@@ -234,7 +417,7 @@ function showConfirmModal(answered, skipped, total) {
       document.body.removeChild(overlay);
       resolve(false);
     };
-    
+
     const submitBtn = document.createElement('button');
     submitBtn.className = 'confirm-btn confirm-btn-submit';
     submitBtn.textContent = skipped > 0 ? 'Submit Anyway' : 'Submit Quiz';
@@ -242,16 +425,16 @@ function showConfirmModal(answered, skipped, total) {
       document.body.removeChild(overlay);
       resolve(true);
     };
-    
+
     footer.appendChild(cancelBtn);
     footer.appendChild(submitBtn);
-    
+
     // Assemble modal
     modal.appendChild(header);
     modal.appendChild(body);
     modal.appendChild(footer);
     overlay.appendChild(modal);
-    
+
     // Close on overlay click
     overlay.onclick = (e) => {
       if (e.target === overlay) {
@@ -259,10 +442,10 @@ function showConfirmModal(answered, skipped, total) {
         resolve(false);
       }
     };
-    
+
     // Add to DOM
     document.body.appendChild(overlay);
-    
+
     // Focus submit button
     submitBtn.focus();
   });
@@ -303,7 +486,9 @@ function updateTimer() {
     const hours = Math.floor(limit / 3600);
     const minutes = Math.floor((limit % 3600) / 60);
     const seconds = limit % 60;
-    setTimerDisplay(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+    setTimerDisplay(
+      `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+    );
     return;
   }
   const elapsed = Math.max(
@@ -322,7 +507,9 @@ function updateTimer() {
   const hours = Math.floor(remaining / 3600);
   const minutes = Math.floor((remaining % 3600) / 60);
   const seconds = remaining % 60;
-  setTimerDisplay(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+  setTimerDisplay(
+    `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  );
 }
 
 function startTimerTicking() {
@@ -350,13 +537,13 @@ function clearTimer() {
 // Store exam deadline in localStorage
 function storeExamDeadline() {
   if (!state.dailyQuiz || !state.dailyQuiz.started_at) return;
-  
+
   const limit = Number(state.dailyQuiz.time_limit_seconds || 0);
   if (!limit) return;
-  
+
   const startedAt = new Date(state.dailyQuiz.started_at);
   const deadline = new Date(startedAt.getTime() + limit * 1000);
-  
+
   const key = STORAGE_KEYS.EXAM_DEADLINE + state.dailyQuiz.id;
   localStorage.setItem(key, deadline.toISOString());
 }
@@ -364,15 +551,15 @@ function storeExamDeadline() {
 // Check if exam deadline has passed
 function checkExamDeadline() {
   if (!state.dailyQuiz) return false;
-  
+
   const key = STORAGE_KEYS.EXAM_DEADLINE + state.dailyQuiz.id;
   const deadlineStr = localStorage.getItem(key);
-  
+
   if (!deadlineStr) return false;
-  
+
   const deadline = new Date(deadlineStr);
   const now = new Date();
-  
+
   return now >= deadline;
 }
 
@@ -389,14 +576,17 @@ function cleanupOldDeadlines() {
     const keys = Object.keys(localStorage);
     const now = Date.now();
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-    
-    keys.forEach(key => {
+
+    keys.forEach((key) => {
       if (key.startsWith(STORAGE_KEYS.EXAM_DEADLINE)) {
         const deadlineStr = localStorage.getItem(key);
         if (deadlineStr) {
           const deadline = new Date(deadlineStr);
           // Remove if deadline was more than 7 days ago
-          if (!isNaN(deadline.getTime()) && now - deadline.getTime() > sevenDaysMs) {
+          if (
+            !isNaN(deadline.getTime()) &&
+            now - deadline.getTime() > sevenDaysMs
+          ) {
             localStorage.removeItem(key);
           }
         }
@@ -408,7 +598,10 @@ function cleanupOldDeadlines() {
           try {
             const data = JSON.parse(dataStr);
             const timestamp = new Date(data.timestamp);
-            if (!isNaN(timestamp.getTime()) && now - timestamp.getTime() > sevenDaysMs) {
+            if (
+              !isNaN(timestamp.getTime()) &&
+              now - timestamp.getTime() > sevenDaysMs
+            ) {
               localStorage.removeItem(key);
             }
           } catch {
@@ -422,8 +615,13 @@ function cleanupOldDeadlines() {
         if (dataStr) {
           try {
             const data = JSON.parse(dataStr);
-            const timestamp = new Date(data.lastUpdatedAt || data.startedAt || data.started_at || 0);
-            if (!isNaN(timestamp.getTime()) && now - timestamp.getTime() > sevenDaysMs) {
+            const timestamp = new Date(
+              data.lastUpdatedAt || data.startedAt || data.started_at || 0
+            );
+            if (
+              !isNaN(timestamp.getTime()) &&
+              now - timestamp.getTime() > sevenDaysMs
+            ) {
               localStorage.removeItem(key);
             }
           } catch {
@@ -521,7 +719,7 @@ async function processOfflineAnswers() {
   if (!state.dailyQuiz || ['free', 'extra'].includes(state.mode)) return;
   const key = STORAGE_KEYS.OFFLINE_ANSWERS + state.dailyQuiz.id;
   const offlineAnswers = JSON.parse(localStorage.getItem(key) || '{}');
-  
+
   const entryIds = Object.keys(offlineAnswers);
   if (entryIds.length === 0) return;
 
@@ -532,7 +730,7 @@ async function processOfflineAnswers() {
     try {
       // Use a separate, targeted recordAnswer call for offline processing
       await recordAnswer(entryId, optionId, true); // Pass a flag to avoid re-queueing
-      
+
       // If successful, remove from local storage
       delete offlineAnswers[entryId];
       localStorage.setItem(key, JSON.stringify(offlineAnswers));
@@ -540,7 +738,7 @@ async function processOfflineAnswers() {
       console.error('[Exam Face] Failed to sync offline answer:', err);
       showToast('Failed to sync an answer. Will retry.', 'error');
       // Stop processing on first error to maintain order and prevent spamming
-      return; 
+      return;
     }
   }
 
@@ -556,19 +754,19 @@ async function processPendingSubmission() {
   if (state.mode === 'free' || state.mode === 'extra') return;
   const pending = getPendingSubmission();
   if (!pending) return;
-  
+
   try {
     const { error } = await state.supabase
       .from('daily_quizzes')
       .update(pending.payload)
       .eq('id', pending.quizId);
-    
+
     if (error) throw error;
-    
+
     // Clear pending submission on success
     clearPendingSubmission();
     clearExamDeadline();
-    
+
     // Redirect to results
     const url = new URL(window.location.href);
     url.pathname = url.pathname.replace(/[^/]+$/, 'result-face.html');
@@ -582,11 +780,12 @@ async function processPendingSubmission() {
 
 function updateProgress() {
   const total = state.entries.length;
-  const answeredCount = state.entries.filter(e => e.selected_option_id).length;
+  const answeredCount = state.entries.filter(
+    (e) => e.selected_option_id
+  ).length;
   const percent = total ? (answeredCount / total) * 100 : 0;
   if (els.progressBar) els.progressBar.style.width = `${percent}%`;
 }
-
 
 function renderPalette() {
   if (!els.questionGrid) return;
@@ -629,7 +828,7 @@ function optionHtml(entry) {
 function renderAllQuestions() {
   if (!els.questionsContainer) return;
   els.questionsContainer.innerHTML = '';
-  
+
   state.entries.forEach((entry, index) => {
     const q = entry.question;
     const el = document.createElement('div');
@@ -645,7 +844,7 @@ function renderAllQuestions() {
     `;
     els.questionsContainer.appendChild(el);
   });
-  
+
   // Add submit button after last question
   const submitContainer = document.createElement('div');
   submitContainer.className = 'mt-12 pt-8 border-t-2 border-gray-200';
@@ -668,7 +867,7 @@ function renderAllQuestions() {
       await recordAnswer(entryId, optionId);
     });
   });
-  
+
   // Bind submit button
   const submitBtn = document.getElementById('submitBtn');
   if (submitBtn) {
@@ -677,12 +876,17 @@ function renderAllQuestions() {
 }
 
 async function ensureFreeQuizAttempt(progressData = null) {
-  if (state.mode !== 'free' || state.freeQuizAttempt || !state.dailyQuiz) return;
+  if (state.mode !== 'free' || state.freeQuizAttempt || !state.dailyQuiz)
+    return;
 
   if (progressData?.attemptId) {
     state.freeQuizAttempt = {
       id: progressData.attemptId,
-      started_at: progressData.startedAt || progressData.started_at || state.dailyQuiz.started_at || new Date().toISOString(),
+      started_at:
+        progressData.startedAt ||
+        progressData.started_at ||
+        state.dailyQuiz.started_at ||
+        new Date().toISOString(),
     };
     if (!state.dailyQuiz.started_at && state.freeQuizAttempt.started_at) {
       state.dailyQuiz.started_at = state.freeQuizAttempt.started_at;
@@ -709,7 +913,8 @@ async function ensureFreeQuizAttempt(progressData = null) {
     .single();
   if (error) throw error;
   state.freeQuizAttempt = data;
-  state.dailyQuiz.started_at = data?.started_at || state.dailyQuiz.started_at || new Date().toISOString();
+  state.dailyQuiz.started_at =
+    data?.started_at || state.dailyQuiz.started_at || new Date().toISOString();
   state.dailyQuiz.status = 'in_progress';
   saveFreeQuizProgress({
     attemptId: state.freeQuizAttempt.id,
@@ -779,7 +984,10 @@ function applyStoredFreeAnswers(answersMap) {
   Object.entries(answersMap).forEach(([entryId, storedValue]) => {
     const optionId =
       typeof storedValue === 'object' && storedValue !== null
-        ? storedValue.optionId ?? storedValue.value ?? storedValue.answer ?? storedValue
+        ? (storedValue.optionId ??
+          storedValue.value ??
+          storedValue.answer ??
+          storedValue)
         : storedValue;
     const entry = state.entries.find((item) => item.id === entryId);
     if (!entry) return;
@@ -788,12 +996,14 @@ function applyStoredFreeAnswers(answersMap) {
 }
 
 async function recordAnswer(entryId, optionId, isSyncing = false) {
-  const entry = state.entries.find(e => e.id === entryId);
+  const entry = state.entries.find((e) => e.id === entryId);
   if (!entry) return;
-  
+
   try {
     await ensureStarted();
-    const option = entry.question?.question_options?.find(opt => opt.id === optionId);
+    const option = entry.question?.question_options?.find(
+      (opt) => opt.id === optionId
+    );
     if (!option) return;
 
     const answeredAt = new Date().toISOString();
@@ -821,11 +1031,10 @@ async function recordAnswer(entryId, optionId, isSyncing = false) {
       })
       .eq('id', entry.id);
     if (error) throw error;
-
   } catch (err) {
     console.error('[Exam Face] recordAnswer failed', err);
     showToast(err.message || 'Unable to save your answer.', 'error');
-    
+
     if (!['free', 'extra'].includes(state.mode) && !isSyncing) {
       storeOfflineAnswer(entryId, optionId);
       showToast('Answer saved locally. Will sync when online.', 'info');
@@ -838,9 +1047,9 @@ async function submitQuiz(forceSubmit = false) {
 
   // Calculate answered and skipped questions
   const total = state.entries.length;
-  const answered = state.entries.filter(e => e.selected_option_id).length;
+  const answered = state.entries.filter((e) => e.selected_option_id).length;
   const skipped = total - answered;
-  
+
   // Show modern confirmation dialog (skip if forced by timer)
   if (!forceSubmit) {
     const confirmed = await showConfirmModal(answered, skipped, total);
@@ -853,12 +1062,17 @@ async function submitQuiz(forceSubmit = false) {
   try {
     clearTimer();
     showToast('Submitting quiz...', 'info');
-    
+
     correct = state.entries.filter(isEntryCorrect).length;
     if (state.mode === 'free') {
       const completedAt = new Date().toISOString();
-      const durationSeconds = computeTimeUsed(state.dailyQuiz.started_at, completedAt);
-      const scorePercent = total ? Number(((correct / total) * 100).toFixed(2)) : 0;
+      const durationSeconds = computeTimeUsed(
+        state.dailyQuiz.started_at,
+        completedAt
+      );
+      const scorePercent = total
+        ? Number(((correct / total) * 100).toFixed(2))
+        : 0;
 
       if (!state.freeQuizAttempt) {
         await ensureFreeQuizAttempt();
@@ -876,17 +1090,15 @@ async function submitQuiz(forceSubmit = false) {
           })
           .eq('id', state.freeQuizAttempt.id);
       } else {
-        await state.supabase
-          .from('free_quiz_attempts')
-          .insert({
-            free_quiz_id: state.dailyQuiz.id,
-            profile_id: state.user?.id || null,
-            total_questions: total,
-            correct_count: correct,
-            score: scorePercent,
-            completed_at: completedAt,
-            duration_seconds: durationSeconds ?? null,
-          });
+        await state.supabase.from('free_quiz_attempts').insert({
+          free_quiz_id: state.dailyQuiz.id,
+          profile_id: state.user?.id || null,
+          total_questions: total,
+          correct_count: correct,
+          score: scorePercent,
+          completed_at: completedAt,
+          duration_seconds: durationSeconds ?? null,
+        });
       }
 
       try {
@@ -914,7 +1126,10 @@ async function submitQuiz(forceSubmit = false) {
           score: scorePercent,
           duration_seconds: durationSeconds ?? null,
         };
-        sessionStorage.setItem('free_quiz_last_result', JSON.stringify(cachePayload));
+        sessionStorage.setItem(
+          'free_quiz_last_result',
+          JSON.stringify(cachePayload)
+        );
       } catch (err) {
         console.warn('[Exam Face] Unable to cache free quiz result', err);
       }
@@ -923,8 +1138,14 @@ async function submitQuiz(forceSubmit = false) {
       clearExamDeadline();
 
       const resultsUrl = new URL(window.location.href);
-      resultsUrl.pathname = resultsUrl.pathname.replace(/[^/]+$/, 'result-face.html');
-      resultsUrl.searchParams.set('free_quiz', state.dailyQuiz.slug || state.dailyQuiz.id);
+      resultsUrl.pathname = resultsUrl.pathname.replace(
+        /[^/]+$/,
+        'result-face.html'
+      );
+      resultsUrl.searchParams.set(
+        'free_quiz',
+        state.dailyQuiz.slug || state.dailyQuiz.id
+      );
       if (state.freeQuizAttempt?.id) {
         resultsUrl.searchParams.set('attempt', state.freeQuizAttempt.id);
       }
@@ -934,51 +1155,107 @@ async function submitQuiz(forceSubmit = false) {
 
     if (state.mode === 'extra') {
       const completedAt = new Date().toISOString();
-      const durationSeconds = computeTimeUsed(state.dailyQuiz.started_at, completedAt);
-      const scorePercent = total ? Number(((correct / total) * 100).toFixed(2)) : 0;
+      const durationSeconds = computeTimeUsed(
+        state.dailyQuiz.started_at,
+        completedAt
+      );
+      const scorePercent = total
+        ? Number(((correct / total) * 100).toFixed(2))
+        : 0;
+
+      const practicePayload = {
+        attempt: {
+          id: state.extraAttempt?.id || null,
+          attempt_number: state.extraAttempt?.attempt_number ?? null,
+        },
+        setId: state.extraSet?.id || state.dailyQuiz.id,
+        set: state.extraSet || {
+          id: state.dailyQuiz.id,
+          title: state.dailyQuiz.title,
+          description: state.dailyQuiz.description,
+          time_limit_seconds: state.dailyQuiz.time_limit_seconds,
+        },
+        quiz: {
+          id: state.dailyQuiz.id,
+          title: state.dailyQuiz.title,
+          description: state.dailyQuiz.description,
+          started_at: state.dailyQuiz.started_at,
+          completed_at: completedAt,
+          time_limit_seconds: state.dailyQuiz.time_limit_seconds,
+          total_questions: total,
+        },
+        entries: state.entries.map((entry) => ({
+          id: entry.id,
+          question: entry.question,
+          selected_option_id: entry.selected_option_id,
+          is_correct: entry.is_correct,
+          correct_option_id: entry.correct_option_id,
+          correct_option_key: entry.correct_option_key,
+          raw_correct_option: entry.raw_correct_option,
+        })),
+        correct,
+        total,
+        score: scorePercent,
+        duration_seconds: durationSeconds ?? null,
+      };
 
       try {
-        const practicePayload = {
-          setId: state.extraSet?.id || state.dailyQuiz.id,
-          set: state.extraSet || {
-            id: state.dailyQuiz.id,
-            title: state.dailyQuiz.title,
-            description: state.dailyQuiz.description,
-            time_limit_seconds: state.dailyQuiz.time_limit_seconds,
-          },
-          quiz: {
-            id: state.dailyQuiz.id,
-            title: state.dailyQuiz.title,
-            description: state.dailyQuiz.description,
-            started_at: state.dailyQuiz.started_at,
-            completed_at: completedAt,
-            time_limit_seconds: state.dailyQuiz.time_limit_seconds,
-            total_questions: total,
-          },
-          entries: state.entries.map((entry) => ({
-            id: entry.id,
-            question: entry.question,
-            selected_option_id: entry.selected_option_id,
-            is_correct: entry.is_correct,
-            correct_option_id: entry.correct_option_id,
-            correct_option_key: entry.correct_option_key,
-            raw_correct_option: entry.raw_correct_option,
-          })),
-          correct,
-          total,
-          score: scorePercent,
-          duration_seconds: durationSeconds ?? null,
-        };
-        sessionStorage.setItem('extra_quiz_last_result', JSON.stringify(practicePayload));
+        sessionStorage.setItem(
+          'extra_quiz_last_result',
+          JSON.stringify(practicePayload)
+        );
       } catch (storageError) {
-        console.warn('[Exam Face] Unable to cache extra practice result', storageError);
+        console.warn(
+          '[Exam Face] Unable to cache extra practice result',
+          storageError
+        );
+      }
+
+      if (state.extraAttempt?.id && state.supabase) {
+        try {
+          await state.supabase
+            .from('extra_question_attempts')
+            .update({
+              status: 'completed',
+              completed_at: completedAt,
+              duration_seconds: durationSeconds ?? null,
+              total_questions: total,
+              correct_answers: correct,
+              score_percent: scorePercent,
+              response_snapshot: practicePayload,
+            })
+            .eq('id', state.extraAttempt.id);
+          state.extraAttempt = {
+            ...state.extraAttempt,
+            status: 'completed',
+            completed_at: completedAt,
+            duration_seconds: durationSeconds ?? null,
+            total_questions: total,
+            correct_answers: correct,
+            score_percent: scorePercent,
+          };
+        } catch (attemptError) {
+          console.error(
+            '[Exam Face] Unable to persist extra attempt summary',
+            attemptError
+          );
+        }
       }
 
       clearExamDeadline();
 
       const extraResultsUrl = new URL(window.location.href);
-      extraResultsUrl.pathname = extraResultsUrl.pathname.replace(/[^/]+$/, 'result-face.html');
-      extraResultsUrl.searchParams.set('extra_question_set_id', state.dailyQuiz.id);
+      extraResultsUrl.pathname = extraResultsUrl.pathname.replace(
+        /[^/]+$/,
+        'result-face.html'
+      );
+      extraResultsUrl.searchParams.set(
+        'extra_question_set_id',
+        state.dailyQuiz.id
+      );
+      if (state.extraAttempt?.id) {
+        extraResultsUrl.searchParams.set('attempt_id', state.extraAttempt.id);
+      }
       window.location.replace(extraResultsUrl.toString());
       return;
     }
@@ -996,9 +1273,15 @@ async function submitQuiz(forceSubmit = false) {
         payload: payload,
         timestamp: new Date().toISOString(),
       });
-      showToast('You are offline. Quiz will be submitted when you reconnect.', 'info');
+      showToast(
+        'You are offline. Quiz will be submitted when you reconnect.',
+        'info'
+      );
       setTimeout(() => {
-        showToast('Please stay on this page until you reconnect to the internet.', 'info');
+        showToast(
+          'Please stay on this page until you reconnect to the internet.',
+          'info'
+        );
       }, 4500);
       return;
     }
@@ -1021,16 +1304,19 @@ async function submitQuiz(forceSubmit = false) {
     if (state.mode !== 'free') {
       storePendingSubmission({
         quizId: state.dailyQuiz.id,
-          payload: {
-            status: 'completed',
-            correct_answers: correct,
-            total_questions: total,
+        payload: {
+          status: 'completed',
+          correct_answers: correct,
+          total_questions: total,
           completed_at: new Date().toISOString(),
         },
         timestamp: new Date().toISOString(),
       });
     }
-    showToast(err.message || 'Unable to submit quiz. Will retry automatically.', 'error');
+    showToast(
+      err.message || 'Unable to submit quiz. Will retry automatically.',
+      'error'
+    );
   }
 }
 
@@ -1074,18 +1360,18 @@ function initOverlays() {
       if (e.target === els.calculatorOverlay)
         els.calculatorOverlay.style.display = 'none';
     };
-    
+
     // Initialize calculator functionality
     initCalculator();
   }
-  
+
   // Initialize network status monitoring
   initNetworkStatus();
 }
 
 function initNetworkStatus() {
   const buttons = [els.paletteTrigger, els.calculatorTrigger].filter(Boolean);
-  
+
   function updateNetworkStatus() {
     const isOffline = !navigator.onLine;
     buttons.forEach((btn) => {
@@ -1096,14 +1382,14 @@ function initNetworkStatus() {
       }
     });
   }
-  
+
   // Handle reconnection - process pending submissions
   window.addEventListener('online', () => {
     updateNetworkStatus();
     processOfflineAnswers(); // Try to sync answers first
     processPendingSubmission();
   });
-  
+
   window.addEventListener('offline', updateNetworkStatus);
   updateNetworkStatus();
 }
@@ -1111,11 +1397,11 @@ function initNetworkStatus() {
 function initCalculator() {
   const calcDisplay = document.getElementById('calcDisplay');
   if (!calcDisplay) return;
-  
+
   document.querySelectorAll('.calc-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const value = btn.textContent.trim();
-      
+
       if (value === 'AC') {
         calcDisplay.textContent = '0';
       } else if (value === 'C') {
@@ -1123,7 +1409,9 @@ function initCalculator() {
       } else if (value === '=') {
         try {
           // Replace × with * for eval
-          const expression = calcDisplay.textContent.replace(/×/g, '*').replace(/÷/g, '/');
+          const expression = calcDisplay.textContent
+            .replace(/×/g, '*')
+            .replace(/÷/g, '/');
           calcDisplay.textContent = eval(expression).toString();
         } catch {
           calcDisplay.textContent = 'Error';
@@ -1147,12 +1435,16 @@ function initCalculator() {
 async function loadQuizData() {
   const url = new URL(window.location.href);
   const freeQuizSlug = url.searchParams.get('free_quiz');
+  state.extraPlanId = url.searchParams.get('plan_id');
+  state.extraAttempt = null;
 
   if (freeQuizSlug) {
     state.mode = 'free';
     const { data: quiz, error } = await state.supabase
       .from('free_quizzes')
-      .select('id, title, description, intro, slug, is_active, time_limit_seconds, question_count')
+      .select(
+        'id, title, description, intro, slug, is_active, time_limit_seconds, question_count'
+      )
       .eq('slug', freeQuizSlug)
       .eq('is_active', true)
       .maybeSingle();
@@ -1193,24 +1485,34 @@ async function loadQuizData() {
     let setError = null;
     ({ data: setRow, error: setError } = await state.supabase
       .from('extra_question_sets')
-      .select('id, title, description, time_limit_seconds, question_count, starts_at, ends_at, is_active')
+      .select(
+        'id, title, description, time_limit_seconds, question_count, starts_at, ends_at, is_active, max_attempts_per_user, assignment_rules'
+      )
       .eq('id', extraSetId)
       .maybeSingle());
     if (setError && setError.message?.includes('time_limit_seconds')) {
       const fallback = await state.supabase
         .from('extra_question_sets')
-        .select('id, title, description, question_count, starts_at, ends_at, is_active')
+        .select(
+          'id, title, description, question_count, starts_at, ends_at, is_active'
+        )
         .eq('id', extraSetId)
         .maybeSingle();
       setRow = fallback.data
-        ? { ...fallback.data, time_limit_seconds: null }
+        ? {
+            ...fallback.data,
+            time_limit_seconds: null,
+            max_attempts_per_user: null,
+            assignment_rules: DEFAULT_ASSIGNMENT_RULES,
+          }
         : null;
       setError = fallback.error;
     }
     if (setError) {
       mergeExtraSetLaunchDebug({
         loadFailedAt: new Date().toISOString(),
-        failureReason: setError.message || 'Unknown Supabase error loading extra set',
+        failureReason:
+          setError.message || 'Unknown Supabase error loading extra set',
       });
       throw setError;
     }
@@ -1233,6 +1535,7 @@ async function loadQuizData() {
       },
     });
 
+    setRow.assignment_rules = normalizeAssignmentRules(setRow.assignment_rules);
     state.extraSet = setRow;
     state.dailyQuiz = {
       id: setRow.id,
@@ -1243,6 +1546,24 @@ async function loadQuizData() {
       status: 'assigned',
       assigned_date: new Date().toISOString(),
     };
+    try {
+      await initialiseExtraPracticeAttempt(
+        setRow.id,
+        state.dailyQuiz.total_questions
+      );
+    } catch (attemptError) {
+      const message =
+        attemptError?.message ||
+        'Unable to start this practice set. Please check back later.';
+      showToast(message, 'error');
+      setTimeout(() => {
+        window.location.replace('admin-board.html');
+      }, 1500);
+      return;
+    }
+    if (!state.dailyQuiz.started_at) {
+      state.dailyQuiz.started_at = new Date().toISOString();
+    }
     return;
   }
 
@@ -1264,10 +1585,13 @@ async function loadQuizData() {
     if (checkError) throw checkError;
 
     if (!todayQuiz) {
-      console.warn('[Exam Face] No quiz found for user today; redirecting to dashboard', {
-        userId: state.user?.id || null,
-        requestedUrl: window.location.href,
-      });
+      console.warn(
+        '[Exam Face] No quiz found for user today; redirecting to dashboard',
+        {
+          userId: state.user?.id || null,
+          requestedUrl: window.location.href,
+        }
+      );
       window.location.replace('admin-board.html');
       return;
     }
@@ -1296,7 +1620,10 @@ async function loadQuizData() {
 
   if (quiz.status === 'completed') {
     const resultsUrl = new URL(window.location.href);
-    resultsUrl.pathname = resultsUrl.pathname.replace(/[^/]+$/, 'result-face.html');
+    resultsUrl.pathname = resultsUrl.pathname.replace(
+      /[^/]+$/,
+      'result-face.html'
+    );
     resultsUrl.searchParams.set('daily_quiz_id', quiz.id);
     window.location.replace(resultsUrl.toString());
     return;
@@ -1309,22 +1636,27 @@ async function loadQuestions() {
   if (state.mode === 'free') {
     const { data, error } = await state.supabase
       .from('free_quiz_questions')
-      .select('id, question_id, prompt, explanation, image_url, options, correct_option, order_index')
+      .select(
+        'id, question_id, prompt, explanation, image_url, options, correct_option, order_index'
+      )
       .eq('free_quiz_id', state.dailyQuiz.id)
       .order('order_index', { ascending: true });
     if (error) throw error;
     state.entries = (data || []).map((row, idx) => {
       const rawOptions = Array.isArray(row.options) ? row.options : [];
       const options = rawOptions.map((option, optionIndex) => {
-        const id = option.id || option.label || String.fromCharCode(65 + optionIndex);
+        const id =
+          option.id || option.label || String.fromCharCode(65 + optionIndex);
         const label = option.label || String.fromCharCode(65 + optionIndex);
         return {
           id,
           label,
           content: option.content,
           is_correct:
-            (row.correct_option || '').toString().toLowerCase() === id.toString().toLowerCase() ||
-            (row.correct_option || '').toString().toLowerCase() === label.toString().toLowerCase(),
+            (row.correct_option || '').toString().toLowerCase() ===
+              id.toString().toLowerCase() ||
+            (row.correct_option || '').toString().toLowerCase() ===
+              label.toString().toLowerCase(),
           order_index: option.order_index ?? optionIndex,
         };
       });
@@ -1332,9 +1664,14 @@ async function loadQuestions() {
       const correctOption = options.find((opt) => {
         const idKey = normalizeOptionKey(opt.id);
         const labelKey = normalizeOptionKey(opt.label);
-        return (normalizedCorrect && (idKey === normalizedCorrect || labelKey === normalizedCorrect)) || opt.is_correct;
+        return (
+          (normalizedCorrect &&
+            (idKey === normalizedCorrect || labelKey === normalizedCorrect)) ||
+          opt.is_correct
+        );
       });
-      const correctOptionId = correctOption?.id ?? correctOption?.label ?? row.correct_option ?? null;
+      const correctOptionId =
+        correctOption?.id ?? correctOption?.label ?? row.correct_option ?? null;
       const correctOptionKey = normalizeOptionKey(correctOptionId);
       return {
         id: row.id,
@@ -1368,7 +1705,10 @@ async function loadQuestions() {
       )
       .eq('set_id', state.dailyQuiz.id)
       .order('created_at', { ascending: true });
-    if (dataResponse.error && dataResponse.error.message?.includes('time_limit_seconds')) {
+    if (
+      dataResponse.error &&
+      dataResponse.error.message?.includes('time_limit_seconds')
+    ) {
       dataResponse = await state.supabase
         .from('extra_questions')
         .select(
@@ -1380,7 +1720,7 @@ async function loadQuestions() {
     const { data, error } = dataResponse;
     if (error) throw error;
     const rows = Array.isArray(data) ? data : [];
-    state.entries = rows.map((row, idx) => {
+    const mappedEntries = rows.map((row, idx) => {
       const options = Array.isArray(row.extra_question_options)
         ? row.extra_question_options
             .slice()
@@ -1412,12 +1752,23 @@ async function loadQuestions() {
         answered_at: null,
         order_index: idx,
         correct_option_id: correctOption?.id ?? correctOption?.label ?? null,
-        correct_option_key: normalizeOptionKey(correctOption?.id ?? correctOption?.label),
+        correct_option_key: normalizeOptionKey(
+          correctOption?.id ?? correctOption?.label
+        ),
         raw_correct_option: correctOption?.label ?? null,
       };
     });
+    const { selected } = applyAssignmentRules(
+      mappedEntries,
+      state.extraSet?.assignment_rules,
+      state.extraPlanId
+    );
+    state.entries = selected;
     state.answers = {};
     state.dailyQuiz.total_questions = state.entries.length;
+    if (state.extraAttempt) {
+      state.extraAttempt.total_questions = state.entries.length;
+    }
     return;
   }
 
@@ -1494,10 +1845,14 @@ function setHeader() {
     if (els.desc) {
       const scheduleBits = [];
       if (state.extraSet?.starts_at) {
-        scheduleBits.push(`Opens ${formatDateTimeLabel(state.extraSet.starts_at)}`);
+        scheduleBits.push(
+          `Opens ${formatDateTimeLabel(state.extraSet.starts_at)}`
+        );
       }
       if (state.extraSet?.ends_at) {
-        scheduleBits.push(`Closes ${formatDateTimeLabel(state.extraSet.ends_at)}`);
+        scheduleBits.push(
+          `Closes ${formatDateTimeLabel(state.extraSet.ends_at)}`
+        );
       }
       const scheduleText = scheduleBits.length
         ? scheduleBits.join(' • ')
@@ -1577,7 +1932,10 @@ async function initialise() {
       try {
         await ensureStarted();
       } catch (startError) {
-        console.error('[Exam Face] Unable to mark quiz as started immediately', startError);
+        console.error(
+          '[Exam Face] Unable to mark quiz as started immediately',
+          startError
+        );
       }
     }
 
@@ -1617,14 +1975,14 @@ async function initialise() {
       if (state.dailyQuiz.started_at) {
         storeExamDeadline();
       }
-      
+
       // Check if deadline has already passed
       if (checkExamDeadline()) {
         showToast("Time's up! Submitting your exam...", 'info');
         await submitQuiz(true);
         return;
       }
-      
+
       // Set up periodic deadline check (every 5 seconds)
       state.deadlineCheckInterval = setInterval(() => {
         if (checkExamDeadline()) {

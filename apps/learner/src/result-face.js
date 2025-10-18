@@ -43,7 +43,9 @@ function isFreeEntryCorrect(entry) {
   if (!entry) return false;
   if (typeof entry.is_correct === 'boolean') return entry.is_correct;
 
-  const selectedKey = normalizeOptionKey(entry.selected_option_id ?? entry.selected_option ?? entry.answer);
+  const selectedKey = normalizeOptionKey(
+    entry.selected_option_id ?? entry.selected_option ?? entry.answer
+  );
   if (!selectedKey) return false;
 
   const explicitCorrectKey =
@@ -64,7 +66,9 @@ function isFreeEntryCorrect(entry) {
 
   const fallbackCorrectKey = options
     .filter((opt) => opt && opt.is_correct)
-    .map((opt) => normalizeOptionKey(opt.id) || normalizeOptionKey(opt.label))[0];
+    .map(
+      (opt) => normalizeOptionKey(opt.id) || normalizeOptionKey(opt.label)
+    )[0];
   return fallbackCorrectKey ? selectedKey === fallbackCorrectKey : false;
 }
 
@@ -84,29 +88,29 @@ function deriveFreeStats(entries) {
 function downloadResultSummary(quizData) {
   try {
     const { quiz, correct, total, percent, timeUsed } = quizData;
-    
+
     // Validate data
     if (!quiz || total === undefined || correct === undefined) {
       throw new Error('Invalid quiz data');
     }
-    
+
     // Create canvas for image generation
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    
+
     // Set canvas size (optimized for mobile and desktop)
     const width = 800;
     const height = 700;
     canvas.width = width;
     canvas.height = height;
-    
+
     // Background gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, height);
     gradient.addColorStop(0, '#0f766e');
     gradient.addColorStop(1, '#134e4a');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
-    
+
     // Add decorative elements
     ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
     ctx.beginPath();
@@ -115,29 +119,32 @@ function downloadResultSummary(quizData) {
     ctx.beginPath();
     ctx.arc(100, height - 100, 120, 0, Math.PI * 2);
     ctx.fill();
-    
-  // Title section
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 32px Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('QUIZ RESULT', width / 2, 60);
 
-  // Brand signature
-  ctx.textAlign = 'right';
-  ctx.font = '600 18px "Arial", sans-serif';
-  ctx.fillText('Academic Nightingale', width - 40, 38);
-  ctx.textAlign = 'center';
+    // Title section
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 32px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('QUIZ RESULT', width / 2, 60);
 
-  // Subtitle
-  ctx.font = '16px Arial, sans-serif';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    const quizDate = new Date(quiz.assigned_date).toLocaleDateString(undefined, { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
+    // Brand signature
+    ctx.textAlign = 'right';
+    ctx.font = '600 18px "Arial", sans-serif';
+    ctx.fillText('Academic Nightingale', width - 40, 38);
+    ctx.textAlign = 'center';
+
+    // Subtitle
+    ctx.font = '16px Arial, sans-serif';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    const quizDate = new Date(quiz.assigned_date).toLocaleDateString(
+      undefined,
+      {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }
+    );
     ctx.fillText(quizDate, width / 2, 90);
-    
+
     // Main result card
     const cardY = 120;
     const cardHeight = 450;
@@ -149,33 +156,40 @@ function downloadResultSummary(quizData) {
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
-    
+
     // Score circle
     const centerX = width / 2;
     const centerY = cardY + 120;
     const radius = 80;
-    
+
     // Circle background
     ctx.beginPath();
     ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-    ctx.fillStyle = percent >= 80 ? '#10b981' : percent >= 60 ? '#3b82f6' : percent >= 40 ? '#f59e0b' : '#ef4444';
+    ctx.fillStyle =
+      percent >= 80
+        ? '#10b981'
+        : percent >= 60
+          ? '#3b82f6'
+          : percent >= 40
+            ? '#f59e0b'
+            : '#ef4444';
     ctx.fill();
-    
+
     // Score text
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 48px Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(`${percent.toFixed(0)}%`, centerX, centerY + 15);
-    
+
     // Score label
     ctx.font = '18px Arial, sans-serif';
     ctx.fillStyle = '#6b7280';
     ctx.fillText(`${correct} / ${total}`, centerX, centerY + 110);
-    
+
     // Stats section
     let yPos = cardY + 260;
     ctx.textAlign = 'left';
-    
+
     // Correct answers
     ctx.fillStyle = '#10b981';
     ctx.fillRect(100, yPos, 30, 30);
@@ -186,9 +200,9 @@ function downloadResultSummary(quizData) {
     ctx.fillStyle = '#6b7280';
     ctx.textAlign = 'right';
     ctx.fillText(correct.toString(), width - 100, yPos + 22);
-    
+
     yPos += 50;
-    
+
     // Wrong/Skipped
     ctx.textAlign = 'left';
     ctx.fillStyle = '#ef4444';
@@ -200,9 +214,9 @@ function downloadResultSummary(quizData) {
     ctx.fillStyle = '#6b7280';
     ctx.textAlign = 'right';
     ctx.fillText((total - correct).toString(), width - 100, yPos + 22);
-    
+
     yPos += 50;
-    
+
     // Time used
     ctx.textAlign = 'left';
     ctx.fillStyle = '#3b82f6';
@@ -213,10 +227,14 @@ function downloadResultSummary(quizData) {
     ctx.font = '18px Arial, sans-serif';
     ctx.fillStyle = '#6b7280';
     ctx.textAlign = 'right';
-    ctx.fillText(timeUsed != null ? formatTime(timeUsed) : 'N/A', width - 100, yPos + 22);
-    
+    ctx.fillText(
+      timeUsed != null ? formatTime(timeUsed) : 'N/A',
+      width - 100,
+      yPos + 22
+    );
+
     yPos += 50;
-    
+
     // Time limit
     ctx.textAlign = 'left';
     ctx.fillStyle = '#8b5cf6';
@@ -227,42 +245,60 @@ function downloadResultSummary(quizData) {
     ctx.font = '18px Arial, sans-serif';
     ctx.fillStyle = '#6b7280';
     ctx.textAlign = 'right';
-    ctx.fillText(quiz.time_limit_seconds ? formatTime(quiz.time_limit_seconds) : 'No limit', width - 100, yPos + 22);
-    
+    ctx.fillText(
+      quiz.time_limit_seconds
+        ? formatTime(quiz.time_limit_seconds)
+        : 'No limit',
+      width - 100,
+      yPos + 22
+    );
+
     // Performance message
-    const performance = percent >= 80 ? 'Excellent!' : percent >= 60 ? 'Good Job!' : percent >= 40 ? 'Keep Practicing!' : 'Need More Practice!';
+    const performance =
+      percent >= 80
+        ? 'Excellent!'
+        : percent >= 60
+          ? 'Good Job!'
+          : percent >= 40
+            ? 'Keep Practicing!'
+            : 'Need More Practice!';
     ctx.textAlign = 'center';
     ctx.font = 'bold 22px Arial, sans-serif';
     ctx.fillStyle = '#1f2937';
     ctx.fillText(performance, width / 2, cardY + cardHeight - 30);
-    
+
     // Footer
     ctx.font = '14px Arial, sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
     ctx.textAlign = 'center';
-    ctx.fillText(`Generated on ${new Date().toLocaleDateString()}`, width / 2, height - 30);
-    
+    ctx.fillText(
+      `Generated on ${new Date().toLocaleDateString()}`,
+      width / 2,
+      height - 30
+    );
+
     // Convert canvas to blob and download
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        throw new Error('Failed to generate image');
-      }
-      
-      // Safe date formatting with fallback
-      const date = new Date(quiz.assigned_date);
-      const dateStr = isNaN(date.getTime()) 
-        ? new Date().toISOString().split('T')[0]
-        : date.toISOString().split('T')[0];
-      
-      // For mobile devices, use different approach
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        // Mobile: Open in new window for user to save
-        const url = URL.createObjectURL(blob);
-        const img = new Image();
-        img.onload = () => {
-          const newWindow = window.open('', '_blank');
-          if (newWindow) {
-            newWindow.document.write(`
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          throw new Error('Failed to generate image');
+        }
+
+        // Safe date formatting with fallback
+        const date = new Date(quiz.assigned_date);
+        const dateStr = isNaN(date.getTime())
+          ? new Date().toISOString().split('T')[0]
+          : date.toISOString().split('T')[0];
+
+        // For mobile devices, use different approach
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+          // Mobile: Open in new window for user to save
+          const url = URL.createObjectURL(blob);
+          const img = new Image();
+          img.onload = () => {
+            const newWindow = window.open('', '_blank');
+            if (newWindow) {
+              newWindow.document.write(`
               <!DOCTYPE html>
               <html>
               <head>
@@ -272,14 +308,14 @@ function downloadResultSummary(quizData) {
                   body { margin: 0; padding: 20px; background: #f3f4f6; text-align: center; font-family: Arial, sans-serif; }
                   img { max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
                   .instructions { margin: 20px 0; color: #6b7280; font-size: 14px; }
-                  .download-btn { 
-                    display: inline-block; 
-                    margin: 10px; 
-                    padding: 12px 24px; 
-                    background: #0f766e; 
-                    color: white; 
-                    text-decoration: none; 
-                    border-radius: 8px; 
+                  .download-btn {
+                    display: inline-block;
+                    margin: 10px;
+                    padding: 12px 24px;
+                    background: #0f766e;
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 8px;
                     font-weight: bold;
                   }
                 </style>
@@ -292,26 +328,28 @@ function downloadResultSummary(quizData) {
               </body>
               </html>
             `);
-            newWindow.document.close();
-          }
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-        };
-        img.src = url;
-        showToast('Opening result in new window...', 'success');
-      } else {
-        // Desktop: Direct download
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `quiz-result-${dateStr}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), 100);
-        showToast('Result downloaded successfully!', 'success');
-      }
-    }, 'image/png', 0.95);
-    
+              newWindow.document.close();
+            }
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+          };
+          img.src = url;
+          showToast('Opening result in new window...', 'success');
+        } else {
+          // Desktop: Direct download
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `quiz-result-${dateStr}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(url), 100);
+          showToast('Result downloaded successfully!', 'success');
+        }
+      },
+      'image/png',
+      0.95
+    );
   } catch (err) {
     console.error('[Result Face] Download failed:', err);
     showToast('Failed to download result. Please try again.', 'error');
@@ -320,18 +358,19 @@ function downloadResultSummary(quizData) {
 
 function showToast(message, type = 'info') {
   const toast = document.createElement('div');
-  const bgColor = type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#0ea5e9';
+  const bgColor =
+    type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#0ea5e9';
   toast.style.cssText = `
-    position: fixed; 
-    top: 20px; 
-    right: 20px; 
-    background: ${bgColor}; 
-    color: white; 
-    padding: 12px 20px; 
-    border-radius: 8px; 
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
-    z-index: 9999; 
-    font-size: 14px; 
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${bgColor};
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 9999;
+    font-size: 14px;
     font-weight: 500;
   `;
   toast.textContent = message;
@@ -437,7 +476,9 @@ async function renderFreeQuizResults(supabase, slug, attemptId) {
   if (!quizMeta) {
     const { data, error } = await supabase
       .from('free_quizzes')
-      .select('id, title, description, intro, time_limit_seconds, question_count')
+      .select(
+        'id, title, description, intro, time_limit_seconds, question_count'
+      )
       .eq('slug', slug)
       .eq('is_active', true)
       .maybeSingle();
@@ -458,16 +499,24 @@ async function renderFreeQuizResults(supabase, slug, attemptId) {
   if (attemptId) {
     const { data, error } = await supabase
       .from('free_quiz_attempts')
-      .select('id, total_questions, correct_count, score, duration_seconds, started_at, completed_at')
+      .select(
+        'id, total_questions, correct_count, score, duration_seconds, started_at, completed_at'
+      )
       .eq('id', attemptId)
       .maybeSingle();
     if (!error && data) attempt = data;
   }
 
-  const derivedStats = cached?.entries?.length ? deriveFreeStats(cached.entries) : null;
+  const derivedStats = cached?.entries?.length
+    ? deriveFreeStats(cached.entries)
+    : null;
 
-  let correct = Number.isFinite(attempt?.correct_count) ? attempt.correct_count : null;
-  let total = Number.isFinite(attempt?.total_questions) ? attempt.total_questions : null;
+  let correct = Number.isFinite(attempt?.correct_count)
+    ? attempt.correct_count
+    : null;
+  let total = Number.isFinite(attempt?.total_questions)
+    ? attempt.total_questions
+    : null;
 
   if (derivedStats) {
     if (total == null || total < derivedStats.total) {
@@ -482,21 +531,29 @@ async function renderFreeQuizResults(supabase, slug, attemptId) {
     correct = Number.isFinite(cached?.correct) ? cached.correct : 0;
   }
   if (total == null || total === 0) {
-    total = Number.isFinite(cached?.total) && cached.total ? cached.total : quizMeta?.total_questions ?? 0;
+    total =
+      Number.isFinite(cached?.total) && cached.total
+        ? cached.total
+        : (quizMeta?.total_questions ?? 0);
   }
 
   const percent = total ? (correct / total) * 100 : 0;
-  const timeUsed = attempt?.duration_seconds ?? cached?.duration_seconds ?? computeTimeUsed(cached?.quiz?.started_at, cached?.quiz?.completed_at);
+  const timeUsed =
+    attempt?.duration_seconds ??
+    cached?.duration_seconds ??
+    computeTimeUsed(cached?.quiz?.started_at, cached?.quiz?.completed_at);
 
   $('quiz-title').textContent = quizMeta.title || 'Free Quiz Results';
   const completedAt = attempt?.completed_at || cached?.quiz?.completed_at;
   const subtitle = completedAt
     ? `Free Quiz • Completed on ${formatDateTime(completedAt)}`
     : 'Free Quiz Preview';
-  $('quiz-meta').textContent = `${subtitle} • Unlock full mocks, analytics, and daily coaching when you subscribe.`;
+  $('quiz-meta').textContent =
+    `${subtitle} • Unlock full mocks, analytics, and daily coaching when you subscribe.`;
   $('stat-score').textContent = `${correct}/${total}`;
   $('stat-percentage').textContent = `${percent.toFixed(1)}%`;
-  $('stat-time-used').textContent = timeUsed != null ? formatTime(timeUsed) : '--';
+  $('stat-time-used').textContent =
+    timeUsed != null ? formatTime(timeUsed) : '--';
   $('stat-total-time').textContent = quizMeta.time_limit_seconds
     ? formatTime(quizMeta.time_limit_seconds)
     : 'No limit';
@@ -505,9 +562,12 @@ async function renderFreeQuizResults(supabase, slug, attemptId) {
 
   const list = $('questions-list');
   if (cached?.entries?.length) {
-    list.innerHTML = cached.entries.map((entry, index) => renderQuestion(entry, index)).join('');
+    list.innerHTML = cached.entries
+      .map((entry, index) => renderQuestion(entry, index))
+      .join('');
   } else {
-    list.innerHTML = '<div class="p-4 rounded-md bg-slate-100 text-slate-600 text-sm">Detailed answer review is unavailable for this attempt.</div>';
+    list.innerHTML =
+      '<div class="p-4 rounded-md bg-slate-100 text-slate-600 text-sm">Detailed answer review is unavailable for this attempt.</div>';
   }
 
   const quizData = {
@@ -539,7 +599,7 @@ async function renderFreeQuizResults(supabase, slug, attemptId) {
   }
 }
 
-async function renderExtraPracticeResults(supabase, setId) {
+async function renderExtraPracticeResults(supabase, setId, userId, attemptId) {
   let cached = null;
   try {
     const stored = sessionStorage.getItem('extra_quiz_last_result');
@@ -553,18 +613,63 @@ async function renderExtraPracticeResults(supabase, setId) {
     console.warn('[Result Face] Unable to parse cached extra set result', err);
   }
 
-  if (cached) {
-    sessionStorage.removeItem('extra_quiz_last_result');
+  let attemptRow = null;
+  if (userId) {
+    try {
+      let attemptResponse;
+      if (attemptId) {
+        attemptResponse = await supabase
+          .from('extra_question_attempts')
+          .select(
+            'id, status, attempt_number, started_at, completed_at, duration_seconds, total_questions, correct_answers, score_percent, response_snapshot'
+          )
+          .eq('user_id', userId)
+          .eq('id', attemptId)
+          .maybeSingle();
+      } else {
+        attemptResponse = await supabase
+          .from('extra_question_attempts')
+          .select(
+            'id, status, attempt_number, started_at, completed_at, duration_seconds, total_questions, correct_answers, score_percent, response_snapshot'
+          )
+          .eq('user_id', userId)
+          .eq('set_id', setId)
+          .order('attempt_number', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+      }
+      const { data: attemptData, error: attemptError } = attemptResponse;
+      if (attemptError) throw attemptError;
+      attemptRow = attemptData || null;
+    } catch (attemptError) {
+      console.error(
+        '[Result Face] Unable to load extra attempt record',
+        attemptError
+      );
+    }
   }
 
-  let setMeta = cached?.set || null;
+  if (cached) {
+    sessionStorage.removeItem('extra_quiz_last_result');
+  } else if (attemptRow?.response_snapshot) {
+    cached = attemptRow.response_snapshot;
+  }
+
+  const snapshot = cached || attemptRow?.response_snapshot || {};
+
+  let setMeta = snapshot.set || null;
   if (!setMeta) {
     let response = await supabase
       .from('extra_question_sets')
-      .select('id, title, description, time_limit_seconds, question_count, starts_at, ends_at')
+      .select(
+        'id, title, description, time_limit_seconds, question_count, starts_at, ends_at'
+      )
       .eq('id', setId)
       .maybeSingle();
-    if (response.error && response.error.message?.includes('time_limit_seconds')) {
+    if (
+      response.error &&
+      response.error.message?.includes('time_limit_seconds')
+    ) {
       response = await supabase
         .from('extra_question_sets')
         .select('id, title, description, question_count, starts_at, ends_at')
@@ -581,27 +686,67 @@ async function renderExtraPracticeResults(supabase, setId) {
     setMeta = response.data;
   }
 
-  const entries = Array.isArray(cached?.entries) ? cached.entries : [];
-  const derivedStats = entries.length ? deriveFreeStats(entries) : { correct: 0, total: entries.length };
+  const entries = Array.isArray(snapshot.entries) ? snapshot.entries : [];
+  const derivedStats = entries.length
+    ? deriveFreeStats(entries)
+    : { correct: 0, total: entries.length };
 
-  const correct = Number.isFinite(cached?.correct)
-    ? cached.correct
-    : derivedStats.correct;
-  const total = Number.isFinite(cached?.total) && cached.total
-    ? cached.total
-    : derivedStats.total || setMeta.question_count || entries.length || 0;
-  const percent = total ? (correct / total) * 100 : 0;
-  const timeUsed = cached?.duration_seconds ?? computeTimeUsed(cached?.quiz?.started_at, cached?.quiz?.completed_at);
+  const correct = Number.isFinite(snapshot.correct)
+    ? snapshot.correct
+    : attemptRow?.correct_answers !== undefined &&
+        attemptRow?.correct_answers !== null
+      ? Number(attemptRow.correct_answers)
+      : derivedStats.correct;
+  const total =
+    Number.isFinite(snapshot.total) && snapshot.total
+      ? snapshot.total
+      : attemptRow?.total_questions !== undefined &&
+          attemptRow?.total_questions !== null
+        ? Number(attemptRow.total_questions)
+        : derivedStats.total ||
+          Number(setMeta.question_count ?? entries.length ?? 0);
+  let percent;
+  if (Number.isFinite(snapshot.score)) {
+    percent = snapshot.score;
+  } else if (
+    attemptRow?.score_percent !== undefined &&
+    attemptRow?.score_percent !== null
+  ) {
+    percent = Number(attemptRow.score_percent);
+  } else {
+    percent = total ? (correct / total) * 100 : 0;
+  }
+  const timeUsed =
+    snapshot.duration_seconds ??
+    attemptRow?.duration_seconds ??
+    computeTimeUsed(
+      snapshot.quiz?.started_at || attemptRow?.started_at,
+      snapshot.quiz?.completed_at || attemptRow?.completed_at
+    );
 
   $('quiz-title').textContent = setMeta.title || 'Bonus Practice Result';
   const metaBits = [];
-  if (setMeta.starts_at) metaBits.push(`Opens ${formatDateTime(setMeta.starts_at)}`);
-  if (setMeta.ends_at) metaBits.push(`Closes ${formatDateTime(setMeta.ends_at)}`);
-  const metaText = metaBits.length ? metaBits.join(' • ') : 'Extra practice curated by the Academic Nightingale team.';
-  $('quiz-meta').textContent = `${metaText} • Keep practising to strengthen your weak points.`;
+  if (setMeta.starts_at)
+    metaBits.push(`Opens ${formatDateTime(setMeta.starts_at)}`);
+  if (setMeta.ends_at)
+    metaBits.push(`Closes ${formatDateTime(setMeta.ends_at)}`);
+  if (attemptRow?.attempt_number) {
+    metaBits.push(`Attempt #${attemptRow.attempt_number}`);
+  }
+  const completedStamp =
+    attemptRow?.completed_at || snapshot.quiz?.completed_at;
+  if (completedStamp) {
+    metaBits.push(`Completed ${formatDateTime(completedStamp)}`);
+  }
+  const metaText = metaBits.length
+    ? metaBits.join(' • ')
+    : 'Extra practice curated by the Academic Nightingale team.';
+  $('quiz-meta').textContent =
+    `${metaText} • Keep practising to strengthen your weak points.`;
   $('stat-score').textContent = `${correct}/${total}`;
   $('stat-percentage').textContent = `${percent.toFixed(1)}%`;
-  $('stat-time-used').textContent = timeUsed != null ? formatTime(timeUsed) : '--';
+  $('stat-time-used').textContent =
+    timeUsed != null ? formatTime(timeUsed) : '--';
   $('stat-total-time').textContent = setMeta.time_limit_seconds
     ? formatTime(setMeta.time_limit_seconds)
     : 'No limit';
@@ -610,22 +755,33 @@ async function renderExtraPracticeResults(supabase, setId) {
 
   const list = $('questions-list');
   if (entries.length) {
-    list.innerHTML = entries.map((entry, index) => renderQuestion(entry, index)).join('');
+    list.innerHTML = entries
+      .map((entry, index) => renderQuestion(entry, index))
+      .join('');
   } else {
-    list.innerHTML = '<div class="p-4 rounded-md bg-slate-100 text-slate-600 text-sm">Answer review is unavailable because we could not recover your practice responses.</div>';
+    list.innerHTML =
+      '<div class="p-4 rounded-md bg-slate-100 text-slate-600 text-sm">Answer review is unavailable because we could not recover your practice responses.</div>';
   }
 
   const quizData = {
     quiz: {
-      assigned_date: cached?.quiz?.assigned_date || new Date().toISOString(),
+      assigned_date: snapshot.quiz?.assigned_date || new Date().toISOString(),
       time_limit_seconds: setMeta.time_limit_seconds,
-      started_at: cached?.quiz?.started_at,
-      completed_at: cached?.quiz?.completed_at || new Date().toISOString(),
+      started_at: snapshot.quiz?.started_at || attemptRow?.started_at,
+      completed_at:
+        snapshot.quiz?.completed_at ||
+        attemptRow?.completed_at ||
+        new Date().toISOString(),
     },
     correct,
     total,
     percent,
     timeUsed,
+    attempt: {
+      id: attemptRow?.id || snapshot.attempt?.id || null,
+      attempt_number:
+        attemptRow?.attempt_number ?? snapshot.attempt?.attempt_number ?? null,
+    },
   };
 
   const saveBtn = $('save-result-btn');
@@ -650,7 +806,11 @@ async function initialise() {
   const freeSlug = url.searchParams.get('free_quiz');
 
   if (freeSlug) {
-    await renderFreeQuizResults(supabase, freeSlug, url.searchParams.get('attempt'));
+    await renderFreeQuizResults(
+      supabase,
+      freeSlug,
+      url.searchParams.get('attempt')
+    );
     return;
   }
 
@@ -664,7 +824,12 @@ async function initialise() {
 
   const extraSetId = url.searchParams.get('extra_question_set_id');
   if (extraSetId) {
-    await renderExtraPracticeResults(supabase, extraSetId);
+    await renderExtraPracticeResults(
+      supabase,
+      extraSetId,
+      session.user.id,
+      url.searchParams.get('attempt_id')
+    );
     return;
   }
 
@@ -826,10 +991,10 @@ async function initialise() {
     saveBtn.onclick = () => {
       saveBtn.disabled = true;
       downloadResultSummary(quizData);
-      setTimeout(() => saveBtn.disabled = false, 1000);
+      setTimeout(() => (saveBtn.disabled = false), 1000);
     };
   }
-  
+
   // Back to dashboard button
   const backBtn = $('back-to-dashboard');
   if (backBtn) {

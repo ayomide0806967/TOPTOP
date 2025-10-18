@@ -301,9 +301,7 @@ function buildSubslot(row) {
 function buildStudyCycle(row) {
   if (!row) return null;
   const subslots = Array.isArray(row.study_cycle_weeks)
-    ? row.study_cycle_weeks.map((subslot) =>
-        buildSubslot(subslot)
-      )
+    ? row.study_cycle_weeks.map((subslot) => buildSubslot(subslot))
     : [];
   return {
     id: row.id,
@@ -417,11 +415,7 @@ const QUESTION_NUMBER_PREFIX_PATTERN = /^\d+\s*[).:-]\s+/;
 
 function normalizeStemText(value) {
   if (!value) return '';
-  return value
-    .toString()
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLowerCase();
+  return value.toString().trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
 function buildQuestion(row) {
@@ -528,9 +522,10 @@ function normalizeUserSubscription(entry) {
   const startedAtDate = entry.started_at ? new Date(entry.started_at) : null;
   const expiresAtDate = entry.expires_at ? new Date(entry.expires_at) : null;
   const now = new Date();
-  const isActiveNow = ['active', 'trialing', 'past_due'].includes(statusKey)
-    && (!startedAtDate || startedAtDate.getTime() <= now.getTime())
-    && (!expiresAtDate || expiresAtDate.getTime() >= now.getTime());
+  const isActiveNow =
+    ['active', 'trialing', 'past_due'].includes(statusKey) &&
+    (!startedAtDate || startedAtDate.getTime() <= now.getTime()) &&
+    (!expiresAtDate || expiresAtDate.getTime() >= now.getTime());
 
   return {
     id: entry.id,
@@ -567,8 +562,12 @@ function compareNormalizedSubscriptions(a, b) {
     return weightA - weightB;
   }
 
-  const expiresA = a.expires_at ? new Date(a.expires_at).getTime() : Number.POSITIVE_INFINITY;
-  const expiresB = b.expires_at ? new Date(b.expires_at).getTime() : Number.POSITIVE_INFINITY;
+  const expiresA = a.expires_at
+    ? new Date(a.expires_at).getTime()
+    : Number.POSITIVE_INFINITY;
+  const expiresB = b.expires_at
+    ? new Date(b.expires_at).getTime()
+    : Number.POSITIVE_INFINITY;
   if (expiresA !== expiresB) {
     return expiresA - expiresB;
   }
@@ -580,7 +579,9 @@ function compareNormalizedSubscriptions(a, b) {
 
 function buildProfileRow(row) {
   if (!row) return null;
-  const rawSubscriptions = Array.isArray(row.user_subscriptions) ? row.user_subscriptions : [];
+  const rawSubscriptions = Array.isArray(row.user_subscriptions)
+    ? row.user_subscriptions
+    : [];
   const normalizedSubscriptions = rawSubscriptions
     .map(normalizeUserSubscription)
     .filter(Boolean)
@@ -588,20 +589,31 @@ function buildProfileRow(row) {
 
   const normalizedProfileStatus = (row.subscription_status || '').toLowerCase();
   const defaultId = row.default_subscription_id || null;
-  const explicitDefault = normalizedSubscriptions.find((sub) => sub.id === defaultId);
-  const activeSubscription = normalizedSubscriptions.find((sub) =>
-    ['active', 'trialing', 'past_due'].includes(sub.status_key) && sub.is_active_now
+  const explicitDefault = normalizedSubscriptions.find(
+    (sub) => sub.id === defaultId
   );
-  const primarySubscription = explicitDefault || activeSubscription || normalizedSubscriptions[0] || null;
+  const activeSubscription = normalizedSubscriptions.find(
+    (sub) =>
+      ['active', 'trialing', 'past_due'].includes(sub.status_key) &&
+      sub.is_active_now
+  );
+  const primarySubscription =
+    explicitDefault || activeSubscription || normalizedSubscriptions[0] || null;
 
-  const subscriptionStatuses = normalizedSubscriptions.map((sub) => sub.status_key);
+  const subscriptionStatuses = normalizedSubscriptions.map(
+    (sub) => sub.status_key
+  );
   const hasEverSubscribed = subscriptionStatuses.length > 0;
-  const hasActivePlan = normalizedSubscriptions.some((sub) => sub.is_active_now);
+  const hasActivePlan = normalizedSubscriptions.some(
+    (sub) => sub.is_active_now
+  );
 
   let statusBucket = 'no_plan';
   if (normalizedProfileStatus === 'suspended') {
     statusBucket = 'suspended';
-  } else if (['pending_payment', 'awaiting_setup'].includes(normalizedProfileStatus)) {
+  } else if (
+    ['pending_payment', 'awaiting_setup'].includes(normalizedProfileStatus)
+  ) {
     statusBucket = 'pending_payment';
   } else if (hasActivePlan) {
     statusBucket = 'active';
@@ -616,7 +628,9 @@ function buildProfileRow(row) {
   }
 
   const displayStatus =
-    primarySubscription?.status || row.subscription_status || (hasEverSubscribed ? 'inactive' : 'no_plan');
+    primarySubscription?.status ||
+    row.subscription_status ||
+    (hasEverSubscribed ? 'inactive' : 'no_plan');
 
   return {
     id: row.id,
@@ -636,7 +650,9 @@ function buildProfileRow(row) {
     plan_expires_at: primarySubscription?.expires_at || null,
     default_subscription_id: primarySubscription?.id || defaultId,
     subscriptions: normalizedSubscriptions,
-    active_subscription_count: normalizedSubscriptions.filter((sub) => sub.is_active_now).length,
+    active_subscription_count: normalizedSubscriptions.filter(
+      (sub) => sub.is_active_now
+    ).length,
     department_id: row.department_id,
     department_name: row.departments?.name || '-',
   };
@@ -689,7 +705,9 @@ function buildFreeQuizQuestion(row) {
     prompt: row.prompt,
     explanation: row.explanation,
     image_url: row.image_url,
-    options: Array.isArray(row.options) ? row.options : row.options?.options || row.options,
+    options: Array.isArray(row.options)
+      ? row.options
+      : row.options?.options || row.options,
     correct_option: row.correct_option,
     order_index: row.order_index ?? 0,
     created_at: row.created_at,
@@ -714,12 +732,20 @@ function stripQuestionPrefix(line) {
   return line.replace(QUESTION_NUMBER_PREFIX_PATTERN, '').trim();
 }
 
+const ASSIGNMENT_MODES = new Set(['full_set', 'fixed_count', 'percentage']);
+
+const DEFAULT_ASSIGNMENT_RULES = Object.freeze({
+  default: { mode: 'full_set', value: null },
+  overrides: [],
+});
+
 function normalizeExtraVisibilityRules(value) {
   const base = {
     allowAllDepartments: true,
     departmentIds: [],
     allowAllPlans: true,
     planTiers: [],
+    planIds: [],
   };
 
   if (!value || typeof value !== 'object') {
@@ -741,6 +767,70 @@ function normalizeExtraVisibilityRules(value) {
     planTiers: Array.isArray(value.planTiers)
       ? value.planTiers.map(String).filter(Boolean)
       : base.planTiers,
+    planIds: Array.isArray(value.planIds)
+      ? value.planIds.map(String).filter(Boolean)
+      : base.planIds,
+  };
+}
+
+function normalizeAssignmentValue(mode, value) {
+  if (mode === 'full_set') return null;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null;
+  }
+  if (mode === 'fixed_count') {
+    return Math.max(1, Math.round(numeric));
+  }
+  if (mode === 'percentage') {
+    return Math.min(100, Math.max(1, Math.round(numeric)));
+  }
+  return null;
+}
+
+function normalizeAssignmentMode(mode) {
+  const normalized = typeof mode === 'string' ? mode.toLowerCase() : '';
+  return ASSIGNMENT_MODES.has(normalized) ? normalized : 'full_set';
+}
+
+function normalizeAssignmentRules(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const defaultSource =
+    source.default && typeof source.default === 'object' ? source.default : {};
+  const normalizedDefaultMode = normalizeAssignmentMode(defaultSource.mode);
+  const normalizedDefaultValue = normalizeAssignmentValue(
+    normalizedDefaultMode,
+    defaultSource.value
+  );
+
+  const overridesSource = Array.isArray(source.overrides)
+    ? source.overrides
+    : [];
+  const overrides = overridesSource
+    .map((override) => {
+      if (!override || typeof override !== 'object') return null;
+      const planId = override.planId || override.plan_id;
+      if (!planId) return null;
+      const mode = normalizeAssignmentMode(override.mode);
+      const value = normalizeAssignmentValue(mode, override.value);
+      if (mode !== 'full_set' && value === null) {
+        return null;
+      }
+      return {
+        planId: String(planId),
+        mode,
+        value,
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    default: {
+      mode: normalizedDefaultMode,
+      value:
+        normalizedDefaultMode === 'full_set' ? null : normalizedDefaultValue,
+    },
+    overrides,
   };
 }
 
@@ -774,6 +864,8 @@ function buildExtraQuestionSet(row) {
     is_active: Boolean(row.is_active),
     question_count: row.question_count ?? 0,
     time_limit_seconds: row.time_limit_seconds ?? null,
+    max_attempts_per_user: row.max_attempts_per_user ?? null,
+    assignment_rules: normalizeAssignmentRules(row.assignment_rules),
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -822,16 +914,43 @@ function prepareExtraQuestionSetPayload(input = {}) {
   );
   const rawTimeLimit = hasSecondsInput
     ? input.time_limit_seconds
-    : input.time_limit_minutes ?? input.time_limit;
+    : (input.time_limit_minutes ?? input.time_limit);
   let time_limit_seconds = null;
-  if (rawTimeLimit !== undefined && rawTimeLimit !== null && rawTimeLimit !== '') {
+  if (
+    rawTimeLimit !== undefined &&
+    rawTimeLimit !== null &&
+    rawTimeLimit !== ''
+  ) {
     const numeric = Number(rawTimeLimit);
     if (Number.isFinite(numeric) && numeric > 0) {
-      time_limit_seconds = hasSecondsInput ? Math.round(numeric) : Math.round(numeric * 60);
+      time_limit_seconds = hasSecondsInput
+        ? Math.round(numeric)
+        : Math.round(numeric * 60);
     }
   }
   const visibility = normalizeExtraVisibilityRules(
     input.visibility || input.visibility_rules
+  );
+
+  const rawMaxAttempts =
+    input.max_attempts_per_user ??
+    input.maxAttemptsPerUser ??
+    input.maxAttempts ??
+    null;
+  let max_attempts_per_user = null;
+  if (
+    rawMaxAttempts !== null &&
+    rawMaxAttempts !== undefined &&
+    rawMaxAttempts !== ''
+  ) {
+    const parsed = Number(rawMaxAttempts);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      max_attempts_per_user = Math.floor(parsed);
+    }
+  }
+
+  const assignment_rules = normalizeAssignmentRules(
+    input.assignment_rules || input.assignmentRules
   );
 
   return {
@@ -842,6 +961,8 @@ function prepareExtraQuestionSetPayload(input = {}) {
     is_active: Boolean(is_active),
     visibility_rules: visibility,
     time_limit_seconds,
+    max_attempts_per_user,
+    assignment_rules,
   };
 }
 
@@ -888,7 +1009,8 @@ function parseAikenContent(content, options = {}) {
   const finalizeCurrentQuestion = (endLineNumber) => {
     if (!current) return;
 
-    const resolvedEndLine = endLineNumber ?? current.lastLine ?? current.startLine;
+    const resolvedEndLine =
+      endLineNumber ?? current.lastLine ?? current.startLine;
     const trimmedStem = (current.stem || '').trim();
 
     const resolvedOptions = [];
@@ -932,7 +1054,8 @@ function parseAikenContent(content, options = {}) {
     }
     if (!hasCorrectOption) {
       current.issues.push({
-        message: 'Each question must specify a correct answer via the ANSWER directive.',
+        message:
+          'Each question must specify a correct answer via the ANSWER directive.',
         lineNumber: resolvedEndLine,
       });
     }
@@ -1401,7 +1524,10 @@ class DataService {
   async deleteUserProfile(profileId) {
     const client = await ensureClient();
     try {
-      const { error } = await client.from('profiles').delete().eq('id', profileId);
+      const { error } = await client
+        .from('profiles')
+        .delete()
+        .eq('id', profileId);
       if (error) throw error;
       return true;
     } catch (error) {
@@ -1412,7 +1538,10 @@ class DataService {
   async deleteUserProfilesBulk(profileIds) {
     const client = await ensureClient();
     try {
-      const { error } = await client.from('profiles').delete().in('id', profileIds);
+      const { error } = await client
+        .from('profiles')
+        .delete()
+        .in('id', profileIds);
       if (error) throw error;
     } catch (error) {
       throw wrapError('Failed to delete profiles.', error, { profileIds });
@@ -1435,7 +1564,10 @@ class DataService {
       if (error) throw error;
       return buildProfileRow(data);
     } catch (error) {
-      throw wrapError('Failed to update user profile.', error, { profileId, payload });
+      throw wrapError('Failed to update user profile.', error, {
+        profileId,
+        payload,
+      });
     }
   }
 
@@ -1451,7 +1583,10 @@ class DataService {
       if (error) throw error;
       return buildProfileRow(data);
     } catch (error) {
-      throw wrapError('Failed to update user status.', error, { profileId, status });
+      throw wrapError('Failed to update user status.', error, {
+        profileId,
+        status,
+      });
     }
   }
 
@@ -1464,7 +1599,10 @@ class DataService {
         .in('id', profileIds);
       if (error) throw error;
     } catch (error) {
-      throw wrapError('Failed to update user statuses.', error, { profileIds, status });
+      throw wrapError('Failed to update user statuses.', error, {
+        profileIds,
+        status,
+      });
     }
   }
 
@@ -1504,7 +1642,10 @@ class DataService {
       if (error) throw error;
       return data;
     } catch (error) {
-      throw wrapError('Failed to update user subscription.', error, { userId, planId });
+      throw wrapError('Failed to update user subscription.', error, {
+        userId,
+        planId,
+      });
     }
   }
 
@@ -1757,15 +1898,24 @@ class DataService {
         await this.deleteTopicCascadeFallback(client, topicId);
         return true;
       } catch (fallbackError) {
-        throw wrapError('Failed to delete topic after fallback cleanup.', fallbackError, {
-          topicId,
-        });
+        throw wrapError(
+          'Failed to delete topic after fallback cleanup.',
+          fallbackError,
+          {
+            topicId,
+          }
+        );
       }
     }
   }
 
   async deleteTopicCascadeFallback(client, topicId) {
-    const deleteWithBackoff = async ({ table, column, ids, initialChunk = 200 }) => {
+    const deleteWithBackoff = async ({
+      table,
+      column,
+      ids,
+      initialChunk = 200,
+    }) => {
       if (!Array.isArray(ids) || !ids.length) return;
       const queue = ids.filter(Boolean);
       let chunkSize = Math.max(1, initialChunk);
@@ -1819,7 +1969,9 @@ class DataService {
         .select('id')
         .eq('topic_id', topicId);
       if (weekFetchError) throw weekFetchError;
-      const identifiers = Array.isArray(weekIds) ? weekIds.map((row) => row.id) : [];
+      const identifiers = Array.isArray(weekIds)
+        ? weekIds.map((row) => row.id)
+        : [];
       if (identifiers.length) {
         for (const id of identifiers) {
           const { error: weekUpdateError } = await client
@@ -1863,7 +2015,9 @@ class DataService {
         .select('id')
         .eq('topic_id', topicId);
       if (subslotFetchError) throw subslotFetchError;
-      const ids = Array.isArray(subslotIds) ? subslotIds.map((row) => row.id) : [];
+      const ids = Array.isArray(subslotIds)
+        ? subslotIds.map((row) => row.id)
+        : [];
       await deleteWithBackoff({
         table: 'study_cycle_subslot_topics',
         column: 'id',
@@ -3232,13 +3386,21 @@ class DataService {
     }
   }
 
-  async createFreeQuiz({ title, description, intro, time_limit_seconds, is_active = true }) {
+  async createFreeQuiz({
+    title,
+    description,
+    intro,
+    time_limit_seconds,
+    is_active = true,
+  }) {
     const client = await ensureClient();
     const payload = {
       title,
       description,
       intro,
-      time_limit_seconds: time_limit_seconds ? Number(time_limit_seconds) : null,
+      time_limit_seconds: time_limit_seconds
+        ? Number(time_limit_seconds)
+        : null,
       is_active,
       slug: slugify(title),
     };
@@ -3262,10 +3424,13 @@ class DataService {
       payload.title = updates.title;
       payload.slug = slugify(updates.title);
     }
-    if (updates.description !== undefined) payload.description = updates.description;
+    if (updates.description !== undefined)
+      payload.description = updates.description;
     if (updates.intro !== undefined) payload.intro = updates.intro;
     if (updates.time_limit_seconds !== undefined)
-      payload.time_limit_seconds = updates.time_limit_seconds ? Number(updates.time_limit_seconds) : null;
+      payload.time_limit_seconds = updates.time_limit_seconds
+        ? Number(updates.time_limit_seconds)
+        : null;
     if (updates.is_active !== undefined) payload.is_active = updates.is_active;
     if (!Object.keys(payload).length) return null;
     try {
@@ -3278,7 +3443,10 @@ class DataService {
       if (error) throw error;
       return buildFreeQuiz(data);
     } catch (error) {
-      throw wrapError('Failed to update free quiz.', error, { quizId, payload });
+      throw wrapError('Failed to update free quiz.', error, {
+        quizId,
+        payload,
+      });
     }
   }
 
@@ -3352,7 +3520,9 @@ class DataService {
     correctOption,
   }) {
     const client = await ensureClient();
-    const storageUpload = imageFile ? await this.uploadFreeQuizImage(imageFile, quizId) : null;
+    const storageUpload = imageFile
+      ? await this.uploadFreeQuizImage(imageFile, quizId)
+      : null;
     const { count: existingCount } = await client
       .from('free_quiz_questions')
       .select('id', { count: 'exact', head: true })
@@ -3387,7 +3557,9 @@ class DataService {
     try {
       const { data: question, error: qError } = await client
         .from('questions')
-        .select('id, stem, explanation, image_url, question_options(id, label, content, is_correct, order_index)')
+        .select(
+          'id, stem, explanation, image_url, question_options(id, label, content, is_correct, order_index)'
+        )
         .eq('id', questionId)
         .single();
       if (qError) throw qError;
@@ -3399,9 +3571,13 @@ class DataService {
         label: option.label,
         content: option.content,
       }));
-      const correctOption = (question.question_options || []).find((opt) => opt.is_correct)?.id;
+      const correctOption = (question.question_options || []).find(
+        (opt) => opt.is_correct
+      )?.id;
       if (!correctOption) {
-        throw new DataServiceError('Selected question does not have a correct answer flagged.');
+        throw new DataServiceError(
+          'Selected question does not have a correct answer flagged.'
+        );
       }
       const { count: existingCount } = await client
         .from('free_quiz_questions')
@@ -3461,7 +3637,10 @@ class DataService {
         .from('free_quiz_questions')
         .upsert(updates, { onConflict: 'id' });
       if (error) throw error;
-      await client.from('free_quizzes').update({ updated_at: new Date().toISOString() }).eq('id', quizId);
+      await client
+        .from('free_quizzes')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', quizId);
       return true;
     } catch (error) {
       throw wrapError('Failed to reorder free quiz questions.', error, {
@@ -3479,11 +3658,15 @@ class DataService {
       const text = await file.text();
       const parsed = parseAikenContent(text);
       const meta = parsed?.meta || {};
-      const skippedCount = Array.isArray(meta.skipped) ? meta.skipped.length : 0;
+      const skippedCount = Array.isArray(meta.skipped)
+        ? meta.skipped.length
+        : 0;
       const parseIssues = Array.isArray(meta.errors) ? meta.errors : [];
 
       if (!Array.isArray(parsed) || !parsed.length) {
-        throw new DataServiceError('No valid questions were found. Check the formatting and try again.');
+        throw new DataServiceError(
+          'No valid questions were found. Check the formatting and try again.'
+        );
       }
       const { count: existingCount } = await client
         .from('free_quiz_questions')
@@ -3498,9 +3681,12 @@ class DataService {
         }));
         const correctOption = entry.options.find((opt) => opt.isCorrect)?.label;
         if (!correctOption) {
-          throw new DataServiceError('A question is missing a correct answer.', {
-            context: { prompt: entry.stem, position: index + 1 },
-          });
+          throw new DataServiceError(
+            'A question is missing a correct answer.',
+            {
+              context: { prompt: entry.stem, position: index + 1 },
+            }
+          );
         }
         return {
           free_quiz_id: quizId,
@@ -3518,7 +3704,9 @@ class DataService {
         .insert(batches)
         .select('*');
       if (error) throw error;
-      const records = Array.isArray(data) ? data.map(buildFreeQuizQuestion) : [];
+      const records = Array.isArray(data)
+        ? data.map(buildFreeQuizQuestion)
+        : [];
       return {
         insertedCount: records.length,
         skippedCount,
@@ -3600,7 +3788,10 @@ class DataService {
           });
           return;
         }
-        if (existingStemSet.has(normalizedStem) || batchStemSet.has(normalizedStem)) {
+        if (
+          existingStemSet.has(normalizedStem) ||
+          batchStemSet.has(normalizedStem)
+        ) {
           duplicates.push({ stem: question.stem, index: originalIndex });
           return;
         }
@@ -3704,7 +3895,7 @@ class DataService {
       const { data, error } = await client
         .from('extra_question_sets')
         .select(
-          'id, title, description, visibility_rules, starts_at, ends_at, is_active, question_count, time_limit_seconds, created_at, updated_at'
+          'id, title, description, visibility_rules, starts_at, ends_at, is_active, question_count, time_limit_seconds, max_attempts_per_user, assignment_rules, created_at, updated_at'
         )
         .eq('id', setId)
         .maybeSingle();
@@ -3720,11 +3911,17 @@ class DataService {
           .eq('id', setId)
           .maybeSingle();
         if (fallbackError) {
-          throw wrapError('Failed to load the extra question set.', fallbackError, {
-            setId,
-          });
+          throw wrapError(
+            'Failed to load the extra question set.',
+            fallbackError,
+            {
+              setId,
+            }
+          );
         }
-        return data ? buildExtraQuestionSet({ ...data, time_limit_seconds: null }) : null;
+        return data
+          ? buildExtraQuestionSet({ ...data, time_limit_seconds: null })
+          : null;
       }
       throw wrapError('Failed to load the extra question set.', error, {
         setId,
@@ -3738,13 +3935,17 @@ class DataService {
       const { data, error } = await client
         .from('extra_question_sets')
         .select(
-          'id, title, description, visibility_rules, starts_at, ends_at, is_active, question_count, time_limit_seconds, created_at, updated_at'
+          'id, title, description, visibility_rules, starts_at, ends_at, is_active, question_count, time_limit_seconds, max_attempts_per_user, assignment_rules, created_at, updated_at'
         )
         .order('created_at', { ascending: false });
       if (error) throw error;
       return Array.isArray(data) ? data.map(buildExtraQuestionSet) : [];
     } catch (error) {
-      if (isMissingColumnError(error, 'time_limit_seconds')) {
+      if (
+        isMissingColumnError(error, 'time_limit_seconds') ||
+        isMissingColumnError(error, 'assignment_rules') ||
+        isMissingColumnError(error, 'max_attempts_per_user')
+      ) {
         const { data, error: fallbackError } = await client
           .from('extra_question_sets')
           .select(
@@ -3755,7 +3956,14 @@ class DataService {
           throw wrapError('Failed to load extra question sets.', fallbackError);
         }
         return Array.isArray(data)
-          ? data.map((row) => buildExtraQuestionSet({ ...row, time_limit_seconds: null }))
+          ? data.map((row) =>
+              buildExtraQuestionSet({
+                ...row,
+                time_limit_seconds: null,
+                assignment_rules: DEFAULT_ASSIGNMENT_RULES,
+                max_attempts_per_user: null,
+              })
+            )
           : [];
       }
       throw wrapError('Failed to load extra question sets.', error);
@@ -3765,7 +3973,9 @@ class DataService {
   async createExtraQuestionSet(payload) {
     const prepared = prepareExtraQuestionSetPayload(payload);
     if (!prepared.title) {
-      throw new DataServiceError('A title is required before creating an extra question set.');
+      throw new DataServiceError(
+        'A title is required before creating an extra question set.'
+      );
     }
 
     const client = await ensureClient();
@@ -3780,7 +3990,9 @@ class DataService {
         .maybeSingle();
       if (error) throw error;
       if (!data) {
-        throw new Error('Supabase returned an empty response for the new extra question set.');
+        throw new Error(
+          'Supabase returned an empty response for the new extra question set.'
+        );
       }
       return buildExtraQuestionSet(data);
     } catch (error) {
@@ -3790,6 +4002,14 @@ class DataService {
       if (isMissingColumnError(error, 'time_limit_seconds')) {
         throw new DataServiceError(
           'Unable to create extra question set because the database is missing the new time limit column. Run the latest Supabase migration (20251205131000_extra_question_time_limit.sql) and try again.'
+        );
+      }
+      if (
+        isMissingColumnError(error, 'assignment_rules') ||
+        isMissingColumnError(error, 'max_attempts_per_user')
+      ) {
+        throw new DataServiceError(
+          'Unable to create extra question set because the database is missing the bonus question rule columns. Run the latest Supabase migration (20251215102000_extra_question_rules.sql) and try again.'
         );
       }
       throw wrapError('Unable to create extra question set.', error, {
@@ -3805,7 +4025,8 @@ class DataService {
 
     const payload = {};
     if (updates.title !== undefined) {
-      const title = typeof updates.title === 'string' ? updates.title.trim() : '';
+      const title =
+        typeof updates.title === 'string' ? updates.title.trim() : '';
       if (!title) {
         throw new DataServiceError('Title cannot be empty.');
       }
@@ -3836,19 +4057,27 @@ class DataService {
       const hasSeconds = updates.time_limit_seconds !== undefined;
       const rawTimeLimit = hasSeconds
         ? updates.time_limit_seconds
-        : updates.time_limit_minutes ?? updates.time_limit;
-      if (rawTimeLimit === null || rawTimeLimit === '' || rawTimeLimit === undefined) {
+        : (updates.time_limit_minutes ?? updates.time_limit);
+      if (
+        rawTimeLimit === null ||
+        rawTimeLimit === '' ||
+        rawTimeLimit === undefined
+      ) {
         payload.time_limit_seconds = null;
       } else {
         const numeric = Number(rawTimeLimit);
-        payload.time_limit_seconds = Number.isFinite(numeric) && numeric > 0
-          ? hasSeconds
-            ? Math.round(numeric)
-            : Math.round(numeric * 60)
-          : null;
+        payload.time_limit_seconds =
+          Number.isFinite(numeric) && numeric > 0
+            ? hasSeconds
+              ? Math.round(numeric)
+              : Math.round(numeric * 60)
+            : null;
       }
     }
-    if (updates.visibility !== undefined || updates.visibility_rules !== undefined) {
+    if (
+      updates.visibility !== undefined ||
+      updates.visibility_rules !== undefined
+    ) {
       payload.visibility_rules = normalizeExtraVisibilityRules(
         updates.visibility || updates.visibility_rules
       );
@@ -3877,11 +4106,20 @@ class DataService {
           'Unable to update the extra question set because the database is missing the new time limit column. Run the latest Supabase migration (20251205131000_extra_question_time_limit.sql) and try again.'
         );
       }
+      if (
+        isMissingColumnError(error, 'assignment_rules') ||
+        isMissingColumnError(error, 'max_attempts_per_user')
+      ) {
+        throw new DataServiceError(
+          'Unable to update the extra question set because the database is missing the bonus question rule columns. Run the latest Supabase migration (20251215102000_extra_question_rules.sql) and try again.'
+        );
+      }
       if (error instanceof DataServiceError) {
         throw error;
       }
       throw wrapError('Unable to update extra question set.', error, {
         setId,
+        updates,
       });
     }
   }
@@ -3922,9 +4160,13 @@ class DataService {
       if (error) throw error;
       return Array.isArray(data) ? data.map(buildExtraQuestion) : [];
     } catch (error) {
-      throw wrapError('Failed to load extra questions for the selected set.', error, {
-        setId,
-      });
+      throw wrapError(
+        'Failed to load extra questions for the selected set.',
+        error,
+        {
+          setId,
+        }
+      );
     }
   }
 
@@ -4139,14 +4381,13 @@ class DataService {
     }
   }
 
-
-
   async listProfiles() {
     const client = await ensureClient();
     try {
       const { data, error } = await client
         .from('profiles')
-        .select(`
+        .select(
+          `
           *,
           departments (name),
           user_subscriptions!user_subscriptions_user_id_fkey (
@@ -4180,7 +4421,8 @@ class DataService {
               )
             )
           )
-        `)
+        `
+        )
         .order('created_at', { ascending: false });
       if (error) throw error;
       return Array.isArray(data) ? data.map(buildProfileRow) : [];
@@ -4191,12 +4433,14 @@ class DataService {
 
   async listInactiveLearners({ daysWithoutActivity = 14, limit = 10 } = {}) {
     const client = await ensureClient();
-    const safeDays = Number.isFinite(daysWithoutActivity) && daysWithoutActivity > 0
-      ? Math.min(Math.floor(daysWithoutActivity), 365)
-      : 14;
-    const safeLimit = Number.isFinite(limit) && limit > 0
-      ? Math.min(Math.floor(limit), 200)
-      : 10;
+    const safeDays =
+      Number.isFinite(daysWithoutActivity) && daysWithoutActivity > 0
+        ? Math.min(Math.floor(daysWithoutActivity), 365)
+        : 14;
+    const safeLimit =
+      Number.isFinite(limit) && limit > 0
+        ? Math.min(Math.floor(limit), 200)
+        : 10;
     const thresholdDate = new Date(Date.now() - safeDays * 24 * 60 * 60 * 1000);
     const thresholdIso = thresholdDate.toISOString();
     const relevantStatuses = new Set(['active', 'trialing', 'past_due']);
@@ -4204,7 +4448,8 @@ class DataService {
     try {
       const baseQuery = client
         .from('profiles')
-        .select(`
+        .select(
+          `
           *,
           departments (name),
           user_subscriptions!user_subscriptions_user_id_fkey (
@@ -4238,7 +4483,8 @@ class DataService {
               )
             )
           )
-        `)
+        `
+        )
         .eq('role', 'learner')
         .order('last_seen_at', { ascending: true, nullsFirst: true })
         .limit(safeLimit);
@@ -4251,17 +4497,15 @@ class DataService {
         return [];
       }
 
-      return data
-        .map(buildProfileRow)
-        .filter((profile) => {
-          if (!profile) return false;
-          if (!profile.plan_id) return false;
-          const subStatus = (profile.status || '').toLowerCase();
-          if (relevantStatuses.has(subStatus)) return true;
-          const billingStatus = (profile.subscription_status || '').toLowerCase();
-          if (billingStatus && relevantStatuses.has(billingStatus)) return true;
-          return false;
-        });
+      return data.map(buildProfileRow).filter((profile) => {
+        if (!profile) return false;
+        if (!profile.plan_id) return false;
+        const subStatus = (profile.status || '').toLowerCase();
+        if (relevantStatuses.has(subStatus)) return true;
+        const billingStatus = (profile.subscription_status || '').toLowerCase();
+        if (billingStatus && relevantStatuses.has(billingStatus)) return true;
+        return false;
+      });
     } catch (error) {
       throw wrapError('Failed to fetch inactive learners.', error, {
         daysWithoutActivity: safeDays,
