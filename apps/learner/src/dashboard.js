@@ -164,6 +164,7 @@ const state = {
   extraQuestionSets: [],
   extraPlanId: null,
   isLoadingExtraSets: false,
+  activeView: 'dashboard',
   community: {
     messages: [],
     userCache: new Map(),
@@ -305,6 +306,7 @@ function setActiveView(targetView) {
       button.removeAttribute('aria-current');
     }
   });
+  state.activeView = targetView;
 }
 
 function bindNavigation() {
@@ -1592,7 +1594,9 @@ function updatePaymentGate(profile) {
 
   elements.paymentGate.classList.remove('hidden');
   elements.dashboardContent.classList.add('hidden');
-  setActiveView('dashboard');
+  if (state.activeView !== 'community') {
+    setActiveView('dashboard');
+  }
 }
 
 function populateProfileForm() {
