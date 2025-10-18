@@ -108,7 +108,6 @@ const elements = {
   ),
   views: Array.from(document.querySelectorAll('[data-view]')),
   dashboardContent: document.querySelector('[data-role="dashboard-content"]'),
-  heroDailyBtn: document.querySelector('[data-role="hero-daily-button"]'),
   paymentGate: document.querySelector('[data-role="payment-gate"]'),
   gatedBadge: document.querySelector('[data-role="gated-badge"]'),
   gatedTitle: document.querySelector('[data-role="gated-title"]'),
@@ -1635,22 +1634,21 @@ async function handleProfileSubmit(event) {
 }
 
 function setDailyButtonVariant(status) {
-  const targets = [elements.resumeBtn, elements.heroDailyBtn].filter(Boolean);
+  const btn = elements.resumeBtn;
+  if (!btn) return;
   const colorClasses = [
     'bg-red-600',
     'hover:bg-red-700',
     'bg-cyan-600',
     'hover:bg-cyan-700',
   ];
-  targets.forEach((btn) => {
-    btn.classList.remove(...colorClasses);
-    btn.classList.add('text-white');
-    if (status === 'completed') {
-      btn.classList.add('bg-cyan-600', 'hover:bg-cyan-700');
-    } else {
-      btn.classList.add('bg-red-600', 'hover:bg-red-700');
-    }
-  });
+  btn.classList.remove(...colorClasses);
+  btn.classList.add('text-white');
+  if (status === 'completed') {
+    btn.classList.add('bg-cyan-600', 'hover:bg-cyan-700');
+  } else {
+    btn.classList.add('bg-red-600', 'hover:bg-red-700');
+  }
 }
 
 function updateQuizSection() {
@@ -1672,11 +1670,6 @@ function updateQuizSection() {
     if (elements.resumeBtn) {
       elements.resumeBtn.textContent = 'Start Daily Questions';
       elements.resumeBtn.classList.remove('hidden');
-    }
-    if (elements.heroDailyBtn) {
-      elements.heroDailyBtn.textContent = 'Start Daily Questions';
-      elements.heroDailyBtn.classList.remove('hidden');
-      elements.heroDailyBtn.disabled = false;
     }
     setDailyButtonVariant('pending');
     if (elements.regenerateBtn) {
@@ -1708,11 +1701,6 @@ function updateQuizSection() {
     if (elements.resumeBtn) {
       elements.resumeBtn.textContent = 'Review Results';
       elements.resumeBtn.classList.remove('hidden');
-    }
-    if (elements.heroDailyBtn) {
-      elements.heroDailyBtn.textContent = "Review Today's Questions";
-      elements.heroDailyBtn.classList.remove('hidden');
-      elements.heroDailyBtn.disabled = false;
     }
     setDailyButtonVariant('completed');
     if (elements.regenerateBtn) {
@@ -1747,11 +1735,6 @@ function updateQuizSection() {
     if (elements.resumeBtn) {
       elements.resumeBtn.textContent = 'Continue Quiz';
       elements.resumeBtn.classList.remove('hidden');
-    }
-    if (elements.heroDailyBtn) {
-      elements.heroDailyBtn.textContent = 'Continue Daily Questions';
-      elements.heroDailyBtn.classList.remove('hidden');
-      elements.heroDailyBtn.disabled = false;
     }
     setDailyButtonVariant('pending');
     if (elements.regenerateBtn) {
@@ -2868,7 +2851,6 @@ async function initialise() {
     );
     elements.extraSetsList?.addEventListener('click', handleExtraSetsClick);
     elements.profileForm?.addEventListener('submit', handleProfileSubmit);
-    elements.heroDailyBtn?.addEventListener('click', startOrResumeQuiz);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Load data without auto-generating quiz
@@ -2889,7 +2871,6 @@ function cleanup() {
   );
   elements.extraSetsList?.removeEventListener('click', handleExtraSetsClick);
   elements.profileForm?.removeEventListener('submit', handleProfileSubmit);
-  elements.heroDailyBtn?.removeEventListener('click', startOrResumeQuiz);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
 }
 
