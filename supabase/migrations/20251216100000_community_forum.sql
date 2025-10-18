@@ -255,8 +255,6 @@ set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
-alter table storage.objects enable row level security;
-
 create policy "Community attachments read" on storage.objects
   for select using (
     bucket_id = 'community-uploads'
