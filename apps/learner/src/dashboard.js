@@ -2081,11 +2081,12 @@ function updateBonusNavNotification() {
   const sets = Array.isArray(state.extraQuestionSets)
     ? state.extraQuestionSets
     : [];
-  const newCount = sets.filter(
-    (set) =>
-      set.availability?.isAvailable &&
-      !['completed', 'completed_archived'].includes(set.status)
-  ).length;
+  const newCount = sets.filter((set) => {
+    const availability = set.availability || getExtraSetAvailability(set);
+    if (!availability) return false;
+    if (['completed', 'completed_archived'].includes(set.status)) return false;
+    return availability.isAvailable || availability.isUpcoming;
+  }).length;
 
   if (newCount > 0) {
     badge.textContent = newCount > 9 ? '9+' : String(newCount);
