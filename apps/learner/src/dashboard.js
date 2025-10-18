@@ -208,6 +208,7 @@ const state = {
     composerAttachments: [],
     replyAttachments: [],
     subscription: null,
+    isComposingThread: false,
   },
 };
 
@@ -2448,7 +2449,21 @@ function renderCommunityThread(threadId, options = {}) {
   const { scrollToBottom = false } = options;
   const detail = elements.communityThreadView;
   const emptyState = elements.communityEmptyState;
+  const composer = elements.communityThreadComposer;
   if (!detail || !emptyState) return;
+
+  if (state.community.isComposingThread) {
+    detail.classList.add('hidden');
+    emptyState.classList.add('hidden');
+    composer?.classList.remove('hidden');
+    renderCommunityAttachmentDrafts(
+      elements.communityThreadAttachments,
+      state.community.composerAttachments
+    );
+    return;
+  }
+
+  composer?.classList.add('hidden');
 
   const thread = state.community.threads.find((item) => item.id === threadId);
   if (!thread) {
@@ -2620,33 +2635,31 @@ function resetCommunityReplyComposer() {
   );
 }
 
-function toggleCommunityComposer(show) {
-  const modal = elements.communityThreadComposer;
-  if (!modal) return;
-  if (show) {
-    modal.classList.remove('hidden');
-    document.body.dataset.communityScrollLock = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-  } else {
-    modal.classList.add('hidden');
-    if (document.body.dataset.communityScrollLock !== undefined) {
-      document.body.style.overflow =
-        document.body.dataset.communityScrollLock || '';
-      delete document.body.dataset.communityScrollLock;
-    }
+function showCommunityComposer() {
+  state.community.isComposingThread = true;
+  state.community.selectedThreadId = null;
+  resetCommunityComposer();
+  renderCommunityThreads();
+  renderCommunityThread(null);
+  requestAnimationFrame(() => {
+    elements.communityThreadTitleInput?.focus();
+  });
+}
+
+function hideCommunityComposer({ reset = true } = {}) {
+  if (reset) {
     resetCommunityComposer();
   }
+  state.community.isComposingThread = false;
+  const threadId = state.community.selectedThreadId || null;
+  renderCommunityThreads();
+  renderCommunityThread(threadId);
 }
 
 function closeCommunityThread() {
   state.community.selectedThreadId = null;
-  renderCommunityThreads();
-  if (elements.communityThreadView) {
-    elements.communityThreadView.classList.add('hidden');
-  }
-  if (elements.communityEmptyState) {
-    elements.communityEmptyState.classList.remove('hidden');
-  }
+  state.community.isComposingThread = false;
+  hideCommunityComposer({ reset: false });
 }
 
 async function getCommunityAttachmentUrl(path) {
@@ -2751,8 +2764,12 @@ async function loadCommunityThreads(options = {}) {
 
     updateCommunityNavNotification();
 
-    if (state.community.selectedThreadId) {
+    if (state.community.isComposingThread) {
+      renderCommunityThread(null);
+    } else if (state.community.selectedThreadId) {
       renderCommunityThread(state.community.selectedThreadId);
+    } else {
+      renderCommunityThread(null);
     }
   } catch (error) {
     console.error('[Community] loadCommunityThreads failed', error);
@@ -3009,11 +3026,11 @@ function handleCommunityActionClick(event) {
   switch (action) {
     case 'community-open-composer':
       event.preventDefault();
-      toggleCommunityComposer(true);
+      showCommunityComposer();
       break;
     case 'community-close-composer':
       event.preventDefault();
-      toggleCommunityComposer(false);
+      hideCommunityComposer();
       break;
     case 'community-refresh':
       event.preventDefault();
@@ -3122,8 +3139,7 @@ async function handleCommunityThreadSubmit(event) {
 
     state.community.selectedThreadId = newThread.id;
     state.community.reads.set(newThread.id, newPost.createdAt);
-    toggleCommunityComposer(false);
-    renderCommunityThreads();
+    hideCommunityComposer();
     renderCommunityThread(newThread.id, { scrollToBottom: true });
     updateCommunityNavNotification();
     showToast('Thread posted successfully.', 'success');
@@ -3224,6 +3240,7 @@ function openCommunityThread(threadId, options = {}) {
   const { scrollToLatest = false, forceReload = false } = options;
   const threadChanged =
     state.community.selectedThreadId !== threadId || forceReload;
+  state.community.isComposingThread = false;
   state.community.selectedThreadId = threadId;
   renderCommunityThreads();
 
@@ -4129,7 +4146,7 @@ function cleanup() {
     }
     state.community.subscription = null;
   }
-  toggleCommunityComposer(false);
+  hideCommunityComposer({ reset: false });
 }
 
 window.addEventListener('beforeunload', cleanup);

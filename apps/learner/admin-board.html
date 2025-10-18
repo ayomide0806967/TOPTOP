@@ -638,55 +638,36 @@
         }
       }
 
-      .community-composer-modal {
-        position: fixed;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 1.5rem;
-        z-index: 10000;
-      }
-
-      .community-composer-backdrop {
-        position: absolute;
-        inset: 0;
-        background: rgba(15, 23, 42, 0.28);
-        backdrop-filter: blur(6px);
-      }
-
-      .community-composer-dialog {
-        position: relative;
-        width: min(640px, 100%);
+      .community-compose-view {
+        background: rgba(255, 255, 255, 0.96);
         border-radius: 1.5rem;
-        background: #ffffff;
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        box-shadow: 0 40px 120px -40px rgba(15, 23, 42, 0.45);
-        padding: 1.75rem;
-        max-height: 90vh;
-        overflow-y: auto;
-      }
-
-      .community-composer-form {
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        box-shadow: 0 20px 60px -30px rgba(15, 23, 42, 0.5);
+        padding: 1.5rem;
         display: grid;
         gap: 1.25rem;
       }
 
-      .community-composer-headline {
+      .community-compose-form {
+        display: grid;
+        gap: 1.25rem;
+      }
+
+      .community-compose-headline {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
         gap: 1rem;
       }
 
-      .community-composer-headline h3 {
+      .community-compose-headline h3 {
         font-size: 1.25rem;
         font-weight: 600;
         color: #0f172a;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.35rem;
       }
 
-      .community-composer-headline p {
+      .community-compose-headline p {
         font-size: 0.85rem;
         color: #64748b;
       }
@@ -720,29 +701,11 @@
         box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
       }
 
-      .community-attach-btn {
-        width: fit-content;
-      }
-
-      .community-composer-footer {
+      .community-compose-footer {
         display: flex;
         align-items: center;
         gap: 0.75rem;
-      }
-
-      @media (max-width: 639px) {
-        .community-composer-dialog {
-          padding: 1.25rem;
-        }
-
-        .community-composer-headline {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-
-        .community-composer-footer {
-          flex-wrap: wrap;
-        }
+        flex-wrap: wrap;
       }
 
       @media (min-width: 640px) and (max-width: 767px) {
@@ -1312,93 +1275,87 @@
               </section>
             </div>
             <div
-              class="community-composer-modal hidden"
+              class="community-compose-view hidden"
               data-role="community-thread-composer"
             >
-              <div
-                class="community-composer-backdrop"
-                data-action="community-close-composer"
-              ></div>
-              <div class="community-composer-dialog">
-                <form
-                  class="community-composer-form"
-                  data-role="community-thread-form"
-                >
-                  <header class="community-composer-headline">
-                    <div>
-                      <h3>Start a new thread</h3>
-                      <p>
-                        Set a clear topic and open the floor for supportive
-                        conversation.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      class="community-ghost-btn"
-                      data-action="community-close-composer"
-                    >
-                      Cancel
-                    </button>
-                  </header>
-                  <div class="community-field">
-                    <label for="community-thread-title">Title</label>
+              <form
+                class="community-compose-form"
+                data-role="community-thread-form"
+              >
+                <header class="community-compose-headline">
+                  <div>
+                    <h3>Start a new thread</h3>
+                    <p>
+                      Set a clear topic and open the floor for supportive
+                      conversation.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="community-ghost-btn"
+                    data-action="community-close-composer"
+                  >
+                    Cancel
+                  </button>
+                </header>
+                <div class="community-field">
+                  <label for="community-thread-title">Title</label>
+                  <input
+                    id="community-thread-title"
+                    type="text"
+                    class="community-input"
+                    maxlength="120"
+                    placeholder="e.g. Tips for tackling dosage calculations"
+                    data-role="community-thread-title"
+                    required
+                  />
+                </div>
+                <div class="community-field">
+                  <label for="community-thread-message">Message</label>
+                  <textarea
+                    id="community-thread-message"
+                    rows="4"
+                    class="community-textarea"
+                    placeholder="Share context, resources, or a motivating prompt…"
+                    data-role="community-thread-message"
+                    required
+                  ></textarea>
+                </div>
+                <div class="community-field">
+                  <span>Attachments</span>
+                  <div
+                    class="community-attachments"
+                    data-role="community-thread-attachments"
+                  ></div>
+                  <label class="community-ghost-btn">
                     <input
-                      id="community-thread-title"
-                      type="text"
-                      class="community-input"
-                      maxlength="120"
-                      placeholder="e.g. Tips for tackling dosage calculations"
-                      data-role="community-thread-title"
-                      required
+                      type="file"
+                      class="hidden"
+                      multiple
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                      data-role="community-thread-file"
                     />
-                  </div>
-                  <div class="community-field">
-                    <label for="community-thread-message">Message</label>
-                    <textarea
-                      id="community-thread-message"
-                      rows="4"
-                      class="community-textarea"
-                      placeholder="Share context, resources, or a motivating prompt…"
-                      data-role="community-thread-message"
-                      required
-                    ></textarea>
-                  </div>
-                  <div class="community-field">
-                    <span>Attachments</span>
-                    <div
-                      class="community-attachments"
-                      data-role="community-thread-attachments"
-                    ></div>
-                    <label class="community-ghost-btn community-attach-btn">
-                      <input
-                        type="file"
-                        class="hidden"
-                        multiple
-                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
-                        data-role="community-thread-file"
-                      />
-                      Add files
-                    </label>
-                  </div>
-                  <footer class="community-composer-footer">
-                    <button
-                      type="button"
-                      class="community-ghost-btn"
-                      data-action="community-close-composer"
-                    >
-                      Close
-                    </button>
-                    <div class="community-composer-spacer"></div>
-                    <button
-                      type="submit"
-                      class="community-primary-btn"
-                      data-role="community-thread-submit"
-                    >
-                      Post thread
-                    </button>
-                  </footer>
-                </form>
-              </div>
+                    Add files
+                  </label>
+                </div>
+                <footer class="community-compose-footer">
+                  <button
+                    type="button"
+                    class="community-ghost-btn"
+                    data-action="community-close-composer"
+                  >
+                    Close
+                  </button>
+                  <div class="community-composer-spacer"></div>
+                  <button
+                    type="submit"
+                    class="community-primary-btn"
+                    data-role="community-thread-submit"
+                  >
+                    Post thread
+                  </button>
+                </footer>
+              </form>
             </div>
           </section>
 
