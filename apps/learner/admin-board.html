@@ -405,13 +405,20 @@
           <section data-view="dashboard" class="space-y-8">
             <div data-role="dashboard-content" class="space-y-8">
               <div
-                class="hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 shadow-sm"
+                class="hidden flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 shadow-sm sm:flex-row sm:items-start sm:justify-between"
                 data-role="global-notice"
               >
-                <div class="flex items-start gap-3">
+                <div class="flex flex-1 items-start gap-3">
                   <span class="mt-0.5 text-base">📣</span>
                   <p class="flex-1 leading-snug" data-role="global-notice-text"></p>
                 </div>
+                <button
+                  type="button"
+                  class="ml-3 inline-flex items-center rounded-md border border-amber-300 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-700 transition hover:bg-amber-100"
+                  data-role="global-notice-dismiss"
+                >
+                  Dismiss
+                </button>
               </div>
               <section
                 class="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm sm:p-8"

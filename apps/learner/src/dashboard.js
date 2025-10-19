@@ -105,6 +105,7 @@ const elements = {
   bonusNotification: document.querySelector('[data-role="bonus-notification"]'),
   globalNotice: document.querySelector('[data-role="global-notice"]'),
   globalNoticeText: document.querySelector('[data-role="global-notice-text"]'),
+  globalNoticeDismiss: document.querySelector('[data-role="global-notice-dismiss"]'),
   navButtons: Array.from(
     document.querySelectorAll('[data-role="nav-buttons"] [data-nav-target]')
   ),
@@ -145,6 +146,16 @@ const state = {
 };
 
 let navigationBound = false;
+
+const ANNOUNCEMENT_DISMISS_STORAGE_KEY = 'learner.dismissedAnnouncements';
+let activeAnnouncementId = null;
+
+function handleGlobalNoticeDismiss() {
+  if (activeAnnouncementId) {
+    markAnnouncementDismissed(activeAnnouncementId);
+  }
+  renderGlobalAnnouncement(null);
+}
 
 const NOTICE_TONE_CLASSES = {
   positive: ['border-emerald-200', 'bg-emerald-50', 'text-emerald-800'],
@@ -325,19 +336,81 @@ function showToast(message, type = 'info') {
   elements.toast.dataset.timeoutId = timeoutId;
 }
 
-function renderGlobalAnnouncement(announcement) {
-  if (!elements.globalNotice) return;
-  if (!announcement) {
-    elements.globalNotice.classList.add('hidden');
-    if (elements.globalNoticeText) {
-      elements.globalNoticeText.textContent = '';
+function getDismissedAnnouncementIds() {
+  try {
+    const raw = localStorage.getItem(ANNOUNCEMENT_DISMISS_STORAGE_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return new Set(parsed.filter(Boolean));
     }
+  } catch (error) {
+    console.debug('[Announcement] Failed to read dismissed ids', error);
+  }
+  return new Set();
+}
+
+function saveDismissedAnnouncementIds(ids) {
+  try {
+    const payload = Array.from(ids);
+    localStorage.setItem(ANNOUNCEMENT_DISMISS_STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    console.debug('[Announcement] Failed to persist dismissed ids', error);
+  }
+}
+
+function hasAnnouncementBeenDismissed(id) {
+  if (!id) return false;
+  return getDismissedAnnouncementIds().has(id);
+}
+
+function markAnnouncementDismissed(id) {
+  if (!id) return;
+  const ids = getDismissedAnnouncementIds();
+  ids.add(id);
+  saveDismissedAnnouncementIds(ids);
+}
+
+function renderGlobalAnnouncement(announcement) {
+  const container = elements.globalNotice;
+  if (!container) return;
+  const textEl = elements.globalNoticeText;
+  const dismissBtn = elements.globalNoticeDismiss;
+
+  if (!announcement || !announcement.id) {
+    container.classList.add('hidden');
+    container.removeAttribute('data-announcement-id');
+    if (textEl) {
+      textEl.textContent = '';
+    }
+    if (dismissBtn) {
+      dismissBtn.classList.add('hidden');
+    }
+    activeAnnouncementId = null;
     return;
   }
 
-  elements.globalNotice.classList.remove('hidden');
-  if (elements.globalNoticeText) {
-    elements.globalNoticeText.textContent = announcement.message || '';
+  if (hasAnnouncementBeenDismissed(announcement.id)) {
+    container.classList.add('hidden');
+    container.removeAttribute('data-announcement-id');
+    if (textEl) {
+      textEl.textContent = '';
+    }
+    if (dismissBtn) {
+      dismissBtn.classList.add('hidden');
+    }
+    activeAnnouncementId = null;
+    return;
+  }
+
+  activeAnnouncementId = announcement.id;
+  container.dataset.announcementId = announcement.id;
+  container.classList.remove('hidden');
+  if (textEl) {
+    textEl.textContent = announcement.message || '';
+  }
+  if (dismissBtn) {
+    dismissBtn.classList.remove('hidden');
   }
 }
 
@@ -2894,6 +2967,7 @@ async function initialise() {
     elements.extraSetsList?.addEventListener('click', handleExtraSetsClick);
     elements.profileForm?.addEventListener('submit', handleProfileSubmit);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    elements.globalNoticeDismiss?.addEventListener('click', handleGlobalNoticeDismiss);
 
     // Load data without auto-generating quiz
     await loadScheduleHealth();
@@ -2915,6 +2989,7 @@ function cleanup() {
   elements.extraSetsList?.removeEventListener('click', handleExtraSetsClick);
   elements.profileForm?.removeEventListener('submit', handleProfileSubmit);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
+  elements.globalNoticeDismiss?.removeEventListener('click', handleGlobalNoticeDismiss);
 }
 
 window.addEventListener('beforeunload', cleanup);

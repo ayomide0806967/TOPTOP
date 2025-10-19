@@ -12,4 +12,13 @@ Admins can now send a single broadcast message that immediately appears on every
 
 Only authenticated admins (checked via `public.is_admin()`) may insert, update, or delete announcements. Learners have read-only access.
 
-To retire a banner without deleting history, set `is_active` to `false` from the admin UI (future enhancement) or directly via Supabase.
+### Admin controls
+
+- **Send to learners** inserts a new announcement and automatically archives any existing active entries.
+- Use the action buttons in the “Recent broadcasts” list to archive/reactivate or delete a message.
+
+Archived announcements stay in the table for auditing but are hidden from learners.
+
+### Learner experience
+
+- The active broadcast appears once per announcement id. Learners can dismiss it with the inline “Dismiss” button; the dismissal is remembered locally until a new announcement is published.

@@ -4645,9 +4645,65 @@ class DataService {
         .select('id, message, is_active, created_at, created_by')
         .single();
       if (error) throw error;
+      if (Boolean(isActive) && data?.id) {
+        await client
+          .from('global_announcements')
+          .update({ is_active: false })
+          .neq('id', data.id);
+      }
       return data;
     } catch (error) {
       throw wrapError('Failed to publish announcement.', error, { message });
+    }
+  }
+
+  async updateGlobalAnnouncement(id, { isActive }) {
+    const client = await ensureClient();
+    if (!id) {
+      throw wrapError('Announcement id is required.', new Error('Validation error'), {
+        id,
+      });
+    }
+
+    try {
+      const { data, error } = await client
+        .from('global_announcements')
+        .update({ is_active: Boolean(isActive) })
+        .eq('id', id)
+        .select('id, message, is_active, created_at, created_by')
+        .single();
+      if (error) throw error;
+
+      if (data?.id && Boolean(isActive)) {
+        await client
+          .from('global_announcements')
+          .update({ is_active: false })
+          .neq('id', data.id);
+      }
+
+      return data;
+    } catch (error) {
+      throw wrapError('Failed to update announcement.', error, { id, isActive });
+    }
+  }
+
+  async deleteGlobalAnnouncement(id) {
+    const client = await ensureClient();
+    if (!id) {
+      throw wrapError('Announcement id is required.', new Error('Validation error'), {
+        id,
+      });
+    }
+
+    try {
+      const { error } = await client
+        .from('global_announcements')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      throw wrapError('Failed to delete announcement.', error, { id });
     }
   }
 

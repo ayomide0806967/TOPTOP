@@ -176,7 +176,9 @@ export async function dashboardView(_appState, actions = {}) {
                 ? 'text-emerald-600 bg-emerald-50 border border-emerald-200'
                 : 'text-slate-500 bg-slate-100 border border-slate-200';
               return `
-                <li class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <li class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" data-announcement-id="${escapeHtml(
+                  item.id
+                )}">
                   <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <p class="flex-1 leading-snug">${escapeHtml(item.message)}</p>
                     <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${statusClasses}">
@@ -186,6 +188,24 @@ export async function dashboardView(_appState, actions = {}) {
                   <p class="mt-1 text-xs text-amber-700">${escapeHtml(
                     formatAnnouncementTimestamp(item.created_at)
                   )}</p>
+                  <div class="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-white px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-amber-700 transition hover:bg-amber-100"
+                      data-action="${item.is_active ? 'archive' : 'activate'}"
+                      data-id="${escapeHtml(item.id)}"
+                    >
+                      ${item.is_active ? 'Archive' : 'Activate'}
+                    </button>
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50"
+                      data-action="delete"
+                      data-id="${escapeHtml(item.id)}"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </li>
               `;
             })
@@ -319,6 +339,62 @@ export async function dashboardView(_appState, actions = {}) {
           submitBtn.textContent = originalLabel;
         }
       });
+
+      const list = container.querySelector('[data-role="global-notification-list"]');
+      if (list) {
+        list.addEventListener('click', async (event) => {
+          const button = event.target.closest('button[data-action][data-id]');
+          if (!button) return;
+          event.preventDefault();
+
+          const action = button.dataset.action;
+          const announcementId = button.dataset.id;
+          if (!action || !announcementId) return;
+
+          const originalLabel = button.textContent;
+          button.disabled = true;
+          const busyLabel =
+            action === 'delete'
+              ? 'Deleting…'
+              : action === 'activate'
+                ? 'Activating…'
+                : 'Archiving…';
+          button.textContent = busyLabel;
+
+          if (errorEl) {
+            errorEl.textContent = '';
+            errorEl.classList.add('hidden');
+          }
+
+          try {
+            if (action === 'archive') {
+              await dataService.updateGlobalAnnouncement(announcementId, {
+                isActive: false,
+              });
+            } else if (action === 'activate') {
+              await dataService.updateGlobalAnnouncement(announcementId, {
+                isActive: true,
+              });
+            } else if (action === 'delete') {
+              await dataService.deleteGlobalAnnouncement(announcementId);
+            }
+
+            if (typeof actions.refresh === 'function') {
+              actions.refresh();
+            }
+          } catch (error) {
+            console.error('[Dashboard] Announcement action failed', error);
+            if (errorEl) {
+              errorEl.textContent =
+                error?.message || 'Unable to update announcement right now.';
+              errorEl.classList.remove('hidden');
+            }
+          } finally {
+            button.disabled = false;
+            button.textContent = originalLabel;
+          }
+        });
+      }
     },
   };
 }
