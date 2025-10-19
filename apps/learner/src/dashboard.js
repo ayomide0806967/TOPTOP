@@ -103,32 +103,8 @@ const elements = {
   extraSetsList: document.querySelector('[data-role="extra-sets-list"]'),
   bonusNavButton: document.querySelector('[data-nav-target="bonus"]'),
   bonusNotification: document.querySelector('[data-role="bonus-notification"]'),
-  communityNavButton: document.querySelector('[data-nav-target="community"]'),
-  communityNotification: document.querySelector(
-    '[data-role="community-notification"]'
-  ),
-  communityShell: document.querySelector('[data-role="community-shell"]'),
-  communityEmptyState: document.querySelector(
-    '[data-role="community-empty-state"]'
-  ),
-  communityMessageList: document.querySelector(
-    '[data-role="community-message-list"]'
-  ),
-  communityMessageForm: document.querySelector(
-    '[data-role="community-message-form"]'
-  ),
-  communityMessageInput: document.querySelector(
-    '[data-role="community-message-input"]'
-  ),
-  communityMessageAttachments: document.querySelector(
-    '[data-role="community-message-attachments"]'
-  ),
-  communityMessageFileInput: document.querySelector(
-    '[data-role="community-message-file"]'
-  ),
-  communityMessageSubmit: document.querySelector(
-    '[data-role="community-message-submit"]'
-  ),
+  globalNotice: document.querySelector('[data-role="global-notice"]'),
+  globalNoticeText: document.querySelector('[data-role="global-notice-text"]'),
   navButtons: Array.from(
     document.querySelectorAll('[data-role="nav-buttons"] [data-nav-target]')
   ),
@@ -165,19 +141,10 @@ const state = {
   extraPlanId: null,
   isLoadingExtraSets: false,
   activeView: 'dashboard',
-  community: {
-    messages: [],
-    userCache: new Map(),
-    attachmentUrls: new Map(),
-    attachmentDrafts: [],
-    isLoadingMessages: false,
-    isSendingMessage: false,
-    subscription: null,
-  },
+  globalAnnouncement: null,
 };
 
 let navigationBound = false;
-let communityHandlersBound = false;
 
 const NOTICE_TONE_CLASSES = {
   positive: ['border-emerald-200', 'bg-emerald-50', 'text-emerald-800'],
@@ -263,18 +230,6 @@ const DEFAULT_ASSIGNMENT_RULES = Object.freeze({
 const ASSIGNMENT_MODES = new Set(['full_set', 'fixed_count', 'percentage']);
 
 const ACTIVE_PLAN_STATUSES = new Set(['active', 'trialing']);
-
-const COMMUNITY_ATTACHMENT_SIZE_LIMIT = 5 * 1024 * 1024;
-const COMMUNITY_MAX_ATTACHMENTS = 4;
-const COMMUNITY_ALLOWED_FILE_TYPES = new Set([
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain',
-]);
-const COMMUNITY_IMAGE_PREFIX = 'image/';
 
 function setNavAvailability(hasActivePlan) {
   elements.navButtons.forEach((button) => {
@@ -370,6 +325,41 @@ function showToast(message, type = 'info') {
   elements.toast.dataset.timeoutId = timeoutId;
 }
 
+function renderGlobalAnnouncement(announcement) {
+  if (!elements.globalNotice) return;
+  if (!announcement) {
+    elements.globalNotice.classList.add('hidden');
+    if (elements.globalNoticeText) {
+      elements.globalNoticeText.textContent = '';
+    }
+    return;
+  }
+
+  elements.globalNotice.classList.remove('hidden');
+  if (elements.globalNoticeText) {
+    elements.globalNoticeText.textContent = announcement.message || '';
+  }
+}
+
+async function loadGlobalAnnouncement() {
+  if (!state.supabase || !state.user) return;
+  try {
+    const { data, error } = await state.supabase
+      .from('global_announcements')
+      .select('id, message, created_at')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (error) throw error;
+
+    const announcement = Array.isArray(data) && data.length ? data[0] : null;
+    state.globalAnnouncement = announcement;
+    renderGlobalAnnouncement(state.globalAnnouncement);
+  } catch (error) {
+    console.error('[Dashboard] loadGlobalAnnouncement failed', error);
+  }
+}
+
 function formatDate(dateString) {
   if (!dateString) return '—';
   const date = new Date(dateString);
@@ -389,48 +379,6 @@ function formatDateTime(dateString) {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
-}
-
-function formatFileSize(bytes) {
-  const numeric = Number(bytes);
-  if (!Number.isFinite(numeric) || numeric < 0) return '—';
-  if (numeric < 1024) return `${numeric} B`;
-  if (numeric < 1024 ** 2) return `${(numeric / 1024).toFixed(1)} KB`;
-  if (numeric < 1024 ** 3) return `${(numeric / 1024 ** 2).toFixed(1)} MB`;
-  return `${(numeric / 1024 ** 3).toFixed(1)} GB`;
-}
-
-function validateCommunityAttachment(file) {
-  if (!file) return 'File missing.';
-  if (file.size > COMMUNITY_ATTACHMENT_SIZE_LIMIT) {
-    return 'Files are limited to 5 MB each.';
-  }
-  if (!file.type) {
-    return 'Unsupported file type.';
-  }
-  if (
-    !file.type.startsWith(COMMUNITY_IMAGE_PREFIX) &&
-    !COMMUNITY_ALLOWED_FILE_TYPES.has(file.type)
-  ) {
-    return 'Unsupported file type.';
-  }
-  return null;
-}
-
-function createAttachmentDraft(file) {
-  return {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
-    file,
-    previewUrl: file.type?.startsWith(COMMUNITY_IMAGE_PREFIX)
-      ? URL.createObjectURL(file)
-      : null,
-  };
-}
-
-function revokeAttachmentDraft(draft) {
-  if (draft?.previewUrl) {
-    URL.revokeObjectURL(draft.previewUrl);
-  }
 }
 
 function escapeHtml(value) {
@@ -1594,9 +1542,7 @@ function updatePaymentGate(profile) {
 
   elements.paymentGate.classList.remove('hidden');
   elements.dashboardContent.classList.add('hidden');
-  if (state.activeView !== 'community') {
-    setActiveView('dashboard');
-  }
+  setActiveView('dashboard');
 }
 
 function populateProfileForm() {
@@ -2193,483 +2139,10 @@ function updateBonusNavNotification() {
   }
 }
 
-function updateCommunityNavNotification() {
-  const badge = elements.communityNotification;
-  if (!badge) return;
-
-  badge.textContent = '';
-  badge.classList.remove('is-visible');
-  badge.setAttribute('aria-hidden', 'true');
-}
-
-async function ensureCommunityProfiles(userIds = []) {
-  if (!state.supabase || !Array.isArray(userIds) || !userIds.length) return;
-  const unique = Array.from(new Set(userIds.filter(Boolean)));
-  const missing = unique.filter((id) => !state.community.userCache.has(id));
-  if (!missing.length) return;
-  try {
-    const { data, error } = await state.supabase
-      .from('profiles')
-      .select('id, full_name')
-      .in('id', missing);
-    if (error) throw error;
-    (data || []).forEach((row) => {
-      state.community.userCache.set(row.id, row.full_name || 'Learner');
-    });
-  } catch (error) {
-    console.error('[Community] ensureCommunityProfiles failed', error);
-  }
-}
-
-function getCommunityUserName(userId) {
-  if (!userId) return 'Learner';
-  if (userId === state.user?.id) return 'You';
-  const cached = state.community.userCache.get(userId);
-  return cached || 'Learner';
-}
-
-function renderCommunityMessages(options = {}) {
-  const { scrollToBottom = false } = options;
-  const list = elements.communityMessageList;
-  const emptyState = elements.communityEmptyState;
-  if (!list || !emptyState) return;
-
-  const messages = Array.isArray(state.community?.messages)
-    ? state.community.messages
-    : [];
-
-  if (state.community.isLoadingMessages && !messages.length) {
-    emptyState.classList.add('hidden');
-    list.classList.remove('hidden');
-    list.innerHTML = `
-      <div class="text-sm text-slate-500 px-2 py-4">
-        Loading messages…
-      </div>
-    `;
-    return;
-  }
-
-  if (!messages.length) {
-    list.classList.add('hidden');
-    emptyState.classList.remove('hidden');
-    return;
-  }
-
-  emptyState.classList.add('hidden');
-  list.classList.remove('hidden');
-
-  list.innerHTML = messages
-    .map((message) => {
-      const isSelf = message.authorId === state.user?.id;
-      const authorName = getCommunityUserName(message.authorId);
-      const bodyHtml = escapeHtml(message.content || '')
-        .replace(/\n/g, '<br />')
-        .trim();
-      const attachmentsHtml =
-        Array.isArray(message.attachments) && message.attachments.length
-          ? `
-            <div class="community-message-attachments">
-              ${message.attachments
-                .map((attachment) => {
-                  const pathAttr = escapeHtml(attachment.storage_path || '');
-                  const label = escapeHtml(
-                    attachment.file_name || 'Attachment'
-                  );
-                  if (
-                    attachment.mime_type?.startsWith(COMMUNITY_IMAGE_PREFIX)
-                  ) {
-                    return `
-                      <div class="community-attachment-preview">
-                        <img
-                          class="community-attachment-image"
-                          alt="${label}"
-                          data-attachment-path="${pathAttr}"
-                          data-attachment-type="image"
-                        />
-                      </div>
-                    `;
-                  }
-                  return `
-                    <a
-                      class="community-attachment-chip"
-                      data-attachment-path="${pathAttr}"
-                      data-attachment-type="file"
-                      title="${label}"
-                    >
-                      <span>${label}</span>
-                      <span>${formatFileSize(attachment.size_bytes)}</span>
-                    </a>
-                  `;
-                })
-                .join('')}
-            </div>
-          `
-          : '';
-      return `
-        <div class="community-message${
-          isSelf ? ' community-message--self' : ''
-        }" data-message-id="${escapeHtml(message.id)}">
-          <span class="community-message-author">${escapeHtml(
-            authorName
-          )}</span>
-          <div class="community-message-body">${
-            bodyHtml || '<span class="text-slate-400">Attachment only</span>'
-          }</div>
-          ${attachmentsHtml}
-          <span class="community-message-time">${escapeHtml(
-            formatDateTime(message.createdAt)
-          )}</span>
-        </div>
-      `;
-    })
-    .join('');
-
-  if (scrollToBottom) {
-    requestAnimationFrame(() => {
-      scrollCommunityMessagesToBottom();
-    });
-  }
-
-  requestAnimationFrame(() => {
-    hydrateCommunityAttachments().catch((error) => {
-      console.error('[Community] hydrate attachments failed', error);
-    });
-  });
-}
-
-function renderCommunityAttachmentDrafts() {
-  const container = elements.communityMessageAttachments;
-  if (!container) return;
-  const drafts = state.community.attachmentDrafts || [];
-  if (!drafts.length) {
-    container.innerHTML = '';
-    return;
-  }
-
-  container.innerHTML = drafts
-    .map((draft) => {
-      const label = escapeHtml(draft.file.name);
-      const size = formatFileSize(draft.file.size);
-      return `
-        <div class="community-attachment-chip" data-id="${escapeHtml(draft.id)}">
-          <span>${label}</span>
-          <span>${size}</span>
-          <button type="button" data-action="remove-attachment" data-id="${escapeHtml(
-            draft.id
-          )}">Remove</button>
-        </div>
-      `;
-    })
-    .join('');
-}
-
-function resetCommunityComposer() {
-  elements.communityMessageForm?.reset();
-  state.community.attachmentDrafts.forEach(revokeAttachmentDraft);
-  state.community.attachmentDrafts = [];
-  renderCommunityAttachmentDrafts();
-}
-
-function scrollCommunityMessagesToBottom() {
-  if (!elements.communityMessageList) return;
-  elements.communityMessageList.scrollTop =
-    elements.communityMessageList.scrollHeight;
-}
-
-async function hydrateCommunityAttachments() {
-  if (!elements.communityMessageList) return;
-  const nodes = Array.from(
-    elements.communityMessageList.querySelectorAll('[data-attachment-path]')
-  );
-  if (!nodes.length) return;
-
-  await Promise.all(
-    nodes.map(async (node) => {
-      const path = node.dataset.attachmentPath;
-      if (!path) return;
-      try {
-        const url = await getCommunityAttachmentUrl(path);
-        if (!url) return;
-        if (node.dataset.attachmentType === 'image') {
-          node.setAttribute('src', url);
-        } else {
-          node.setAttribute('href', url);
-          node.setAttribute('target', '_blank');
-          node.setAttribute('rel', 'noopener noreferrer');
-        }
-        node.removeAttribute('data-attachment-path');
-      } catch (error) {
-        console.error('[Community] hydrate attachment failed', error);
-      }
-    })
-  );
-}
-
-async function getCommunityAttachmentUrl(path) {
-  if (!state.supabase || !path) return null;
-  const cached = state.community.attachmentUrls.get(path);
-  if (cached && cached.expiresAt > Date.now() + 5000) {
-    return cached.url;
-  }
-  const { data, error } = await state.supabase
-    .storage.from('community-uploads')
-    .createSignedUrl(path, 60 * 60);
-  if (error) {
-    throw error;
-  }
-  const url = data?.signedUrl || null;
-  if (url) {
-    state.community.attachmentUrls.set(path, {
-      url,
-      expiresAt: Date.now() + 55 * 60 * 1000,
-    });
-  }
-  return url;
-}
-
-async function loadCommunityMessages(options = {}) {
-  if (!state.supabase || !state.user) return;
-  const { showLoading = false, scrollToLatest = false } = options;
-
-  if (state.community.isLoadingMessages) return;
-  state.community.isLoadingMessages = true;
-
-  if (showLoading) {
-    renderCommunityMessages();
-  }
-
-  try {
-    const { data, error } = await state.supabase
-      .from('community_stream_messages')
-      .select(
-        'id, author_id, content, created_at, community_stream_attachments (id, storage_path, file_name, mime_type, size_bytes)'
-      )
-      .order('created_at', { ascending: true })
-      .limit(200);
-    if (error) throw error;
-
-    const messages = (data || []).map((row) => ({
-      id: row.id,
-      authorId: row.author_id,
-      content: row.content || '',
-      createdAt: row.created_at,
-      attachments: Array.isArray(row.community_stream_attachments)
-        ? row.community_stream_attachments.map((attachment) => ({
-            id: attachment.id,
-            storage_path: attachment.storage_path,
-            file_name: attachment.file_name,
-            mime_type: attachment.mime_type,
-            size_bytes: attachment.size_bytes,
-          }))
-        : [],
-    }));
-
-    state.community.messages = messages;
-
-    await ensureCommunityProfiles(
-      messages.map((message) => message.authorId).filter(Boolean)
-    );
-
-    renderCommunityMessages({
-      scrollToBottom: scrollToLatest || messages.length <= 20,
-    });
-    updateCommunityNavNotification();
-  } catch (error) {
-    console.error('[Community] loadCommunityMessages failed', error);
-    if (!state.community.messages.length) {
-      renderCommunityMessages();
-    }
-    showToast('Unable to load community messages right now.', 'error');
-  } finally {
-    state.community.isLoadingMessages = false;
-  }
-}
-
-async function uploadCommunityStreamAttachments(messageId, drafts) {
-  if (!state.supabase || !messageId) return [];
-  if (!Array.isArray(drafts) || !drafts.length) return [];
-
-  const uploaded = [];
-  for (const draft of drafts) {
-    const file = draft.file;
-    const sanitizedName = file.name
-      .toLowerCase()
-      .replace(/[^a-z0-9._-]+/g, '-')
-      .replace(/-+/g, '-');
-    const path = `${state.user.id}/stream/${messageId}/${Date.now()}-${sanitizedName}`;
-    const { error: storageError } = await state.supabase.storage
-      .from('community-uploads')
-      .upload(path, file, {
-        cacheControl: '3600',
-        upsert: false,
-      });
-    if (storageError) {
-      throw storageError;
-    }
-
-    const { data: attachmentData, error: metaError } = await state.supabase
-      .from('community_stream_attachments')
-      .insert({
-        message_id: messageId,
-        storage_path: path,
-        file_name: file.name,
-        mime_type: file.type || null,
-        size_bytes: file.size,
-      })
-      .select('id, storage_path, file_name, mime_type, size_bytes')
-      .single();
-    if (metaError) {
-      throw metaError;
-    }
-    uploaded.push(attachmentData);
-  }
-
-  return uploaded;
-}
-
-function handleCommunityFileChange(event) {
-  const files = Array.from(event.target.files || []);
-  if (!files.length) return;
-
-  let remaining =
-    COMMUNITY_MAX_ATTACHMENTS - state.community.attachmentDrafts.length;
-  if (remaining <= 0) {
-    showToast(
-      `You can attach up to ${COMMUNITY_MAX_ATTACHMENTS} files per message.`,
-      'error'
-    );
-    event.target.value = '';
-    return;
-  }
-
-  let errorMessage = null;
-  for (const file of files) {
-    if (remaining <= 0) break;
-    const validationError = validateCommunityAttachment(file);
-    if (validationError) {
-      errorMessage = validationError;
-      break;
-    }
-    state.community.attachmentDrafts.push(createAttachmentDraft(file));
-    remaining -= 1;
-  }
-
-  if (errorMessage) {
-    showToast(errorMessage, 'error');
-  }
-
-  renderCommunityAttachmentDrafts();
-  event.target.value = '';
-}
-
-function handleCommunityAttachmentsClick(event) {
-  const button = event.target.closest('[data-action="remove-attachment"]');
-  if (!button) return;
-  const id = button.dataset.id;
-  if (!id) return;
-
-  const drafts = state.community.attachmentDrafts;
-  const index = drafts.findIndex((draft) => draft.id === id);
-  if (index === -1) return;
-
-  const [removed] = drafts.splice(index, 1);
-  revokeAttachmentDraft(removed);
-  renderCommunityAttachmentDrafts();
-}
-
-async function handleCommunityMessageSubmit(event) {
-  event.preventDefault();
-  if (!state.supabase || state.community.isSendingMessage) return;
-
-  const message = elements.communityMessageInput?.value?.trim() || '';
-  const attachments = state.community.attachmentDrafts || [];
-  if (!message && !attachments.length) {
-    showToast('Share a message or attach a file before sending.', 'error');
-    return;
-  }
-
-  state.community.isSendingMessage = true;
-  elements.communityMessageSubmit?.setAttribute('disabled', 'disabled');
-
-  try {
-    const { data: messageData, error: insertError } = await state.supabase
-      .from('community_stream_messages')
-      .insert({
-        author_id: state.user.id,
-        content: message,
-      })
-      .select('id, created_at')
-      .single();
-    if (insertError) throw insertError;
-
-    const uploaded = await uploadCommunityStreamAttachments(
-      messageData.id,
-      attachments
-    );
-
-    const newMessage = {
-      id: messageData.id,
-      authorId: state.user.id,
-      content: message,
-      createdAt: messageData.created_at,
-      attachments: uploaded,
-    };
-
-    state.community.messages.push(newMessage);
-    resetCommunityComposer();
-    renderCommunityMessages({ scrollToBottom: true });
-    updateCommunityNavNotification();
-  } catch (error) {
-    console.error('[Community] handleCommunityMessageSubmit failed', error);
-    showToast('Unable to send your message right now.', 'error');
-  } finally {
-    state.community.isSendingMessage = false;
-    elements.communityMessageSubmit?.removeAttribute('disabled');
-  }
-}
-
-function registerCommunityHandlers() {
-  if (communityHandlersBound) return;
-  elements.communityMessageForm?.addEventListener(
-    'submit',
-    handleCommunityMessageSubmit
-  );
-  elements.communityMessageFileInput?.addEventListener(
-    'change',
-    handleCommunityFileChange
-  );
-  elements.communityMessageAttachments?.addEventListener(
-    'click',
-    handleCommunityAttachmentsClick
-  );
-  communityHandlersBound = true;
-}
-
-function subscribeToCommunityRealtime() {
-  if (!state.supabase) return;
-  if (state.community.subscription) {
-    state.community.subscription.unsubscribe();
-    state.community.subscription = null;
-  }
-
-  const channel = state.supabase
-    .channel('learner-community-stream')
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'community_stream_messages' },
-      () => {
-        loadCommunityMessages({ scrollToLatest: true });
-      }
-    )
-    .subscribe();
-
-  state.community.subscription = channel;
-}
-
 function handleVisibilityChange() {
   if (document.visibilityState === 'visible') {
     loadExtraQuestionSets();
-    loadCommunityMessages({ scrollToLatest: true });
+    loadGlobalAnnouncement();
   }
 }
 
@@ -3421,16 +2894,13 @@ async function initialise() {
     elements.extraSetsList?.addEventListener('click', handleExtraSetsClick);
     elements.profileForm?.addEventListener('submit', handleProfileSubmit);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    registerCommunityHandlers();
-    renderCommunityMessages();
 
     // Load data without auto-generating quiz
     await loadScheduleHealth();
     await checkTodayQuiz();
     await refreshHistory();
     await loadExtraQuestionSets();
-    await loadCommunityMessages({ showLoading: true, scrollToLatest: true });
-    subscribeToCommunityRealtime();
+    await loadGlobalAnnouncement();
   } catch (error) {
     console.error('[Dashboard] initialisation failed', error);
     showToast('Something went wrong while loading the dashboard.', 'error');
@@ -3445,29 +2915,6 @@ function cleanup() {
   elements.extraSetsList?.removeEventListener('click', handleExtraSetsClick);
   elements.profileForm?.removeEventListener('submit', handleProfileSubmit);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
-  if (communityHandlersBound) {
-    elements.communityMessageForm?.removeEventListener(
-      'submit',
-      handleCommunityMessageSubmit
-    );
-    elements.communityMessageFileInput?.removeEventListener(
-      'change',
-      handleCommunityFileChange
-    );
-    elements.communityMessageAttachments?.removeEventListener(
-      'click',
-      handleCommunityAttachmentsClick
-    );
-    communityHandlersBound = false;
-  }
-  if (state.community.subscription) {
-    try {
-      state.community.subscription.unsubscribe();
-    } catch (error) {
-      console.debug('[Community] unsubscribe failed', error);
-    }
-    state.community.subscription = null;
-  }
 }
 
 window.addEventListener('beforeunload', cleanup);

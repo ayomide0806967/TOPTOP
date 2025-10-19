@@ -4604,6 +4604,53 @@ class DataService {
     }
   }
 
+  async listGlobalAnnouncements({ limit = 5 } = {}) {
+    const client = await ensureClient();
+    const safeLimit =
+      Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 50) : 5;
+
+    try {
+      const { data, error } = await client
+        .from('global_announcements')
+        .select('id, message, is_active, created_at, created_by')
+        .order('created_at', { ascending: false })
+        .limit(safeLimit);
+      if (error) throw error;
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      throw wrapError('Failed to load global announcements.', error, {
+        limit: safeLimit,
+      });
+    }
+  }
+
+  async createGlobalAnnouncement({ message, isActive = true }) {
+    const client = await ensureClient();
+    const trimmed = typeof message === 'string' ? message.trim() : '';
+    if (!trimmed) {
+      throw wrapError(
+        'Announcement message is required.',
+        new Error('Validation error'),
+        { message }
+      );
+    }
+
+    try {
+      const { data, error } = await client
+        .from('global_announcements')
+        .insert({
+          message: trimmed,
+          is_active: Boolean(isActive),
+        })
+        .select('id, message, is_active, created_at, created_by')
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw wrapError('Failed to publish announcement.', error, { message });
+    }
+  }
+
   async generateBulkCredentials({
     planId,
     departmentId,

@@ -1,19 +1,14 @@
-# PWA Status (Temporary Disable)
+# PWA Status (Exam Only)
 
 **Updated:** December 24, 2025  
 **Owner:** Learner web app
 
-We temporarily disabled the Progressive Web App layer to simplify debugging and avoid stale cache issues while the community chat is being refactored.
+The Progressive Web App layer now activates only on the exam experience (`exam-face` page). All other learner surfaces unload the manifest/theme metadata and unregister service workers to avoid stale caches.
 
-## What changed
+## Runtime behaviour
 
-- `apps/learner/src/pwa-bootstrap.js` now removes any manifest/theme metadata and unregisters service workers instead of registering a new one.
-- All existing pages still import `pwa-bootstrap.js`, but the script exits early after the teardown. No service workers are left controlling the scope.
+- `apps/learner/src/pwa-bootstrap.js` inspects `window.location.pathname` for `exam-face`.
+- On exam pages, it injects `manifest.webmanifest`, sets the teal theme color, and registers `service-worker.js` (with an update banner if a new worker installs).
+- On all non-exam pages, it removes manifest/theme tags and unregisters any existing service workers.
 
-## How to re-enable later
-
-1. Restore the previous registration logic (see git history for `pwa-bootstrap.js`).
-2. Re-introduce the manifest (`manifest.webmanifest`) and theme-color meta tag if needed.
-3. Deploy and prompt users to refresh so the new worker can take control.
-
-> ℹ️ Because we unregister everything on load, there are no offline capabilities or install prompts until the script is reverted.
+This keeps offline/offline resilience focused on the exam flow without affecting the rest of the learner dashboard.
