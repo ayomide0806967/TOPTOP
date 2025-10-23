@@ -402,10 +402,7 @@
         <p class="mt-2 text-sm text-slate-600">
           We’ll personalise pricing and daily question bundles for your track.
         </p>
-        <div
-          class="mt-8 flex justify-center"
-          data-role="department-loading"
-        >
+        <div class="mt-8 flex justify-center" data-role="department-loading">
           <span
             class="inline-flex h-12 w-12 animate-spin items-center justify-center rounded-full border-4 border-cyan-200 border-t-cyan-600"
             aria-hidden="true"
@@ -425,17 +422,27 @@
       </div>
     </div>
     <!-- Full Page Loading Spinner -->
-    <div id="page-loader" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
+    <div
+      id="page-loader"
+      class="fixed inset-0 bg-white z-50 flex items-center justify-center"
+    >
       <div class="text-center">
-        <div class="inline-flex h-16 w-16 animate-spin items-center justify-center rounded-full border-4 border-cyan-200 border-t-cyan-600 mb-4" aria-hidden="true"></div>
-        <p class="text-lg font-medium text-gray-900 mb-2">Loading Pricing Plans</p>
-        <p class="text-sm text-gray-600">Please wait while we prepare your options...</p>
+        <div
+          class="inline-flex h-16 w-16 animate-spin items-center justify-center rounded-full border-4 border-cyan-200 border-t-cyan-600 mb-4"
+          aria-hidden="true"
+        ></div>
+        <p class="text-lg font-medium text-gray-900 mb-2">
+          Loading Pricing Plans
+        </p>
+        <p class="text-sm text-gray-600">
+          Please wait while we prepare your options...
+        </p>
       </div>
     </div>
 
     <script>
       // Hide the page loader when the department modal is ready to show
-      document.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener('DOMContentLoaded', function () {
         // Hide loader after a minimum of 1.5 seconds to ensure users see it
         setTimeout(() => {
           const pageLoader = document.getElementById('page-loader');
@@ -461,5 +468,5 @@
         }
       }, 5000);
     </script>
-</body>
+  </body>
 </html>

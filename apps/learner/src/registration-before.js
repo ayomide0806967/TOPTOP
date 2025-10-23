@@ -5,7 +5,6 @@ const STORAGE_PLAN = 'registrationPlan';
 const STORAGE_CONTACT = 'registrationContact';
 const STORAGE_REFERENCE = 'registrationPaymentReference';
 
-
 const registrationContainer = document.getElementById('registration-container');
 const successContainer = document.getElementById('success-message');
 const formEl = document.getElementById('registrationForm');
@@ -27,26 +26,48 @@ const usernameInput = document.getElementById('generated-username');
 const passwordInput = document.getElementById('password');
 const confirmPasswordInput = document.getElementById('confirm-password');
 
-const emailAvailabilityEl = document.getElementById('email-availability-feedback');
-const phoneAvailabilityEl = document.getElementById('phone-availability-feedback');
+const emailAvailabilityEl = document.getElementById(
+  'email-availability-feedback'
+);
+const phoneAvailabilityEl = document.getElementById(
+  'phone-availability-feedback'
+);
 const usernameFeedbackEl = document.getElementById('username-feedback');
 const passwordFeedbackEl = document.getElementById('password-feedback');
 
 const copyUsernameBtn = document.querySelector('[data-role="copy-username"]');
-const successTitleEl = successContainer?.querySelector('[data-role="success-title"]');
-const successBodyEl = successContainer?.querySelector('[data-role="success-body"]');
-const successReferenceEl = successContainer?.querySelector('[data-role="success-reference"]');
-const successCredentialsCard = successContainer?.querySelector('[data-role="success-credentials"]');
-const successUsernameEl = successContainer?.querySelector('[data-role="success-username"]');
-const successCopyBtn = successContainer?.querySelector('[data-role="success-copy-username"]');
-const successGoDashboardBtn = successContainer?.querySelector('[data-role="success-go-dashboard"]');
-const successRetryBtn = successContainer?.querySelector('[data-role="success-retry"]');
+const successTitleEl = successContainer?.querySelector(
+  '[data-role="success-title"]'
+);
+const successBodyEl = successContainer?.querySelector(
+  '[data-role="success-body"]'
+);
+const successReferenceEl = successContainer?.querySelector(
+  '[data-role="success-reference"]'
+);
+const successCredentialsCard = successContainer?.querySelector(
+  '[data-role="success-credentials"]'
+);
+const successUsernameEl = successContainer?.querySelector(
+  '[data-role="success-username"]'
+);
+const successCopyBtn = successContainer?.querySelector(
+  '[data-role="success-copy-username"]'
+);
+const successGoDashboardBtn = successContainer?.querySelector(
+  '[data-role="success-go-dashboard"]'
+);
+const successRetryBtn = successContainer?.querySelector(
+  '[data-role="success-retry"]'
+);
 
 const planIdInput = document.getElementById('plan-id');
 const planNameEl = document.querySelector('[data-role="plan-name"]');
 const planPriceEl = document.querySelector('[data-role="plan-price"]');
 const planDurationEl = document.querySelector('[data-role="plan-duration"]');
-const planDescriptionEl = document.querySelector('[data-role="plan-description"]');
+const planDescriptionEl = document.querySelector(
+  '[data-role="plan-description"]'
+);
 const planTimerEl = document.querySelector('[data-role="plan-timer"]');
 
 let supabasePromise = null;
@@ -66,8 +87,21 @@ let hasFocusedContact = false;
 let hasFocusedAccount = false;
 let activePlanSnapshot = null;
 
-const FIELD_STATUS_CLASSES = ['text-red-600', 'text-amber-600', 'text-slate-600'];
-const FALLBACK_USERNAME_WORDS = ['prep', 'learn', 'study', 'ace', 'quiz', 'focus', 'track', 'mentor'];
+const FIELD_STATUS_CLASSES = [
+  'text-red-600',
+  'text-amber-600',
+  'text-slate-600',
+];
+const FALLBACK_USERNAME_WORDS = [
+  'prep',
+  'learn',
+  'study',
+  'ace',
+  'quiz',
+  'focus',
+  'track',
+  'mentor',
+];
 
 async function copyToClipboard(value) {
   if (!value) return false;
@@ -160,7 +194,11 @@ function showFeedback(message, type = 'error') {
   );
 
   if (type === 'success') {
-    feedbackEl.classList.add('bg-green-50', 'border-green-200', 'text-green-700');
+    feedbackEl.classList.add(
+      'bg-green-50',
+      'border-green-200',
+      'text-green-700'
+    );
   } else if (type === 'info') {
     feedbackEl.classList.add('bg-blue-50', 'border-blue-200', 'text-blue-700');
   } else {
@@ -227,11 +265,17 @@ async function extractEdgeFunctionError(error, fallbackMessage) {
       const text = await cloned.text();
       if (text) return text;
     } catch (parseError) {
-      console.warn('[Registration] Failed to parse edge error response', parseError);
+      console.warn(
+        '[Registration] Failed to parse edge error response',
+        parseError
+      );
     }
   }
 
-  if (error?.message && error.message !== 'Edge Function returned a non-2xx status code') {
+  if (
+    error?.message &&
+    error.message !== 'Edge Function returned a non-2xx status code'
+  ) {
     return error.message;
   }
 
@@ -407,7 +451,9 @@ function sanitizeForUsername(value) {
 function buildUsernameCandidates(firstName, lastName, email) {
   const primary = sanitizeForUsername(firstName);
   const secondary = sanitizeForUsername(lastName);
-  const emailPrefix = sanitizeForUsername((email.split('@')[0] || '').toLowerCase());
+  const emailPrefix = sanitizeForUsername(
+    (email.split('@')[0] || '').toLowerCase()
+  );
 
   const candidates = new Set();
 
@@ -460,7 +506,8 @@ async function checkUsernameAvailability(username, allowedProfileId = null) {
     console.error('[Registration] Username lookup failed', error);
     return {
       available: false,
-      error: 'Unable to verify username availability. Check your connection and try again.',
+      error:
+        'Unable to verify username availability. Check your connection and try again.',
     };
   }
 
@@ -482,7 +529,10 @@ async function ensureUniqueUsername(firstName, lastName, email) {
   if (pendingProfileHint?.username) {
     const normalized = sanitizeForUsername(pendingProfileHint.username);
     if (normalized.length >= 3) {
-      const reuseCheck = await checkUsernameAvailability(normalized, allowProfileId);
+      const reuseCheck = await checkUsernameAvailability(
+        normalized,
+        allowProfileId
+      );
       if (reuseCheck.available) {
         return normalized;
       }
@@ -509,7 +559,10 @@ async function ensureUniqueUsername(firstName, lastName, email) {
       }
       attempted.add(candidate);
 
-      const availability = await checkUsernameAvailability(candidate, allowProfileId);
+      const availability = await checkUsernameAvailability(
+        candidate,
+        allowProfileId
+      );
       if (availability.available) {
         return candidate;
       }
@@ -570,7 +623,11 @@ function setUsernameField(value, { status = 'info', message = '' } = {}) {
   if (generatedUsername) {
     state.usernameReady = true;
     if (message) {
-      renderFieldStatus(usernameFeedbackEl, message, status === 'success' ? 'success' : 'info');
+      renderFieldStatus(
+        usernameFeedbackEl,
+        message,
+        status === 'success' ? 'success' : 'info'
+      );
     } else {
       clearFieldStatus(usernameFeedbackEl);
     }
@@ -618,8 +675,10 @@ function updateSectionVisibility() {
     }
   }
 
-  const accountPrereqsMet = state.namesComplete && state.emailValid && state.phoneValid;
-  const accountShouldShow = accountPrereqsMet && (generatedUsername || usernameGenerationPromise);
+  const accountPrereqsMet =
+    state.namesComplete && state.emailValid && state.phoneValid;
+  const accountShouldShow =
+    accountPrereqsMet && (generatedUsername || usernameGenerationPromise);
 
   if (!accountPrereqsMet) {
     hasFocusedAccount = false;
@@ -651,20 +710,28 @@ function updateSectionVisibility() {
 
 function maybeFocusContact() {
   if (!state.namesComplete || hasFocusedContact) return;
-  if (document.activeElement === firstNameInput || document.activeElement === lastNameInput) {
+  if (
+    document.activeElement === firstNameInput ||
+    document.activeElement === lastNameInput
+  ) {
     return;
   }
   const firstContactInput = sections.contact?.querySelector('input');
   if (!firstContactInput) return;
   hasFocusedContact = true;
   setTimeout(() => {
-    if (document.activeElement === firstNameInput || document.activeElement === lastNameInput) return;
+    if (
+      document.activeElement === firstNameInput ||
+      document.activeElement === lastNameInput
+    )
+      return;
     firstContactInput.focus();
   }, 120);
 }
 
 function maybeFocusAccount() {
-  const accountVisible = sections.account && !sections.account.classList.contains('hidden');
+  const accountVisible =
+    sections.account && !sections.account.classList.contains('hidden');
   if (!accountVisible) return;
   if (!state.namesComplete || !state.emailValid || !state.phoneValid) return;
   if (hasFocusedAccount) return;
@@ -674,7 +741,9 @@ function maybeFocusAccount() {
     return;
   }
 
-  const firstAccountInput = sections.account?.querySelector('input:not([readonly])');
+  const firstAccountInput = sections.account?.querySelector(
+    'input:not([readonly])'
+  );
   if (!firstAccountInput || firstAccountInput.disabled) return;
 
   hasFocusedAccount = true;
@@ -719,7 +788,8 @@ async function checkEmailAvailability(email) {
     return {
       available: true,
       status: 'pending',
-      message: 'Welcome back! We found your previous registration – continue below to finalise it.',
+      message:
+        'Welcome back! We found your previous registration – continue below to finalise it.',
       profileId: data.id,
       username: data.username,
     };
@@ -727,7 +797,8 @@ async function checkEmailAvailability(email) {
     console.error('[Registration] Email check failed:', error);
     return {
       available: false,
-      error: 'Unable to verify email. Please check your connection and try again.',
+      error:
+        'Unable to verify email. Please check your connection and try again.',
     };
   }
 }
@@ -773,7 +844,8 @@ async function validateEmailField({ forceCheck = false } = {}) {
     if (!cached.available) {
       renderFieldStatus(
         emailAvailabilityEl,
-        cached.error || 'This email already has an active subscription. Please sign in instead.',
+        cached.error ||
+          'This email already has an active subscription. Please sign in instead.',
         'error'
       );
       state.emailValid = false;
@@ -781,10 +853,13 @@ async function validateEmailField({ forceCheck = false } = {}) {
       return { valid: false, result: cached };
     }
 
-    pendingProfileHint = cached.status === 'pending' ? {
-      profileId: cached.profileId,
-      username: cached.username,
-    } : null;
+    pendingProfileHint =
+      cached.status === 'pending'
+        ? {
+            profileId: cached.profileId,
+            username: cached.username,
+          }
+        : null;
 
     if (cached.status === 'pending' && cached.message) {
       renderFieldStatus(emailAvailabilityEl, cached.message, 'info');
@@ -806,7 +881,8 @@ async function validateEmailField({ forceCheck = false } = {}) {
   if (!result.available) {
     renderFieldStatus(
       emailAvailabilityEl,
-      result.error || 'This email already has an active subscription. Please sign in instead.',
+      result.error ||
+        'This email already has an active subscription. Please sign in instead.',
       'error'
     );
     state.emailValid = false;
@@ -815,9 +891,10 @@ async function validateEmailField({ forceCheck = false } = {}) {
     return { valid: false, result };
   }
 
-  pendingProfileHint = result.status === 'pending'
-    ? { profileId: result.profileId, username: result.username }
-    : null;
+  pendingProfileHint =
+    result.status === 'pending'
+      ? { profileId: result.profileId, username: result.username }
+      : null;
 
   if (result.status === 'pending' && result.message) {
     renderFieldStatus(emailAvailabilityEl, result.message, 'info');
@@ -856,7 +933,8 @@ async function checkPhoneAvailability(phone) {
     if (['active', 'trialing'].includes(data.subscription_status || '')) {
       return {
         available: false,
-        error: 'This phone number is already registered with an active subscription. Please use a different number.',
+        error:
+          'This phone number is already registered with an active subscription. Please use a different number.',
       };
     }
 
@@ -909,7 +987,11 @@ async function validatePhoneField({ forceCheck = false } = {}) {
       return { valid: false, result: cached };
     }
 
-    renderFieldStatus(phoneAvailabilityEl, 'Phone number looks good!', 'success');
+    renderFieldStatus(
+      phoneAvailabilityEl,
+      'Phone number looks good!',
+      'success'
+    );
     state.phoneValid = true;
     updateSectionVisibility();
     maybeGenerateUsername();
@@ -962,10 +1044,16 @@ async function prepareUsername() {
         emailInput.value.trim()
       );
 
-      setUsernameField(username, { status: 'success', message: 'Your username is reserved. Keep it safe.' });
+      setUsernameField(username, {
+        status: 'success',
+        message: 'Your username is reserved. Keep it safe.',
+      });
       updateSectionVisibility();
       if (feedbackEl?.dataset?.state === 'info') {
-        showFeedback('Username secured! Use it with your password to sign in after payment.', 'info');
+        showFeedback(
+          'Username secured! Use it with your password to sign in after payment.',
+          'info'
+        );
       }
       // Auto-focus on password field after username generation
       setTimeout(() => {
@@ -1005,13 +1093,17 @@ function validatePasswords() {
 
   if (!password || password.length < 8) {
     passwordFeedbackEl?.classList.remove('hidden');
-    if (passwordFeedbackEl) passwordFeedbackEl.textContent = 'Password must be at least 8 characters long.';
+    if (passwordFeedbackEl)
+      passwordFeedbackEl.textContent =
+        'Password must be at least 8 characters long.';
     return { valid: false };
   }
 
   if (password !== confirm) {
     passwordFeedbackEl?.classList.remove('hidden');
-    if (passwordFeedbackEl) passwordFeedbackEl.textContent = 'Passwords do not match. Please re-enter them.';
+    if (passwordFeedbackEl)
+      passwordFeedbackEl.textContent =
+        'Passwords do not match. Please re-enter them.';
     return { valid: false };
   }
 
@@ -1023,9 +1115,12 @@ function validatePasswords() {
 async function createPendingUser(payload) {
   const supabase = await ensureSupabaseClient();
 
-  const { data, error } = await supabase.functions.invoke('create-pending-user', {
-    body: payload,
-  });
+  const { data, error } = await supabase.functions.invoke(
+    'create-pending-user',
+    {
+      body: payload,
+    }
+  );
 
   if (error) {
     const userMessage = await extractEdgeFunctionError(
@@ -1075,10 +1170,7 @@ async function attemptPaymentVerification(reference, options = {}) {
 
 async function pollSubscriptionStatus(userId, options = {}) {
   if (!userId) return null;
-  const {
-    attempts = 6,
-    interval = 4000,
-  } = options;
+  const { attempts = 6, interval = 4000 } = options;
 
   const supabase = await ensureSupabaseClient();
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -1098,7 +1190,10 @@ async function pollSubscriptionStatus(userId, options = {}) {
         return { status, success: true };
       }
     } catch (error) {
-      console.warn('[Registration] Unexpected error while polling subscription status', error);
+      console.warn(
+        '[Registration] Unexpected error while polling subscription status',
+        error
+      );
     }
 
     if (attempt < attempts - 1) {
@@ -1173,7 +1268,8 @@ function showSuccessState(options) {
 
 async function transitionToActiveState(contact) {
   const username = contact?.username || generatedUsername;
-  const email = contact?.email || contact?.contactEmail || emailInput?.value?.trim();
+  const email =
+    contact?.email || contact?.contactEmail || emailInput?.value?.trim();
   const userId = contact?.userId || pendingUserId;
 
   if (username && successUsernameEl) {
@@ -1216,14 +1312,16 @@ async function transitionToActiveState(contact) {
           })
         );
       } catch (storageError) {
-        console.warn('[Registration] Unable to store welcome credentials', storageError);
+        console.warn(
+          '[Registration] Unable to store welcome credentials',
+          storageError
+        );
       }
     }
     await resetTodaysQuiz(userId);
     showSuccessState({
       title: 'Payment confirmed! You’re in 🎉',
-      body:
-        'We activated your plan and signed you in automatically. Save your username below and keep your password safe.',
+      body: 'We activated your plan and signed you in automatically. Save your username below and keep your password safe.',
       showCredentials: true,
       username,
       showDashboardCta: true,
@@ -1237,8 +1335,7 @@ async function transitionToActiveState(contact) {
 
   showSuccessState({
     title: 'Payment confirmed — final step',
-    body:
-      'Your subscription is active. Sign in with the username and password you created earlier to continue.',
+    body: 'Your subscription is active. Sign in with the username and password you created earlier to continue.',
     showCredentials: true,
     username,
     showDashboardCta: false,
@@ -1262,7 +1359,9 @@ async function processPaymentVerification(reference, contact, options = {}) {
   }
 
   if (isVerifyingPayment) {
-    console.warn('[Registration] Verification already in progress, ignoring duplicate trigger.');
+    console.warn(
+      '[Registration] Verification already in progress, ignoring duplicate trigger.'
+    );
     return;
   }
 
@@ -1282,21 +1381,26 @@ async function processPaymentVerification(reference, contact, options = {}) {
 
     lastVerificationError = verificationResult.error;
 
-    const pollResult = await pollSubscriptionStatus(contact?.userId || pendingUserId, {
-      attempts: pollAttempts,
-      interval: pollInterval,
-    });
+    const pollResult = await pollSubscriptionStatus(
+      contact?.userId || pendingUserId,
+      {
+        attempts: pollAttempts,
+        interval: pollInterval,
+      }
+    );
 
     if (pollResult.success) {
       await transitionToActiveState(contact);
       return;
     }
 
-    console.warn('[Registration] Verification pending after retries', lastVerificationError);
+    console.warn(
+      '[Registration] Verification pending after retries',
+      lastVerificationError
+    );
     showSuccessState({
       title: 'Payment received — almost there',
-      body:
-        'We recorded your payment but have not confirmed it yet. Paystack may still be processing it. Try verification again in a moment or share your reference with support so we can finish it for you.',
+      body: 'We recorded your payment but have not confirmed it yet. Paystack may still be processing it. Try verification again in a moment or share your reference with support so we can finish it for you.',
       showCredentials: false,
       showDashboardCta: false,
       reference,
@@ -1304,11 +1408,13 @@ async function processPaymentVerification(reference, contact, options = {}) {
     });
   } catch (error) {
     lastVerificationError = error;
-    console.error('[Registration] Payment verification encountered an unexpected error', error);
+    console.error(
+      '[Registration] Payment verification encountered an unexpected error',
+      error
+    );
     showSuccessState({
       title: 'Payment received — action required',
-      body:
-        'We recorded your payment but could not verify it automatically. Please retry verification below, or contact support with your payment reference.',
+      body: 'We recorded your payment but could not verify it automatically. Please retry verification below, or contact support with your payment reference.',
       showCredentials: false,
       showDashboardCta: false,
       reference,
@@ -1332,7 +1438,10 @@ async function resetTodaysQuiz(userId) {
       .eq('assigned_date', today);
 
     if (quizError) {
-      console.warn('[Registration] Failed to fetch existing daily quizzes', quizError);
+      console.warn(
+        '[Registration] Failed to fetch existing daily quizzes',
+        quizError
+      );
       return;
     }
 
@@ -1343,7 +1452,10 @@ async function resetTodaysQuiz(userId) {
         .delete()
         .in('daily_quiz_id', ids);
       if (deleteQuestionsError) {
-        console.warn('[Registration] Failed to clear quiz questions', deleteQuestionsError);
+        console.warn(
+          '[Registration] Failed to clear quiz questions',
+          deleteQuestionsError
+        );
       }
 
       const { error: deleteQuizError } = await supabase
@@ -1351,16 +1463,27 @@ async function resetTodaysQuiz(userId) {
         .delete()
         .in('id', ids);
       if (deleteQuizError) {
-        console.warn('[Registration] Failed to remove existing daily quiz', deleteQuizError);
+        console.warn(
+          '[Registration] Failed to remove existing daily quiz',
+          deleteQuizError
+        );
       }
     }
 
-    const { error: regenerateError } = await supabase.rpc('generate_daily_quiz');
+    const { error: regenerateError } = await supabase.rpc(
+      'generate_daily_quiz'
+    );
     if (regenerateError) {
-      console.warn('[Registration] Failed to regenerate daily quiz', regenerateError);
+      console.warn(
+        '[Registration] Failed to regenerate daily quiz',
+        regenerateError
+      );
     }
   } catch (error) {
-    console.warn('[Registration] Unexpected error while resetting daily quiz', error);
+    console.warn(
+      '[Registration] Unexpected error while resetting daily quiz',
+      error
+    );
   }
 }
 
@@ -1412,7 +1535,9 @@ async function handleFormSubmit(event) {
   try {
     const planId = planIdInput?.value;
     if (!planId) {
-      throw new Error('Missing plan information. Please go back and choose a plan again.');
+      throw new Error(
+        'Missing plan information. Please go back and choose a plan again.'
+      );
     }
 
     if (!state.namesComplete) {
@@ -1437,7 +1562,8 @@ async function handleFormSubmit(event) {
     if (!phoneValidation.valid) {
       phoneInput?.focus();
       throw new Error(
-        phoneValidation.result?.error || 'This phone number is already registered. Please use a different number.'
+        phoneValidation.result?.error ||
+          'This phone number is already registered. Please use a different number.'
       );
     }
 
@@ -1457,7 +1583,10 @@ async function handleFormSubmit(event) {
 
     const { userId, username } = await createPendingUser(registrationPayload);
     pendingUserId = userId;
-    setUsernameField(username, { status: 'success', message: 'Your username is reserved. Keep it safe.' });
+    setUsernameField(username, {
+      status: 'success',
+      message: 'Your username is reserved. Keep it safe.',
+    });
 
     const contact = {
       planId,
@@ -1499,7 +1628,10 @@ async function handleFormSubmit(event) {
     return;
   } catch (error) {
     console.error('[Registration] Checkout initialisation failed', error);
-    showFeedback(error.message || 'Unexpected error occurred. Please try again.', 'error');
+    showFeedback(
+      error.message || 'Unexpected error occurred. Please try again.',
+      'error'
+    );
     storedPassword = '';
   } finally {
     if (!activeReference) {
@@ -1532,7 +1664,8 @@ async function initialise() {
         const status = (profile?.subscription_status || '').toLowerCase();
         if (['pending_payment', 'awaiting_setup'].includes(status)) {
           const redirectParams = new URLSearchParams();
-          const pendingPlanId = initialPlanId || window.localStorage.getItem('pendingPlanId');
+          const pendingPlanId =
+            initialPlanId || window.localStorage.getItem('pendingPlanId');
           if (pendingPlanId) {
             redirectParams.set('planId', pendingPlanId);
           }
@@ -1543,7 +1676,10 @@ async function initialise() {
           return;
         }
       } catch (profileError) {
-        console.warn('[Registration] Unable to resolve profile status for session user', profileError);
+        console.warn(
+          '[Registration] Unable to resolve profile status for session user',
+          profileError
+        );
       }
     } else {
       await supabase.auth.signOut();
@@ -1614,7 +1750,10 @@ async function initialise() {
         lastReference = parsed.reference;
       }
     } catch (error) {
-      console.warn('[Registration] Failed to parse stored payment reference', error);
+      console.warn(
+        '[Registration] Failed to parse stored payment reference',
+        error
+      );
     }
   }
 
@@ -1685,9 +1824,17 @@ async function initialise() {
     if (!generatedUsername) return;
     const copied = await copyToClipboard(generatedUsername);
     if (copied) {
-      renderFieldStatus(usernameFeedbackEl, 'Your username is reserved. Keep it safe.', 'success');
+      renderFieldStatus(
+        usernameFeedbackEl,
+        'Your username is reserved. Keep it safe.',
+        'success'
+      );
     } else {
-      renderFieldStatus(usernameFeedbackEl, 'Copy failed. Select and copy the username manually.', 'error');
+      renderFieldStatus(
+        usernameFeedbackEl,
+        'Copy failed. Select and copy the username manually.',
+        'error'
+      );
     }
   });
 
@@ -1696,13 +1843,23 @@ async function initialise() {
     const copied = await copyToClipboard(generatedUsername);
     if (copied) {
       if (successBodyEl) {
-        successBodyEl.classList.remove('text-rose-600', 'text-amber-600', 'font-semibold');
-        successBodyEl.textContent = 'Username copied! Take a screenshot or store it securely.';
+        successBodyEl.classList.remove(
+          'text-rose-600',
+          'text-amber-600',
+          'font-semibold'
+        );
+        successBodyEl.textContent =
+          'Username copied! Take a screenshot or store it securely.';
         successBodyEl.classList.add('text-amber-600', 'font-semibold');
       }
     } else if (successBodyEl) {
-      successBodyEl.classList.remove('text-rose-600', 'text-amber-600', 'font-semibold');
-      successBodyEl.textContent = 'Copy failed. Highlight the username and copy it manually.';
+      successBodyEl.classList.remove(
+        'text-rose-600',
+        'text-amber-600',
+        'font-semibold'
+      );
+      successBodyEl.textContent =
+        'Copy failed. Highlight the username and copy it manually.';
       successBodyEl.classList.add('text-rose-600', 'font-semibold');
     }
   });
@@ -1745,7 +1902,9 @@ async function initialise() {
 
 initialise().catch((error) => {
   console.error('[Registration] Initialisation error', error);
-  showFeedback('We could not initialise the registration form. Refresh the page to try again.');
+  showFeedback(
+    'We could not initialise the registration form. Refresh the page to try again.'
+  );
   setLoading(true);
   if (submitBtn) submitBtn.disabled = true;
 });

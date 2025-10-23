@@ -3,7 +3,51 @@ import { viewRegistry } from './views/index.js';
 import { authService } from './services/authService.js';
 import { showToast } from './components/toast.js';
 
-const appState = new AppState();
+function normalizeViewKey(view) {
+  if (!view) return null;
+  const key = String(view).trim().toLowerCase();
+  return viewRegistry[key] ? key : null;
+}
+
+function resolveInitialView() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const queryView = normalizeViewKey(params.get('view'));
+    if (queryView) return queryView;
+
+    const hash = (window.location.hash || '').replace('#', '').trim();
+    if (hash) {
+      if (hash.startsWith('view=')) {
+        const hashView = normalizeViewKey(hash.slice(5));
+        if (hashView) return hashView;
+      }
+      const hashView = normalizeViewKey(hash);
+      if (hashView) return hashView;
+    }
+  } catch (error) {
+    console.warn('[Admin] Failed to resolve initial view from URL', error);
+  }
+  return 'dashboard';
+}
+
+function persistViewParam(view) {
+  const key = normalizeViewKey(view);
+  if (!key) return;
+  try {
+    const url = new URL(window.location.href);
+    if (key === 'dashboard') {
+      url.searchParams.delete('view');
+    } else {
+      url.searchParams.set('view', key);
+    }
+    window.history.replaceState(null, '', url.toString());
+  } catch (error) {
+    console.warn('[Admin] Failed to persist view parameter', error);
+  }
+}
+
+const initialView = resolveInitialView();
+const appState = new AppState(initialView);
 let mainViewEl;
 let breadcrumbEl;
 let sidebarEl;
@@ -20,6 +64,7 @@ let isAuthenticated = false;
 const actions = {
   navigate(view, options = {}) {
     appState.setView(view, options);
+    persistViewParam(appState.currentView);
   },
   selectDepartment(departmentId) {
     appState.selectDepartment(departmentId);
@@ -344,8 +389,13 @@ async function init() {
 
   bindSidebarControls();
   attachAuthHandlers();
+  persistViewParam(appState.currentView);
 
-  appState.addEventListener('change', () => {
+  appState.addEventListener('change', (event) => {
+    const nextView = event?.detail?.currentView;
+    if (nextView) {
+      persistViewParam(nextView);
+    }
     render();
   });
 

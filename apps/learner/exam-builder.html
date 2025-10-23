@@ -4,789 +4,480 @@
     <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Quiz Builder - Fluent UI Style</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@300;400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/icon?family=Material+Icons"
-      rel="stylesheet"
-    />
+    <title>Quiz Builder | Academic Nightingale</title>
     <link rel="stylesheet" href="../assets/tailwind.css" />
-    <style>
-      :root {
-        --primary-teal: #1b796c;
-        --primary-teal-dark: #145a4f;
-        --offwhite: #fafafa;
-        --google-grey-100: #f1f3f4;
-        --google-grey-200: #e8eaed;
-        --google-grey-300: #dadce0;
-        --google-grey-500: #9aa0a6;
-        --google-grey-700: #5f6368;
-        --google-grey-900: #202124;
-        --google-blue: #4285f4;
-        --google-green: #34a853;
-        --google-red: #ea4335;
-      }
-      body {
-        font-family: 'Google Sans', 'Roboto', sans-serif;
-        background-color: var(--offwhite);
-        color: var(--google-grey-900);
-      }
-      .question-card {
-        border: 1px solid var(--google-grey-300);
-      }
-      .question-card.selected {
-        border-color: var(--google-blue);
-        box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
-      }
-      .fab {
-        background: var(--primary-teal);
-      }
-      .fab:hover {
-        background: var(--primary-teal-dark);
-      }
-      .settings-panel {
-        right: -320px;
-        transition: right 0.3s ease;
-      }
-      .settings-panel.open {
-        right: 0;
-      }
-      .dropdown-content {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s ease-in-out;
-      }
-      .dropdown-content.open {
-        max-height: 1000px;
-      }
-      .forms-input:focus {
-        border-bottom-color: var(--google-blue);
-      }
-      .forms-button {
-        background: var(--primary-teal);
-      }
-      .forms-button:hover {
-        background: var(--primary-teal-dark);
-      }
-      .forms-button.secondary {
-        background: white;
-        color: var(--google-grey-700);
-        border: 1px solid var(--google-grey-300);
-      }
-      .forms-button.secondary:hover {
-        background: var(--google-grey-100);
-      }
-      .mc-option .material-icons {
-        color: var(--google-grey-500);
-      }
-      .mc-option.correct .material-icons {
-        color: var(--google-green);
-      }
-      @keyframes pulse-red {
-        0% {
-          transform: scale(1);
-          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-        }
-        70% {
-          transform: scale(1.1);
-          box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
-        }
-        100% {
-          transform: scale(1);
-          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
-        }
-      }
-      .missing-answer-key {
-        color: var(--google-red) !important;
-        border-radius: 50%;
-        animation: pulse-red 1.5s infinite;
-      }
-      .auto-expand {
-        resize: none;
-        overflow: hidden;
-      }
-      .question-type-selector {
-        display: none;
-        opacity: 0;
-        transform: translateY(10px);
-        transition: all 0.2s ease;
-      }
-      .question-type-selector.show {
-        display: block;
-        opacity: 1;
-        transform: translateY(0);
-      }
-    </style>
   </head>
-  <body class="min-h-screen">
-    <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div class="max-w-4xl mx-auto px-4 py-3">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-4">
+  <body class="min-h-screen bg-slate-50 text-slate-900">
+    <script>
+      window.__SUPABASE_CONFIG__ = window.__SUPABASE_CONFIG__ || {
+        url: 'https://ghnhfagydcynhkgbazbj.supabase.co',
+        anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobmhmYWd5ZGN5bmhrZ2JhemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwMDM2MjQsImV4cCI6MjA3NDU3OTYyNH0.KHgZ_ESTneR0CqWBGfu-JOmI3eBBLCZr1XG-g2vpclw',
+      };
+    </script>
+    <div class="flex min-h-screen flex-col">
+      <header class="border-b border-slate-200 bg-white">
+        <div
+          class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between"
+        >
+          <div>
             <a
-              href="teacher_dashboard.html"
-              class="flex items-center text-gray-500 hover:text-gray-700 transition-colors"
-              title="Exit to Dashboard"
+              href="../admin/dashboard.html"
+              class="inline-flex items-center gap-2 text-sm font-semibold text-cyan-600 hover:text-cyan-700"
             >
-              <span class="material-icons text-2xl">dashboard</span>
-              <span class="hidden sm:inline text-sm ml-1">Dashboard</span>
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M15 18l-6-6 6-6"
+                />
+              </svg>
+              Back to dashboard
             </a>
+            <h1 id="page-title" class="mt-2 text-2xl font-semibold tracking-tight">
+              Quiz Builder
+            </h1>
+            <p class="mt-1 text-sm text-slate-500">
+              Create and manage questions for your quiz blueprint.
+            </p>
           </div>
-          <div class="flex items-center space-x-2">
-            <button id="import-questions-btn" class="forms-button secondary">
-              <span class="material-icons text-sm mr-1">upload_file</span>
-              Import
+          <div class="flex flex-wrap items-center gap-3">
+            <button
+              id="preview-quiz-btn"
+              class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              Preview quiz
             </button>
-            <button id="preview-btn" class="forms-button secondary">
-              <span class="material-icons text-sm mr-1">visibility</span>
-              Preview
+            <button
+              id="export-quiz-btn"
+              class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export quiz
             </button>
-            <button id="share-btn" class="forms-button secondary">
-              <span class="material-icons text-sm mr-1">share</span> Share
+            <button
+              id="save-quiz-btn"
+              class="inline-flex items-center gap-2 rounded-full bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V2" />
+              </svg>
+              Save blueprint
             </button>
-            <button id="settings-btn" class="forms-button secondary">
-              <span class="material-icons text-sm mr-1">settings</span> Settings
+            <button
+              id="publish-quiz-btn"
+              class="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+              Publish quiz
             </button>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
 
-    <main class="max-w-2xl mx-auto px-4 py-8">
-      <div class="bg-white p-6 rounded-lg shadow-md mb-6">
-        <textarea
-          id="quiz-title"
-          class="text-3xl font-bold w-full border-b-2 border-gray-200 focus:border-teal-500 outline-none pb-2 mb-4 auto-expand"
-          placeholder="Untitled Quiz"
-          rows="1"
-        ></textarea>
-        <textarea
-          id="quiz-description"
-          class="w-full border-b border-gray-200 focus:border-teal-500 outline-none mt-2 auto-expand"
-          placeholder="Quiz description"
-          rows="1"
-        ></textarea>
-      </div>
-      <div id="questions-container" class="space-y-4">
-        <div id="empty-state" class="text-center py-16">
-          <div class="material-icons text-6xl text-gray-400 mb-4">quiz</div>
-          <h2 class="text-2xl font-medium text-gray-600 mb-2">
-            Start creating your quiz
-          </h2>
-          <p class="text-gray-500 mb-6">Add your first question below</p>
-          <button id="add-first-question-btn" class="forms-button">
-            <span class="material-icons text-sm mr-2">add</span> Add Question
-          </button>
-        </div>
-      </div>
-    </main>
-
-    <button
-      id="fab"
-      class="fab fixed bottom-6 right-6 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center"
-      title="Add Question"
-    >
-      <span class="material-icons">add</span>
-    </button>
-
-    <div
-      id="question-type-selector"
-      class="question-type-selector absolute bg-white border border-gray-300 rounded-lg shadow-xl z-10 w-64"
-    >
-      <div class="p-2">
-        <button
-          class="question-type-btn w-full text-left p-3 rounded hover:bg-gray-50 flex items-center space-x-3"
-          data-type="multiple-choice"
-        >
-          <span class="material-icons text-blue-500">radio_button_checked</span>
-          <div>
-            <div class="font-medium">Multiple choice</div>
-            <div class="text-sm text-gray-500">Choose one answer</div>
-          </div>
-        </button>
-        <button
-          class="question-type-btn w-full text-left p-3 rounded hover:bg-gray-50 flex items-center space-x-3"
-          data-type="checkboxes"
-        >
-          <span class="material-icons text-green-500">check_box</span>
-          <div>
-            <div class="font-medium">Checkboxes</div>
-            <div class="text-sm text-gray-500">Choose multiple answers</div>
-          </div>
-        </button>
-        <button
-          class="question-type-btn w-full text-left p-3 rounded hover:bg-gray-50 flex items-center space-x-3"
-          data-type="short-answer"
-        >
-          <span class="material-icons text-purple-500">short_text</span>
-          <div>
-            <div class="font-medium">Short answer</div>
-            <div class="text-sm text-gray-500">Text response</div>
-          </div>
-        </button>
-        <button
-          class="question-type-btn w-full text-left p-3 rounded hover:bg-gray-50 flex items-center space-x-3"
-          data-type="paragraph"
-        >
-          <span class="material-icons text-orange-500">subject</span>
-          <div>
-            <div class="font-medium">Paragraph</div>
-            <div class="text-sm text-gray-500">Long text response</div>
-          </div>
-        </button>
-      </div>
-    </div>
-
-    <div
-      id="auto-save-indicator"
-      class="fixed top-20 right-4 bg-gray-700 text-white px-3 py-2 rounded-lg shadow-lg opacity-0 transition-opacity duration-500 flex items-center space-x-2 z-10"
-      style="display: none"
-    ></div>
-
-    <div
-      id="settings-panel"
-      class="settings-panel fixed top-0 w-80 h-full bg-white border-l border-gray-200 shadow-lg z-[1100] overflow-y-auto"
-    >
-      <div class="p-6">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-xl font-medium">Settings</h2>
-          <button
-            id="close-settings-btn"
-            class="text-gray-500 hover:text-gray-700"
-          >
-            <span class="material-icons">close</span>
-          </button>
-        </div>
-        <div class="settings-dropdown border rounded-lg mb-2">
-          <button
-            class="dropdown-header w-full text-left p-4 bg-gray-50 flex items-center justify-between"
-          >
-            <div class="flex items-center">
-              <span class="material-icons mr-2">timer</span
-              ><span class="font-medium">Timer</span>
-            </div>
-            <span class="material-icons dropdown-icon">expand_more</span>
-          </button>
-          <div class="dropdown-content">
-            <div class="p-4 border-t">
-              <div class="mb-4">
-                <label class="block text-sm font-medium mb-2"
-                  >Quiz Duration</label
-                >
-                <div class="grid grid-cols-3 gap-2">
+      <main class="flex-1 pb-16">
+        <div class="mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6">
+          <!-- Blueprint Info Section -->
+          <section id="blueprint-info" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
                   <input
-                    type="number"
-                    id="timer-hours"
-                    class="p-2 border rounded w-full text-center"
-                    placeholder="H"
-                    min="0"
-                    value="0"
-                  /><input
-                    type="number"
-                    id="timer-minutes"
-                    class="p-2 border rounded w-full text-center"
-                    placeholder="M"
-                    min="0"
-                    max="59"
-                    value="0"
-                  /><input
-                    type="number"
-                    id="timer-seconds"
-                    class="p-2 border rounded w-full text-center"
-                    placeholder="S"
-                    min="0"
-                    max="59"
-                    value="0"
+                    id="blueprint-title"
+                    type="text"
+                    class="text-xl font-semibold text-slate-900 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded px-2 py-1 -ml-2"
+                    placeholder="Enter quiz title..."
                   />
+                  <span id="blueprint-status" class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">Draft</span>
+                </div>
+                <textarea
+                  id="blueprint-description"
+                  class="mt-2 w-full text-sm text-slate-500 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded px-2 py-1 -ml-2 resize-none"
+                  rows="2"
+                  placeholder="Add quiz description or instructions..."
+                ></textarea>
+              </div>
+              <div class="grid grid-cols-2 gap-4 text-sm text-slate-600">
+                <div>
+                  <dt class="text-xs uppercase tracking-wide text-slate-400">Questions</dt>
+                  <dd class="mt-0.5 font-medium text-slate-900" id="question-count">0</dd>
+                </div>
+                <div>
+                  <dt class="text-xs uppercase tracking-wide text-slate-400">Est. Duration</dt>
+                  <dd class="mt-0.5 font-medium text-slate-900" id="estimated-duration">0 mins</dd>
+                </div>
+                <div>
+                  <dt class="text-xs uppercase tracking-wide text-slate-400">Points</dt>
+                  <dd class="mt-0.5 font-medium text-slate-900" id="total-points">0</dd>
+                </div>
+                <div>
+                  <dt class="text-xs uppercase tracking-wide text-slate-400">Last Updated</dt>
+                  <dd class="mt-0.5" id="last-updated">Just now</dd>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-        <div class="settings-dropdown border rounded-lg">
-          <button
-            class="dropdown-header w-full text-left p-4 bg-gray-50 flex items-center justify-between"
-          >
-            <div class="flex items-center">
-              <span class="material-icons mr-2">security</span
-              ><span class="font-medium">Security</span>
-            </div>
-            <span class="material-icons dropdown-icon">expand_more</span>
-          </button>
-          <div class="dropdown-content">
-            <div class="p-4 border-t">
-              <div class="flex items-center justify-between mb-3">
-                <label for="pin-protection" class="text-sm"
-                  >PIN Protection</label
-                ><input type="checkbox" id="pin-protection" />
-              </div>
-              <div id="pin-field-container" class="mb-4 hidden">
+          </section>
+
+          <!-- Quiz Settings -->
+          <section id="quiz-settings" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="text-lg font-semibold text-slate-900 mb-4">Quiz Settings</h2>
+            <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <div>
+                <label for="time-limit" class="block text-sm font-medium text-slate-700">Time Limit (minutes)</label>
                 <input
-                  type="text"
-                  id="quiz-pin"
-                  placeholder="Enter 4-digit PIN"
-                  class="w-full p-2 border rounded text-center"
-                  maxlength="4"
+                  id="time-limit"
+                  type="number"
+                  min="1"
+                  class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  placeholder="60"
                 />
+                <p class="mt-1 text-xs text-slate-500">Leave empty for no time limit</p>
+              </div>
+              <div>
+                <label for="shuffle-questions" class="flex items-center gap-2">
+                  <input
+                    id="shuffle-questions"
+                    type="checkbox"
+                    class="rounded border-slate-300 text-cyan-600 focus:border-cyan-500 focus:ring-cyan-400"
+                  />
+                  <span class="text-sm font-medium text-slate-700">Shuffle questions</span>
+                </label>
+                <p class="mt-1 text-xs text-slate-500">Randomize question order for each attempt</p>
+              </div>
+              <div>
+                <label for="show-results" class="flex items-center gap-2">
+                  <input
+                    id="show-results"
+                    type="checkbox"
+                    checked
+                    class="rounded border-slate-300 text-cyan-600 focus:border-cyan-500 focus:ring-cyan-400"
+                  />
+                  <span class="text-sm font-medium text-slate-700">Show results immediately</span>
+                </label>
+                <p class="mt-1 text-xs text-slate-500">Display score and correct answers after submission</p>
+              </div>
+              <div>
+                <label for="allow-review" class="flex items-center gap-2">
+                  <input
+                    id="allow-review"
+                    type="checkbox"
+                    checked
+                    class="rounded border-slate-300 text-cyan-600 focus:border-cyan-500 focus:ring-cyan-400"
+                  />
+                  <span class="text-sm font-medium text-slate-700">Allow review</span>
+                </label>
+                <p class="mt-1 text-xs text-slate-500">Let participants review their answers</p>
+              </div>
+              <div>
+                <label for="max-attempts" class="block text-sm font-medium text-slate-700">Maximum Attempts</label>
+                <input
+                  id="max-attempts"
+                  type="number"
+                  min="1"
+                  class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  placeholder="1"
+                />
+                <p class="mt-1 text-xs text-slate-500">Leave empty for unlimited attempts</p>
+              </div>
+              <div>
+                <label for="passing-score" class="block text-sm font-medium text-slate-700">Passing Score (%)</label>
+                <input
+                  id="passing-score"
+                  type="number"
+                  min="0"
+                  max="100"
+                  class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  placeholder="70"
+                />
+                <p class="mt-1 text-xs text-slate-500">Minimum score to pass the quiz</p>
               </div>
             </div>
+          </section>
+
+          <!-- Questions Section -->
+          <section class="space-y-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-lg font-semibold text-slate-900">Questions</h2>
+                <p class="text-sm text-slate-500">Add and organize quiz questions</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-3">
+                <div class="relative">
+                  <select
+                    id="bulk-actions"
+                    class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400 appearance-none"
+                  >
+                    <option value="">Bulk actions</option>
+                    <option value="delete">Delete selected</option>
+                    <option value="duplicate">Duplicate selected</option>
+                    <option value="move">Move selected</option>
+                  </select>
+                  <svg class="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+                <button
+                  id="import-questions-btn"
+                  class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                >
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  Import questions
+                </button>
+                <button
+                  id="add-question-btn"
+                  class="inline-flex items-center gap-2 rounded-full bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                >
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v12m6-6H6" />
+                  </svg>
+                  Add question
+                </button>
+              </div>
+            </div>
+
+            <!-- Question List -->
+            <div id="question-list" class="space-y-4">
+              <div class="rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center text-sm text-slate-500 shadow-sm">
+                <svg class="mx-auto h-12 w-12 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v12m6-6H6" />
+                </svg>
+                <h3 class="mt-4 text-lg font-medium text-slate-900">No questions yet</h3>
+                <p class="mt-2">Get started by adding your first question to the quiz.</p>
+                <button
+                  class="mt-4 inline-flex items-center gap-2 rounded-full bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                  onclick="document.getElementById('add-question-btn').click()"
+                >
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v12m6-6H6" />
+                  </svg>
+                  Add first question
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <!-- Question Modal -->
+      <div id="question-modal" class="hidden fixed inset-0 z-50 bg-black/40 px-4 pb-10 pt-24 backdrop-blur-sm sm:px-6 md:px-10">
+        <div class="mx-auto max-w-4xl rounded-2xl bg-white shadow-xl max-h-[80vh] overflow-y-auto">
+          <form id="question-form" class="flex flex-col" autocomplete="off">
+            <div class="flex items-start justify-between gap-4 p-6 border-b border-slate-200">
+              <div>
+                <h2 class="text-xl font-semibold text-slate-900">Add Question</h2>
+                <p class="text-sm text-slate-500 mt-1">Create a new question for your quiz</p>
+              </div>
+              <button type="button" id="close-question-modal" class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400">
+                <span class="sr-only">Close</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="p-6 space-y-6">
+              <!-- Question Type -->
+              <div>
+                <label for="question-type" class="block text-sm font-medium text-slate-700">Question Type</label>
+                <select
+                  id="question-type"
+                  name="question-type"
+                  class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  required
+                >
+                  <option value="multiple_choice">Multiple Choice</option>
+                  <option value="true_false">True/False</option>
+                  <option value="short_answer">Short Answer</option>
+                  <option value="essay">Essay</option>
+                  <option value="fill_blank">Fill in the Blank</option>
+                  <option value="matching">Matching</option>
+                </select>
+              </div>
+
+              <!-- Question Text -->
+              <div>
+                <label for="question-text" class="block text-sm font-medium text-slate-700">Question</label>
+                <textarea
+                  id="question-text"
+                  name="question-text"
+                  rows="3"
+                  class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  placeholder="Enter your question here..."
+                  required
+                ></textarea>
+                <div class="mt-2 flex items-center gap-3">
+                  <button type="button" id="add-media-btn" class="inline-flex items-center gap-2 text-sm text-cyan-600 hover:text-cyan-700">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Add media
+                  </button>
+                  <button type="button" id="format-text-btn" class="inline-flex items-center gap-2 text-sm text-cyan-600 hover:text-cyan-700">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Format text
+                  </button>
+                </div>
+              </div>
+
+              <!-- Points -->
+              <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label for="question-points" class="block text-sm font-medium text-slate-700">Points</label>
+                  <input
+                    id="question-points"
+                    name="question-points"
+                    type="number"
+                    min="1"
+                    value="1"
+                    class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                    required
+                  />
+                </div>
+                <div>
+                  <label for="question-time" class="block text-sm font-medium text-slate-700">Time Limit (seconds)</label>
+                  <input
+                    id="question-time"
+                    name="question-time"
+                    type="number"
+                    min="10"
+                    class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+
+              <!-- Answer Options (Dynamic based on question type) -->
+              <div id="answer-options" class="space-y-4">
+                <!-- Multiple Choice Options -->
+                <div id="multiple-choice-options" class="space-y-3">
+                  <div class="flex items-center justify-between">
+                    <label class="block text-sm font-medium text-slate-700">Answer Options</label>
+                    <button type="button" id="add-option-btn" class="inline-flex items-center gap-2 text-sm text-cyan-600 hover:text-cyan-700">
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v12m6-6H6" />
+                      </svg>
+                      Add option
+                    </button>
+                  </div>
+                  <div id="options-list" class="space-y-2">
+                    <div class="flex items-center gap-3">
+                      <input type="radio" name="correct-answer" value="0" class="text-cyan-600 focus:border-cyan-500 focus:ring-cyan-400">
+                      <input type="text" placeholder="Option A" class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400" required>
+                      <button type="button" class="text-rose-500 hover:text-rose-700">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <input type="radio" name="correct-answer" value="1" class="text-cyan-600 focus:border-cyan-500 focus:ring-cyan-400">
+                      <input type="text" placeholder="Option B" class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400" required>
+                      <button type="button" class="text-rose-500 hover:text-rose-700">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- True/False Options -->
+                <div id="true-false-options" class="hidden">
+                  <label class="block text-sm font-medium text-slate-700">Correct Answer</label>
+                  <div class="mt-2 space-y-2">
+                    <label class="flex items-center gap-3">
+                      <input type="radio" name="tf-answer" value="true" class="text-cyan-600 focus:border-cyan-500 focus:ring-cyan-400">
+                      <span class="text-sm text-slate-700">True</span>
+                    </label>
+                    <label class="flex items-center gap-3">
+                      <input type="radio" name="tf-answer" value="false" class="text-cyan-600 focus:border-cyan-500 focus:ring-cyan-400">
+                      <span class="text-sm text-slate-700">False</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Short Answer -->
+                <div id="short-answer-options" class="hidden">
+                  <label for="correct-answer-text" class="block text-sm font-medium text-slate-700">Correct Answer</label>
+                  <input
+                    id="correct-answer-text"
+                    type="text"
+                    class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                    placeholder="Enter the correct answer..."
+                  >
+                  <p class="mt-1 text-xs text-slate-500">Case-insensitive matching will be used</p>
+                </div>
+
+                <!-- Essay -->
+                <div id="essay-options" class="hidden">
+                  <label for="essay-rubric" class="block text-sm font-medium text-slate-700">Grading Rubric (Optional)</label>
+                  <textarea
+                    id="essay-rubric"
+                    rows="3"
+                    class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                    placeholder="Describe how this essay should be graded..."
+                  ></textarea>
+                </div>
+              </div>
+
+              <!-- Explanation -->
+              <div>
+                <label for="question-explanation" class="block text-sm font-medium text-slate-700">Explanation (Optional)</label>
+                <textarea
+                  id="question-explanation"
+                  name="question-explanation"
+                  rows="2"
+                  class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  placeholder="Explain the correct answer or provide additional context..."
+                ></textarea>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end p-6 border-t border-slate-200">
+              <button type="button" id="cancel-question-btn" class="inline-flex items-center justify-center rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400">
+                Cancel
+              </button>
+              <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500">
+                Save question
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Loading Overlay -->
+      <div id="loading-overlay" class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+        <div class="bg-white rounded-2xl p-6 shadow-xl">
+          <div class="flex items-center gap-3">
+            <svg class="h-5 w-5 animate-spin text-cyan-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke-width="4"></circle>
+              <path class="opacity-75" stroke-width="4" d="M4 12a8 8 0 018-8"></path>
+            </svg>
+            <span class="text-sm font-medium text-slate-700" id="loading-text">Saving...</span>
           </div>
         </div>
       </div>
     </div>
 
-    <input type="hidden" id="quizId" value="" />
-    <input
-      type="file"
-      id="aikenFileInput"
-      accept=".txt,.md,.aiken"
-      style="display: none"
-    />
-
-    <script type="module">
-      // Mock Supabase Client. Replace with your actual client.
-      // import { supabase } from './supabaseClient.js';
-
-      const parseAikenFormat = (content) => {
-        const questions = [];
-        const lines = content
-          .split('\n')
-          .map((line) => line.trim())
-          .filter((line) => line);
-        let currentQuestion = null;
-        let currentOptions = [];
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          if (!line.match(/^[A-Z]\)|^ANSWER:/i)) {
-            if (currentQuestion)
-              questions.push({
-                title: currentQuestion,
-                options: currentOptions,
-              });
-            currentQuestion = line;
-            currentOptions = [];
-          } else if (line.match(/^[A-Z]\)/)) {
-            currentOptions.push({
-              text: line.substring(2).trim(),
-              isCorrect: false,
-            });
-          } else if (line.match(/^ANSWER:/i)) {
-            const answerLetter = line
-              .replace(/^ANSWER:\s*/i, '')
-              .trim()
-              .toUpperCase();
-            const answerIndex = answerLetter.charCodeAt(0) - 65;
-            if (answerIndex >= 0 && answerIndex < currentOptions.length) {
-              currentOptions[answerIndex].isCorrect = true;
-            }
-          }
-        }
-        if (currentQuestion)
-          questions.push({ title: currentQuestion, options: currentOptions });
-        return questions;
-      };
-
-      document.addEventListener('DOMContentLoaded', () => {
-        let saveTimeout;
-        const questionsContainer = document.getElementById(
-          'questions-container'
-        );
-        const questionTypeSelector = document.getElementById(
-          'question-type-selector'
-        );
-        const fab = document.getElementById('fab');
-        const emptyState = document.getElementById('empty-state');
-        const settingsPanel = document.getElementById('settings-panel');
-        const autoSaveIndicator = document.getElementById(
-          'auto-save-indicator'
-        );
-        const aikenInput = document.getElementById('aikenFileInput');
-
-        const showToast = (message, type = 'info') => {
-          const toast = document.createElement('div');
-          const bgColor =
-            type === 'error'
-              ? 'bg-red-500'
-              : type === 'success'
-                ? 'bg-green-500'
-                : 'bg-gray-700';
-          toast.className = `fixed bottom-4 left-1/2 -translate-x-1/2 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50`;
-          toast.textContent = message;
-          document.body.appendChild(toast);
-          setTimeout(() => toast.remove(), 3000);
-        };
-
-        const showSaveIndicator = (isSaving) => {
-          autoSaveIndicator.style.display = 'flex';
-          if (isSaving) {
-            autoSaveIndicator.innerHTML = `<span class="material-icons text-sm animate-spin">sync</span><span class="text-sm font-medium ml-2">Saving...</span>`;
-            autoSaveIndicator.classList.remove(
-              'bg-green-100',
-              'text-green-800'
-            );
-            autoSaveIndicator.classList.add('bg-gray-700', 'text-white');
-          } else {
-            autoSaveIndicator.innerHTML = `<span class="material-icons text-sm">check_circle</span><span class="text-sm font-medium ml-2">Saved</span>`;
-            autoSaveIndicator.classList.remove('bg-gray-700', 'text-white');
-            autoSaveIndicator.classList.add('bg-green-100', 'text-green-800');
-          }
-          autoSaveIndicator.classList.remove('opacity-0');
-        };
-        const hideSaveIndicator = () =>
-          setTimeout(() => autoSaveIndicator.classList.add('opacity-0'), 2000);
-
-        const collectQuizData = () => {
-          const questions = Array.from(
-            document.querySelectorAll('.question-card')
-          ).map((card) => {
-            return {
-              title: card.querySelector('.question-title').value,
-              type: card.dataset.type,
-              options: Array.from(card.querySelectorAll('.mc-option')).map(
-                (opt) => ({
-                  text: opt.querySelector('textarea').value,
-                  isCorrect: opt.classList.contains('correct'),
-                })
-              ),
-            };
-          });
-          return {
-            id:
-              document.getElementById('quizId').value || `local-${Date.now()}`,
-            title: document.getElementById('quiz-title').value,
-            description: document.getElementById('quiz-description').value,
-            questions: questions,
-            settings: {
-              time_limit:
-                (parseInt(document.getElementById('timer-hours').value) || 0) *
-                  3600 +
-                (parseInt(document.getElementById('timer-minutes').value) ||
-                  0) *
-                  60 +
-                (parseInt(document.getElementById('timer-seconds').value) || 0),
-              pin_protection: document.getElementById('pin-protection').checked,
-              quiz_pin: document.getElementById('quiz-pin').value,
-            },
-          };
-        };
-
-        const saveQuizToDatabase = async () => {
-          showSaveIndicator(true);
-          const quizData = collectQuizData();
-          console.log('Saving quiz data (mock):', quizData);
-          // Mock API call
-          return new Promise((resolve) => {
-            setTimeout(() => {
-              if (!document.getElementById('quizId').value) {
-                document.getElementById('quizId').value = quizData.id;
-              }
-              showSaveIndicator(false);
-              hideSaveIndicator();
-              resolve({ quiz_id: quizData.id });
-            }, 1000);
-          });
-        };
-        const triggerAutoSave = () => {
-          clearTimeout(saveTimeout);
-          saveTimeout = setTimeout(saveQuizToDatabase, 2000);
-        };
-
-        const autoExpand = (field) => {
-          field.style.height = 'auto';
-          field.style.height = field.scrollHeight + 'px';
-        };
-
-        const renderOptionsHtml = (type, data = { options: [] }) => {
-          const renderOption = (opt, i, icon) => `
-                    <div class="flex items-center mc-option ${opt.isCorrect ? 'correct' : ''}" data-option-id="${i}">
-                        <span class="material-icons cursor-pointer">${opt.isCorrect ? (type === 'multiple-choice' ? 'radio_button_checked' : 'check_box') : type === 'multiple-choice' ? 'radio_button_unchecked' : 'check_box_outline_blank'}</span>
-                        <textarea class="forms-input ml-2 auto-expand" rows="1" placeholder="Option ${i + 1}">${opt.text || ''}</textarea>
-                        <button class="remove-option-btn text-gray-400 hover:text-gray-600 ml-2"><span class="material-icons">close</span></button>
-                    </div>`;
-
-          let options =
-            data.options && data.options.length > 0
-              ? data.options
-              : [{ text: '' }];
-
-          switch (type) {
-            case 'multiple-choice':
-            case 'checkboxes':
-              return `<div class="options-container mt-4 space-y-2">${options.map((o, i) => renderOption(o, i, '')).join('')}</div><button class="add-option-btn text-sm text-teal-600 hover:text-teal-800 mt-2">Add option</button>`;
-            case 'short-answer':
-              return `<div class="mt-4"><input type="text" class="forms-input border-b-2 border-dotted" placeholder="Short answer text" disabled></div>`;
-            case 'paragraph':
-              return `<div class="mt-4"><textarea class="forms-input border-b-2 border-dotted auto-expand" placeholder="Long answer text" disabled rows="1"></textarea></div>`;
-            default:
-              return '';
-          }
-        };
-
-        const addQuestion = (type, data = {}, insertAfterCard = null) => {
-          emptyState.style.display = 'none';
-          const card = document.createElement('div');
-          card.className = 'question-card p-6';
-          card.dataset.type = type;
-          card.innerHTML = `
-                    <div class="flex justify-between mb-4">
-                        <textarea class="question-title forms-input text-lg font-medium w-full auto-expand" placeholder="Question" rows="1">${data.title || ''}</textarea>
-                    </div>
-                    <div class="question-content">${renderOptionsHtml(type, data)}</div>
-                    <hr class="my-4">
-                    <div class="flex justify-end items-center space-x-2">
-                        <button class="change-type-btn forms-button secondary">Change Type <span class="material-icons text-sm ml-1">arrow_drop_down</span></button>
-                        <button class="duplicate-btn text-gray-500 p-2 rounded-full"><span class="material-icons">content_copy</span></button>
-                        <button class="delete-btn text-gray-500 p-2 rounded-full"><span class="material-icons">delete</span></button>
-                    </div>`;
-          if (insertAfterCard) insertAfterCard.after(card);
-          else questionsContainer.appendChild(card);
-          attachAllListeners(card);
-          updateQuestionNumbers();
-          card.querySelector('.question-title').focus();
-          triggerAutoSave();
-        };
-
-        const updateQuestionType = (card, newType) => {
-          const data = {
-            title: card.querySelector('.question-title').value,
-            options: Array.from(
-              card.querySelectorAll('.mc-option textarea')
-            ).map((t) => ({ text: t.value })),
-          };
-          card.dataset.type = newType;
-          card.querySelector('.question-content').innerHTML = renderOptionsHtml(
-            newType,
-            data
-          );
-          attachAllListeners(card);
-          triggerAutoSave();
-        };
-
-        const updateQuestionNumbers = () =>
-          document.querySelectorAll('.question-card').forEach((card, index) => {
-            let numEl = card.querySelector('.question-number');
-            if (!numEl) {
-              numEl = document.createElement('span');
-              numEl.className = 'question-number font-bold mr-2';
-              card.querySelector('.question-title').before(numEl);
-            }
-            numEl.textContent = `${index + 1}.`;
-          });
-
-        function attachAllListeners(element) {
-          element.querySelectorAll('.auto-expand').forEach((field) => {
-            field.addEventListener('input', () => autoExpand(field));
-            autoExpand(field);
-          });
-
-          if (element.classList.contains('question-card')) {
-            element.addEventListener('focusin', () => {
-              document
-                .querySelectorAll('.question-card.selected')
-                .forEach((c) => c.classList.remove('selected'));
-              element.classList.add('selected');
-            });
-            element
-              .querySelector('.delete-btn')
-              .addEventListener('click', () => {
-                element.remove();
-                updateQuestionNumbers();
-                triggerAutoSave();
-                if (questionsContainer.children.length === 1)
-                  emptyState.style.display = 'block';
-              });
-            element
-              .querySelector('.duplicate-btn')
-              .addEventListener('click', () =>
-                addQuestion(
-                  element.dataset.type,
-                  {
-                    title: element.querySelector('.question-title').value,
-                    options: Array.from(
-                      element.querySelectorAll('.mc-option textarea')
-                    ).map((t) => ({ text: t.value })),
-                  },
-                  element
-                )
-              );
-            element
-              .querySelector('.change-type-btn')
-              .addEventListener('click', (e) => {
-                e.stopPropagation();
-                const rect = e.currentTarget.getBoundingClientRect();
-                questionTypeSelector.style.top = `${rect.bottom + window.scrollY + 8}px`;
-                questionTypeSelector.style.left = `${rect.left + window.scrollX}px`;
-                questionTypeSelector.classList.add('show');
-              });
-          }
-
-          element.querySelectorAll('.add-option-btn').forEach((btn) =>
-            btn.addEventListener('click', (e) => {
-              const card = e.target.closest('.question-card');
-              const optionsContainer = card.querySelector('.options-container');
-              const newIndex = optionsContainer.children.length;
-              const newOptionHTML = renderOptionsHtml(card.dataset.type, {
-                options: [{ text: '' }],
-              })
-                .match(/<div class="flex items-center mc-option.*?<\/div>/s)[0]
-                .replace('Option 1', `Option ${newIndex + 1}`);
-              const tempDiv = document.createElement('div');
-              tempDiv.innerHTML = newOptionHTML;
-              const newOptionEl = tempDiv.firstChild;
-              optionsContainer.appendChild(newOptionEl);
-              attachAllListeners(newOptionEl);
-              newOptionEl.querySelector('textarea').focus();
-            })
-          );
-
-          element
-            .querySelectorAll('.remove-option-btn')
-            .forEach((btn) =>
-              btn.addEventListener('click', (e) =>
-                e.target.closest('.mc-option').remove()
-              )
-            );
-
-          element
-            .querySelectorAll('.mc-option .material-icons')
-            .forEach((icon) =>
-              icon.addEventListener('click', (e) => {
-                const card = e.target.closest('.question-card');
-                const option = e.target.closest('.mc-option');
-                if (card.dataset.type === 'multiple-choice') {
-                  card.querySelectorAll('.mc-option').forEach((opt) => {
-                    opt.classList.remove('correct');
-                    opt.querySelector('.material-icons').textContent =
-                      'radio_button_unchecked';
-                    opt
-                      .querySelector('.material-icons')
-                      .classList.remove('missing-answer-key');
-                  });
-                  option.classList.add('correct');
-                  e.target.textContent = 'radio_button_checked';
-                } else if (card.dataset.type === 'checkboxes') {
-                  option.classList.toggle('correct');
-                  e.target.textContent = option.classList.contains('correct')
-                    ? 'check_box'
-                    : 'check_box_outline_blank';
-                }
-                triggerAutoSave();
-              })
-            );
-        }
-
-        document
-          .getElementById('add-first-question-btn')
-          .addEventListener('click', () => addQuestion('multiple-choice'));
-        fab.addEventListener('click', () => addQuestion('multiple-choice'));
-        document.querySelectorAll('.auto-expand').forEach((field) => {
-          field.addEventListener('input', () => autoExpand(field));
-          autoExpand(field);
-        });
-        document.body.addEventListener('input', (e) => {
-          if (e.target.matches('textarea, input')) triggerAutoSave();
-        });
-
-        document
-          .getElementById('settings-btn')
-          .addEventListener('click', (e) => {
-            e.stopPropagation();
-            settingsPanel.classList.toggle('open');
-          });
-        document
-          .getElementById('close-settings-btn')
-          .addEventListener('click', () =>
-            settingsPanel.classList.remove('open')
-          );
-        document
-          .querySelectorAll('.dropdown-header')
-          .forEach((h) =>
-            h.addEventListener('click', () =>
-              h.nextElementSibling.classList.toggle('open')
-            )
-          );
-        document
-          .getElementById('pin-protection')
-          .addEventListener('change', (e) =>
-            document
-              .getElementById('pin-field-container')
-              .classList.toggle('hidden', !e.target.checked)
-          );
-
-        document
-          .getElementById('import-questions-btn')
-          .addEventListener('click', () => aikenInput.click());
-        aikenInput.addEventListener('change', async (e) => {
-          const file = e.target.files[0];
-          if (!file) return;
-          const content = await file.text();
-          const questions = parseAikenFormat(content);
-          if (questions.length > 0) {
-            questions.forEach((q) => addQuestion('multiple-choice', q));
-            showToast(
-              `${questions.length} questions imported successfully.`,
-              'success'
-            );
-          } else {
-            showToast('No valid questions found in the file.', 'error');
-          }
-          aikenInput.value = '';
-        });
-
-        questionTypeSelector.addEventListener('click', (e) => {
-          const btn = e.target.closest('.question-type-btn');
-          if (btn) {
-            const selectedCard = document.querySelector(
-              '.question-card.selected'
-            );
-            if (selectedCard)
-              updateQuestionType(selectedCard, btn.dataset.type);
-            questionTypeSelector.classList.remove('show');
-          }
-        });
-
-        document.addEventListener('click', (e) => {
-          if (
-            !e.target.closest('.change-type-btn') &&
-            !e.target.closest('#question-type-selector')
-          )
-            questionTypeSelector.classList.remove('show');
-          if (
-            !e.target.closest('#settings-panel') &&
-            !e.target.closest('#settings-btn')
-          )
-            settingsPanel.classList.remove('open');
-        });
-
-        document
-          .getElementById('preview-btn')
-          .addEventListener('click', async () => {
-            const res = await saveQuizToDatabase();
-            if (res && res.quiz_id)
-              window.open(`preview.html?quiz_id=${res.quiz_id}`, '_blank');
-            else showToast('Could not save quiz for preview.', 'error');
-          });
-
-        document
-          .getElementById('share-btn')
-          .addEventListener('click', async () => {
-            const res = await saveQuizToDatabase();
-            if (res && res.quiz_id) {
-              const url = `${window.location.origin}/take_quiz.html?id=${res.quiz_id}`;
-              navigator.clipboard
-                .writeText(url)
-                .then(() =>
-                  showToast('Share link copied to clipboard!', 'success')
-                );
-            } else {
-              showToast('Could not save quiz for sharing.', 'error');
-            }
-          });
-      });
-    </script>
-    <script type="module" src="src/pwa-bootstrap.js"></script>
-</body>
+    <script type="module" src="./src/examBuilder.js"></script>
+    <script type="module" src="./src/pwa-bootstrap.js"></script>
+  </body>
 </html>

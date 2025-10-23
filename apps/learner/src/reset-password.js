@@ -75,7 +75,6 @@ async function handleFormSubmit(event) {
       formContainer.classList.add('hidden');
       successContainer.classList.remove('hidden');
     }
-
   } catch (error) {
     showFeedback(error.message || 'An unexpected error occurred.');
   } finally {

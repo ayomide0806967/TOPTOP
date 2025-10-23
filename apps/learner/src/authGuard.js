@@ -55,7 +55,10 @@ class AuthGuard {
         console.warn('[AuthGuard] Failed to sync session fingerprint', error);
       }
     } catch (error) {
-      console.warn('[AuthGuard] Unexpected error while syncing session fingerprint', error);
+      console.warn(
+        '[AuthGuard] Unexpected error while syncing session fingerprint',
+        error
+      );
     }
   }
 
@@ -65,7 +68,10 @@ class AuthGuard {
     try {
       fingerprint = readSessionFingerprint();
     } catch (error) {
-      console.warn('[AuthGuard] Unable to read stored session fingerprint', error);
+      console.warn(
+        '[AuthGuard] Unable to read stored session fingerprint',
+        error
+      );
     }
 
     if (fingerprint) return fingerprint;
@@ -90,9 +96,12 @@ class AuthGuard {
     }
 
     try {
-      const { data, error } = await this.supabase.rpc('validate_profile_session', {
-        p_session_fingerprint: fingerprint,
-      });
+      const { data, error } = await this.supabase.rpc(
+        'validate_profile_session',
+        {
+          p_session_fingerprint: fingerprint,
+        }
+      );
       if (error) {
         console.warn('[AuthGuard] validate_profile_session error', error);
         return true;
@@ -112,51 +121,60 @@ class AuthGuard {
 
   async init() {
     if (this.isInitialized) return this.session;
-    
+
     try {
       this.supabase = await getSupabaseClient();
-      const { data: { session }, error } = await this.supabase.auth.getSession();
-      
+      const {
+        data: { session },
+        error,
+      } = await this.supabase.auth.getSession();
+
       if (error) {
         console.error('[AuthGuard] Failed to get session:', error);
         throw error;
       }
-      
+
       this.session = session;
       this.user = session?.user || null;
       this.isInitialized = true;
-      
+
       // Set up auth state listener
       this.supabase.auth.onAuthStateChange((event, session) => {
         this.session = session;
         this.user = session?.user || null;
-        
+
         // Handle auth events
-      switch (event) {
-        case 'SIGNED_OUT':
-          this.stopSessionMonitor();
-          clearSessionFingerprint();
-          this.redirectToLogin();
-          break;
-        case 'SIGNED_IN':
-          this.updateSessionFingerprint(session).catch((error) => {
-            console.warn('[AuthGuard] Failed to sync fingerprint after sign-in', error);
-          });
-          this.startSessionMonitor();
-          break;
-        case 'TOKEN_REFRESHED':
-          console.log('[AuthGuard] Token refreshed successfully');
-          this.updateSessionFingerprint(session).catch((error) => {
-            console.warn('[AuthGuard] Failed to sync fingerprint after refresh', error);
-          });
-          this.startSessionMonitor();
-          break;
-        case 'USER_UPDATED':
-          console.log('[AuthGuard] User profile updated');
-          break;
-      }
+        switch (event) {
+          case 'SIGNED_OUT':
+            this.stopSessionMonitor();
+            clearSessionFingerprint();
+            this.redirectToLogin();
+            break;
+          case 'SIGNED_IN':
+            this.updateSessionFingerprint(session).catch((error) => {
+              console.warn(
+                '[AuthGuard] Failed to sync fingerprint after sign-in',
+                error
+              );
+            });
+            this.startSessionMonitor();
+            break;
+          case 'TOKEN_REFRESHED':
+            console.log('[AuthGuard] Token refreshed successfully');
+            this.updateSessionFingerprint(session).catch((error) => {
+              console.warn(
+                '[AuthGuard] Failed to sync fingerprint after refresh',
+                error
+              );
+            });
+            this.startSessionMonitor();
+            break;
+          case 'USER_UPDATED':
+            console.log('[AuthGuard] User profile updated');
+            break;
+        }
       });
-      
+
       return this.session;
     } catch (error) {
       console.error('[AuthGuard] Initialization failed:', error);
@@ -167,12 +185,12 @@ class AuthGuard {
   async requireAuth(redirectUrl = 'login.html') {
     try {
       await this.init();
-      
+
       if (!this.session || !this.user) {
         this.redirectToLogin(redirectUrl);
         return false;
       }
-      
+
       // Check if session is expired
       const expiresAt = this.session.expires_at;
       if (expiresAt && new Date(expiresAt * 1000) < new Date()) {
@@ -185,24 +203,32 @@ class AuthGuard {
 
       const sessionValid = await this.validateActiveSession();
       if (!sessionValid) {
-        console.warn('[AuthGuard] Session fingerprint mismatch detected, signing out.');
+        console.warn(
+          '[AuthGuard] Session fingerprint mismatch detected, signing out.'
+        );
         try {
           await this.supabase.auth.signOut();
         } catch (error) {
-          console.warn('[AuthGuard] Failed to sign out after fingerprint mismatch', error);
+          console.warn(
+            '[AuthGuard] Failed to sign out after fingerprint mismatch',
+            error
+          );
         }
         try {
           await this.supabase.rpc('sync_profile_session', {
             p_session_fingerprint: null,
           });
         } catch (rpcError) {
-          console.warn('[AuthGuard] Failed to clear session fingerprint after mismatch', rpcError);
+          console.warn(
+            '[AuthGuard] Failed to clear session fingerprint after mismatch',
+            rpcError
+          );
         }
         clearSessionFingerprint();
         this.redirectToLogin(redirectUrl);
         return false;
       }
-      
+
       return true;
     } catch (error) {
       console.error('[AuthGuard] Auth check failed:', error);
@@ -212,26 +238,26 @@ class AuthGuard {
   }
 
   async requireRole(allowedRoles = ['learner']) {
-    if (!await this.requireAuth()) return false;
-    
+    if (!(await this.requireAuth())) return false;
+
     try {
       const { data: profile, error } = await this.supabase
         .from('profiles')
         .select('role')
         .eq('id', this.user.id)
         .single();
-      
+
       if (error) {
         console.error('[AuthGuard] Failed to fetch user role:', error);
         return false;
       }
-      
+
       if (!allowedRoles.includes(profile.role)) {
         console.warn('[AuthGuard] User role not authorized:', profile.role);
         this.showUnauthorized();
         return false;
       }
-      
+
       return true;
     } catch (error) {
       console.error('[AuthGuard] Role check failed:', error);
@@ -243,14 +269,17 @@ class AuthGuard {
     try {
       const { error } = await this.supabase.auth.signOut();
       if (error) throw error;
-      
+
       this.stopSessionMonitor();
       try {
         await this.supabase.rpc('sync_profile_session', {
           p_session_fingerprint: null,
         });
       } catch (rpcError) {
-        console.warn('[AuthGuard] Failed to clear profile session fingerprint on sign out', rpcError);
+        console.warn(
+          '[AuthGuard] Failed to clear profile session fingerprint on sign out',
+          rpcError
+        );
       }
 
       this.session = null;

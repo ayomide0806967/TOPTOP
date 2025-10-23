@@ -25,7 +25,9 @@ export async function deriveSessionFingerprint(token) {
   if (!token) return null;
   const cryptoSubtle = getCrypto();
   if (!cryptoSubtle) {
-    console.warn('[SessionFingerprint] Web Crypto not available to derive fingerprint.');
+    console.warn(
+      '[SessionFingerprint] Web Crypto not available to derive fingerprint.'
+    );
     return token;
   }
 
@@ -36,7 +38,10 @@ export async function deriveSessionFingerprint(token) {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map((byte) => byte.toString(16).padStart(2, '0')).join('');
   } catch (error) {
-    console.warn('[SessionFingerprint] Failed to derive fingerprint, falling back to raw token.', error);
+    console.warn(
+      '[SessionFingerprint] Failed to derive fingerprint, falling back to raw token.',
+      error
+    );
     return token;
   }
 }

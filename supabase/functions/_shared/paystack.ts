@@ -55,8 +55,6 @@ export function getUserClient(authHeader: string | null): SupabaseClient {
   });
 }
 
-
-
 function computeExpiryDate(
   durationDays: number | null | undefined,
   startsAt: string | null
@@ -171,10 +169,14 @@ export async function upsertPaymentAndSubscription(options: {
     throw latestError;
   }
 
-  const latestExpiresAt = latestActive?.expires_at ? new Date(latestActive.expires_at) : null;
+  const latestExpiresAt = latestActive?.expires_at
+    ? new Date(latestActive.expires_at)
+    : null;
   const purchaseDate = paidAt ? new Date(paidAt) : new Date();
   const startAnchor =
-    latestExpiresAt && !Number.isNaN(latestExpiresAt.getTime()) && latestExpiresAt > purchaseDate
+    latestExpiresAt &&
+    !Number.isNaN(latestExpiresAt.getTime()) &&
+    latestExpiresAt > purchaseDate
       ? latestExpiresAt
       : purchaseDate;
   const startsAtIso = startAnchor.toISOString();
@@ -188,7 +190,9 @@ export async function upsertPaymentAndSubscription(options: {
     const newExpiresAt = expiresAt;
     const newQuantity = Number(latestActive.quantity ?? 1) + normalizedQuantity;
     const shouldResetStart =
-      !latestExpiresAt || latestExpiresAt <= purchaseDate || !latestActive.started_at;
+      !latestExpiresAt ||
+      latestExpiresAt <= purchaseDate ||
+      !latestActive.started_at;
 
     const updatePayload: Record<string, unknown> = {
       status: 'active',

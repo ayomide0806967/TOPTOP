@@ -11,10 +11,11 @@ class LoadingManager {
 
   createGlobalLoader() {
     if (document.getElementById(this.globalLoaderId)) return;
-    
+
     const loader = document.createElement('div');
     loader.id = this.globalLoaderId;
-    loader.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden';
+    loader.className =
+      'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden';
     loader.innerHTML = `
       <div class="bg-white rounded-lg p-6 shadow-xl">
         <div class="flex flex-col items-center">
@@ -30,7 +31,7 @@ class LoadingManager {
     this.createGlobalLoader();
     const loader = document.getElementById(this.globalLoaderId);
     const text = document.getElementById('global-loader-text');
-    
+
     if (loader) {
       loader.classList.remove('hidden');
       if (text) text.textContent = message;
@@ -46,7 +47,7 @@ class LoadingManager {
 
   createInlineLoader(container, message = 'Loading...') {
     const loaderId = `loader-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
     const loader = document.createElement('div');
     loader.id = loaderId;
     loader.className = 'flex items-center justify-center p-8';
@@ -61,12 +62,12 @@ class LoadingManager {
         </div>
       </div>
     `;
-    
+
     if (container) {
       container.innerHTML = '';
       container.appendChild(loader);
     }
-    
+
     this.activeLoaders.add(loaderId);
     return loaderId;
   }
@@ -121,9 +122,9 @@ class LoadingManager {
             </div>
           </div>
         </div>
-      `
+      `,
     };
-    
+
     if (container) {
       container.innerHTML = '';
       for (let i = 0; i < count; i++) {
@@ -139,27 +140,29 @@ class LoadingManager {
       showGlobal = false,
       message = 'Loading...',
       container = null,
-      minDuration = 300
+      minDuration = 300,
     } = options;
-    
+
     const startTime = Date.now();
     let loaderId = null;
-    
+
     try {
       if (showGlobal) {
         this.showGlobalLoader(message);
       } else if (container) {
         loaderId = this.createInlineLoader(container, message);
       }
-      
+
       const result = await asyncFunction();
-      
+
       // Ensure minimum duration for better UX
       const elapsed = Date.now() - startTime;
       if (elapsed < minDuration) {
-        await new Promise(resolve => setTimeout(resolve, minDuration - elapsed));
+        await new Promise((resolve) =>
+          setTimeout(resolve, minDuration - elapsed)
+        );
       }
-      
+
       return result;
     } finally {
       if (showGlobal) {
@@ -172,7 +175,7 @@ class LoadingManager {
 
   clearAllLoaders() {
     this.hideGlobalLoader();
-    this.activeLoaders.forEach(loaderId => this.removeLoader(loaderId));
+    this.activeLoaders.forEach((loaderId) => this.removeLoader(loaderId));
   }
 }
 

@@ -246,7 +246,9 @@ function openPlanLearnersModal(plan) {
           `;
         } catch (error) {
           console.error('[Subscriptions] Unable to load plan learners', error);
-          const message = escapeHtml(error?.message || 'Unable to load learners.');
+          const message = escapeHtml(
+            error?.message || 'Unable to load learners.'
+          );
           body.innerHTML = `
             <div class="py-6 text-sm text-red-600">${message}</div>
           `;

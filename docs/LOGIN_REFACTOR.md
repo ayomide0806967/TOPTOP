@@ -3,6 +3,7 @@
 > **Legacy note:** Any references to `registration-after.js` correspond to the previous credential-completion step. The new journey collects usernames and passwords before payment, so login flows now align with `registration-before.js` and `create-pending-user`.
 
 ## Overview
+
 Complete refactor of the login system to enforce username/password authentication only, with robust error handling, validation, and improved code structure.
 
 ## Changes Made
@@ -10,16 +11,18 @@ Complete refactor of the login system to enforce username/password authenticatio
 ### 1. **login.html** - UI Updates
 
 #### Removed Email References
+
 - Changed placeholder text from "Username (or email)" to just "Username"
 - Updated error messages to remove email fallback options
 - Changed registration link from "start your 14-day free trial" to "Register here" pointing to `registration-before.html`
 
 #### Added Input Validation
+
 - **Username field:**
   - `minlength="3"` - Enforces minimum 3 characters
   - `pattern="[a-zA-Z0-9_-]+"` - Only allows letters, numbers, hyphens, and underscores
   - Added helpful `title` attribute for validation feedback
-  
+
 - **Password field:**
   - `minlength="6"` - Enforces minimum 6 characters
   - Added helpful `title` attribute for validation feedback
@@ -27,7 +30,9 @@ Complete refactor of the login system to enforce username/password authenticatio
 ### 2. **auth.js** - Complete Refactor
 
 #### Code Organization
+
 Restructured into clear sections with JSDoc comments:
+
 - **DOM Elements** - All DOM references at the top
 - **Constants** - Configuration values (MIN_USERNAME_LENGTH, MIN_PASSWORD_LENGTH, etc.)
 - **UI Feedback Functions** - User interface updates
@@ -39,7 +44,9 @@ Restructured into clear sections with JSDoc comments:
 #### Key Improvements
 
 ##### 1. Proper Form Field Handling
+
 **Before:**
+
 ```javascript
 let identifier = (fd.get('email') ?? '').toString().trim();
 // Fallback to direct DOM lookup
@@ -47,39 +54,46 @@ const idEl = document.getElementById('email-address');
 ```
 
 **After:**
+
 ```javascript
 const username = (formData.get('username') ?? '').toString().trim();
 // Correctly matches the HTML form field name
 ```
 
 ##### 2. Robust Validation
+
 - **`validateUsername(username)`**: Checks format, length, and allowed characters
 - **`validatePassword(password)`**: Validates password requirements
 - Returns structured objects: `{valid: boolean, error?: string}`
 
 ##### 3. Separated Concerns
+
 - **`getEmailFromUsername(supabase, username)`**: Handles username → email lookup
 - **`signInWithCredentials(supabase, email, password)`**: Handles Supabase authentication
 - **`handleLogin(event, supabase)`**: Orchestrates the login flow
 
 ##### 4. Better Error Handling
+
 ```javascript
 // Specific error messages for different scenarios
 if (error.message?.includes('Invalid login credentials')) {
-  return { 
-    success: false, 
-    error: 'Invalid username or password. If you haven\'t completed registration, click "Continue previous registration" below.' 
+  return {
+    success: false,
+    error:
+      'Invalid username or password. If you haven\'t completed registration, click "Continue previous registration" below.',
   };
 }
 ```
 
 ##### 5. Enhanced UX
+
 - Disables form inputs during loading state
 - Clear, specific error messages
 - Proper loading states with visual feedback
 - Graceful error recovery
 
 ##### 6. Session Management
+
 - **`checkExistingSession()`**: Checks for active sessions before showing login
 - **`handleImpersonation()`**: Separated impersonation logic
 - Proper auth state change listeners
@@ -103,18 +117,21 @@ graph TD
 ## Validation Rules
 
 ### Username
+
 - **Minimum length**: 3 characters
-- **Allowed characters**: Letters (a-z, A-Z), numbers (0-9), hyphens (-), underscores (_)
+- **Allowed characters**: Letters (a-z, A-Z), numbers (0-9), hyphens (-), underscores (\_)
 - **Case handling**: Normalized to lowercase for database lookup
 - **Pattern**: `/^[a-zA-Z0-9_-]+$/`
 
 ### Password
+
 - **Minimum length**: 6 characters
 - **No character restrictions** (allows special characters)
 
 ## Error Messages
 
 ### User-Facing Errors
+
 1. **"Username is required."** - Empty username field
 2. **"Username must be at least 3 characters."** - Too short
 3. **"Username can only contain letters, numbers, hyphens, and underscores."** - Invalid characters
@@ -126,6 +143,7 @@ graph TD
 9. **"An unexpected error occurred. Please try again."** - Catch-all error
 
 ### Developer Errors (Console)
+
 - `[Auth] Database error looking up username:` - Profile query failed
 - `[Auth] Sign-in error:` - Supabase auth error
 - `[Auth] Unexpected error in getEmailFromUsername:` - Exception in username lookup
@@ -138,21 +156,25 @@ graph TD
 ## Security Considerations
 
 ### 1. Username Normalization
+
 - All usernames are normalized to lowercase before database lookup
 - Prevents case-sensitivity issues
 - Consistent with registration flow (see `finalize-registration/index.ts`)
 
 ### 2. No Information Leakage
+
 - Generic error messages don't reveal whether username exists
 - "Invalid username or password" instead of "Invalid password"
 - Prevents username enumeration attacks
 
 ### 3. Input Sanitization
+
 - HTML5 pattern validation prevents injection attempts
 - Server-side validation in Supabase functions
 - Trimming whitespace prevents bypass attempts
 
 ### 4. Session Security
+
 - Proper session checking before showing login form
 - Auth state listeners for real-time session updates
 - Secure token handling for impersonation
@@ -217,12 +239,13 @@ The login system integrates seamlessly with the registration flow:
 ## Memory References
 
 This refactor addresses issues mentioned in previous memories:
+
 - ✅ **MEMORY[1e0a98b4]**: Username normalization (case-insensitive)
 - ✅ **MEMORY[ec752335]**: Registration flow integration
 - ✅ **MEMORY[400a0727]**: Improved error messages for incomplete registration
 
 ---
 
-**Last Updated**: 2025-09-30  
-**Author**: Senior Developer  
+**Last Updated**: 2025-09-30
+**Author**: Senior Developer
 **Status**: ✅ Complete

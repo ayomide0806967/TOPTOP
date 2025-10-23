@@ -44,11 +44,13 @@ const APP_SHELL = [
   '../assets/admin-screenshot-wide.png',
   '../assets/admin-screenshot-portrait.png',
   '../assets/partnership.png',
-  '../assets/tailwind.css'
+  '../assets/tailwind.css',
 ];
 
 const BASE_URL = self.location.href.replace(/service-worker\.js$/, '');
-const SHELL_SET = new Set(APP_SHELL.map((path) => new URL(path, BASE_URL).href));
+const SHELL_SET = new Set(
+  APP_SHELL.map((path) => new URL(path, BASE_URL).href)
+);
 const OFFLINE_URL = new URL('./offline.html', BASE_URL).href;
 
 self.addEventListener('install', (event) => {
@@ -61,12 +63,18 @@ self.addEventListener('install', (event) => {
           const request = new Request(url, { cache: 'reload' });
           const response = await fetch(request);
           if (!response || !response.ok) {
-            throw new Error(`Pre-cache failed: ${url} responded with ${response?.status}`);
+            throw new Error(
+              `Pre-cache failed: ${url} responded with ${response?.status}`
+            );
           }
           await cache.put(request, response);
         } catch (error) {
           // Missing assets should not block install; log for diagnostics and continue.
-          console.warn('[ServiceWorker] Failed to precache resource', entry, error);
+          console.warn(
+            '[ServiceWorker] Failed to precache resource',
+            entry,
+            error
+          );
         }
       }
       await self.skipWaiting();
@@ -81,7 +89,9 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => ![STATIC_CACHE, RUNTIME_CACHE, FONT_CACHE].includes(key))
+            .filter(
+              (key) => ![STATIC_CACHE, RUNTIME_CACHE, FONT_CACHE].includes(key)
+            )
             .map((key) => caches.delete(key))
         )
       )
@@ -99,7 +109,10 @@ function cacheFirst(request) {
     return fetch(request)
       .then((response) => {
         const copy = response.clone();
-        caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+        caches
+          .open(RUNTIME_CACHE)
+          .then((cache) => cache.put(request, copy))
+          .catch(() => {});
         return response;
       })
       .catch(() => cached);
@@ -111,7 +124,10 @@ function staleWhileRevalidate(request, cacheName = RUNTIME_CACHE) {
     const fetchPromise = fetch(request)
       .then((response) => {
         const copy = response.clone();
-        caches.open(cacheName).then((cache) => cache.put(request, copy)).catch(() => {});
+        caches
+          .open(cacheName)
+          .then((cache) => cache.put(request, copy))
+          .catch(() => {});
         return response;
       })
       .catch(() => cached);
@@ -123,7 +139,10 @@ function networkFirst(request, fallback) {
   return fetch(request)
     .then((response) => {
       const copy = response.clone();
-      caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+      caches
+        .open(RUNTIME_CACHE)
+        .then((cache) => cache.put(request, copy))
+        .catch(() => {});
       return response;
     })
     .catch(() => caches.match(request).then((cached) => cached || fallback));
@@ -141,10 +160,17 @@ self.addEventListener('fetch', (event) => {
       fetch(request)
         .then((response) => {
           const copy = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+          caches
+            .open(RUNTIME_CACHE)
+            .then((cache) => cache.put(request, copy))
+            .catch(() => {});
           return response;
         })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match(OFFLINE_URL)))
+        .catch(() =>
+          caches
+            .match(request)
+            .then((cached) => cached || caches.match(OFFLINE_URL))
+        )
     );
     return;
   }
@@ -160,10 +186,17 @@ self.addEventListener('fetch', (event) => {
         fetch(request)
           .then((response) => {
             const copy = response.clone();
-            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+            caches
+              .open(RUNTIME_CACHE)
+              .then((cache) => cache.put(request, copy))
+              .catch(() => {});
             return response;
           })
-          .catch(() => caches.match(request).then((cached) => cached || caches.match(OFFLINE_URL)))
+          .catch(() =>
+            caches
+              .match(request)
+              .then((cached) => cached || caches.match(OFFLINE_URL))
+          )
       );
       return;
     }

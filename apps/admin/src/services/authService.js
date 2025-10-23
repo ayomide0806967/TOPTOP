@@ -127,7 +127,9 @@ class AuthService extends EventTarget {
       const { error } = await this.client.auth.resetPasswordForEmail(email);
       if (error) throw error;
     } catch (error) {
-      throw new AuthServiceError('Failed to send password reset email.', { cause: error });
+      throw new AuthServiceError('Failed to send password reset email.', {
+        cause: error,
+      });
     }
   }
 
@@ -162,11 +164,15 @@ class AuthService extends EventTarget {
       await this.init();
     }
     try {
-      const { data, error } = await this.client.rpc('impersonate', { user_id: userId });
+      const { data, error } = await this.client.rpc('impersonate', {
+        user_id: userId,
+      });
       if (error) throw error;
       return data;
     } catch (error) {
-      throw new AuthServiceError('Failed to impersonate user.', { cause: error });
+      throw new AuthServiceError('Failed to impersonate user.', {
+        cause: error,
+      });
     }
   }
 

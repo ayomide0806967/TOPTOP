@@ -139,7 +139,9 @@ function serializeOptions(form) {
       content,
     });
   });
-  const correct = form.querySelector('input[name="correctOption"]:checked')?.value;
+  const correct = form.querySelector(
+    'input[name="correctOption"]:checked'
+  )?.value;
   if (!correct) {
     throw new Error('Select the correct option before saving.');
   }
@@ -202,36 +204,40 @@ function openCreateQuizModal(actions) {
         <button type="button" class="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white" data-role="create">Create Quiz</button>
       `;
 
-      footer.querySelector('[data-role="cancel"]').addEventListener('click', close);
-      footer.querySelector('[data-role="create"]').addEventListener('click', async () => {
-        const form = body.querySelector('#free-quiz-form');
-        const formData = new FormData(form);
-        const title = formData.get('title').trim();
-        if (!title) {
-          showToast('Title is required.', { type: 'error' });
-          return;
-        }
-        const payload = {
-          title,
-          description: formData.get('description').trim(),
-          intro: formData.get('intro').trim(),
-          time_limit_seconds: formData.get('time_limit')
-            ? Number(formData.get('time_limit')) * 60
-            : null,
-          is_active: formData.get('is_active') === 'on',
-        };
-        try {
-          await dataService.createFreeQuiz(payload);
-          showToast('Free quiz created.', { type: 'success' });
-          close();
-          actions.refresh();
-        } catch (error) {
-          console.error(error);
-          showToast(error.message || 'Unable to create free quiz.', {
-            type: 'error',
-          });
-        }
-      });
+      footer
+        .querySelector('[data-role="cancel"]')
+        .addEventListener('click', close);
+      footer
+        .querySelector('[data-role="create"]')
+        .addEventListener('click', async () => {
+          const form = body.querySelector('#free-quiz-form');
+          const formData = new FormData(form);
+          const title = formData.get('title').trim();
+          if (!title) {
+            showToast('Title is required.', { type: 'error' });
+            return;
+          }
+          const payload = {
+            title,
+            description: formData.get('description').trim(),
+            intro: formData.get('intro').trim(),
+            time_limit_seconds: formData.get('time_limit')
+              ? Number(formData.get('time_limit')) * 60
+              : null,
+            is_active: formData.get('is_active') === 'on',
+          };
+          try {
+            await dataService.createFreeQuiz(payload);
+            showToast('Free quiz created.', { type: 'success' });
+            close();
+            actions.refresh();
+          } catch (error) {
+            console.error(error);
+            showToast(error.message || 'Unable to create free quiz.', {
+              type: 'error',
+            });
+          }
+        });
     },
   });
 }
@@ -347,40 +353,60 @@ async function openManageQuizModal(quiz, topics, actions) {
           <button type="button" class="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white" data-role="save-settings">Save changes</button>
         `;
 
-        footer.querySelector('[data-role="close"]').addEventListener('click', close);
+        footer
+          .querySelector('[data-role="close"]')
+          .addEventListener('click', close);
 
-        footer.querySelector('[data-role="save-settings"]').addEventListener('click', async () => {
-          const form = body.querySelector('#quiz-settings-form');
-          const formData = new FormData(form);
-          const payload = {
-            title: formData.get('title').trim(),
-            description: formData.get('description').trim(),
-            intro: formData.get('intro').trim(),
-            time_limit_seconds: formData.get('time_limit')
-              ? Number(formData.get('time_limit')) * 60
-              : null,
-            is_active: formData.get('is_active') === 'on',
-          };
-          try {
-            await dataService.updateFreeQuiz(currentQuiz.id, payload);
-            showToast('Quiz updated.', { type: 'success' });
-            actions.refresh();
-          } catch (error) {
-            console.error(error);
-            showToast(error.message || 'Unable to update quiz.', { type: 'error' });
-          }
-        });
+        footer
+          .querySelector('[data-role="save-settings"]')
+          .addEventListener('click', async () => {
+            const form = body.querySelector('#quiz-settings-form');
+            const formData = new FormData(form);
+            const payload = {
+              title: formData.get('title').trim(),
+              description: formData.get('description').trim(),
+              intro: formData.get('intro').trim(),
+              time_limit_seconds: formData.get('time_limit')
+                ? Number(formData.get('time_limit')) * 60
+                : null,
+              is_active: formData.get('is_active') === 'on',
+            };
+            try {
+              await dataService.updateFreeQuiz(currentQuiz.id, payload);
+              showToast('Quiz updated.', { type: 'success' });
+              actions.refresh();
+            } catch (error) {
+              console.error(error);
+              showToast(error.message || 'Unable to update quiz.', {
+                type: 'error',
+              });
+            }
+          });
 
-        const questionListContainer = body.querySelector('[data-role="question-list"]');
-        const questionSearchInput = body.querySelector('[data-role="question-search"]');
-        const selectAllBtn = body.querySelector('[data-role="select-all-questions"]');
-        const clearSelectionBtn = body.querySelector('[data-role="clear-selected-questions"]');
-        const bulkDeleteBtn = body.querySelector('[data-role="delete-selected-questions"]');
-        const selectionSummaryEl = body.querySelector('[data-role="selection-summary"]');
+        const questionListContainer = body.querySelector(
+          '[data-role="question-list"]'
+        );
+        const questionSearchInput = body.querySelector(
+          '[data-role="question-search"]'
+        );
+        const selectAllBtn = body.querySelector(
+          '[data-role="select-all-questions"]'
+        );
+        const clearSelectionBtn = body.querySelector(
+          '[data-role="clear-selected-questions"]'
+        );
+        const bulkDeleteBtn = body.querySelector(
+          '[data-role="delete-selected-questions"]'
+        );
+        const selectionSummaryEl = body.querySelector(
+          '[data-role="selection-summary"]'
+        );
 
         const ensureValidSelections = () => {
           selectedQuestionIds = new Set(
-            [...selectedQuestionIds].filter((id) => questions.some((question) => question.id === id)),
+            [...selectedQuestionIds].filter((id) =>
+              questions.some((question) => question.id === id)
+            )
           );
         };
 
@@ -390,7 +416,12 @@ async function openManageQuizModal(quiz, topics, actions) {
             return [...questions];
           }
           return questions.filter((item) => {
-            const haystack = [item.prompt, item.explanation, item.correct_option, item.id]
+            const haystack = [
+              item.prompt,
+              item.explanation,
+              item.correct_option,
+              item.id,
+            ]
               .filter(Boolean)
               .join(' ')
               .toLowerCase();
@@ -399,13 +430,20 @@ async function openManageQuizModal(quiz, topics, actions) {
         };
 
         const updateSelectionUI = (filtered = getFilteredQuestions()) => {
-          if (!selectionSummaryEl || !bulkDeleteBtn || !clearSelectionBtn || !selectAllBtn) {
+          if (
+            !selectionSummaryEl ||
+            !bulkDeleteBtn ||
+            !clearSelectionBtn ||
+            !selectAllBtn
+          ) {
             return;
           }
 
           const totalQuestions = questions.length;
           const selectedCount = selectedQuestionIds.size;
-          const selectedInView = filtered.filter((item) => selectedQuestionIds.has(item.id)).length;
+          const selectedInView = filtered.filter((item) =>
+            selectedQuestionIds.has(item.id)
+          ).length;
           const searchTerm = (questionSearchTerm || '').trim();
 
           let summary = '';
@@ -426,8 +464,12 @@ async function openManageQuizModal(quiz, topics, actions) {
           clearSelectionBtn.disabled = selectedCount === 0;
           selectAllBtn.disabled = filtered.length === 0;
 
-          const allInViewSelected = filtered.length > 0 && filtered.every((item) => selectedQuestionIds.has(item.id));
-          selectAllBtn.textContent = allInViewSelected ? 'Unselect all' : 'Select all';
+          const allInViewSelected =
+            filtered.length > 0 &&
+            filtered.every((item) => selectedQuestionIds.has(item.id));
+          selectAllBtn.textContent = allInViewSelected
+            ? 'Unselect all'
+            : 'Select all';
         };
 
         const renderQuestions = () => {
@@ -435,7 +477,8 @@ async function openManageQuizModal(quiz, topics, actions) {
           const filtered = getFilteredQuestions();
 
           if (!questions.length) {
-            questionListContainer.innerHTML = '<p class="py-6 text-center text-sm text-slate-500">No questions added yet.</p>';
+            questionListContainer.innerHTML =
+              '<p class="py-6 text-center text-sm text-slate-500">No questions added yet.</p>';
             updateSelectionUI(filtered);
             return;
           }
@@ -445,37 +488,48 @@ async function openManageQuizModal(quiz, topics, actions) {
             selectedIds: selectedQuestionIds,
           });
 
-          questionListContainer.querySelectorAll('[data-role="remove-question"]').forEach((button) => {
-            button.addEventListener('click', async (event) => {
-              const questionId = event.currentTarget.closest('[data-question-id]')?.dataset?.questionId;
-              if (!questionId) return;
-              if (!window.confirm('Remove this question from the free quiz?')) return;
-              try {
-                await dataService.deleteFreeQuizQuestion(questionId);
-                questions = questions.filter((item) => item.id !== questionId);
-                selectedQuestionIds.delete(questionId);
-                renderQuestions();
-                actions.refresh();
-                showToast('Question removed.', { type: 'success' });
-              } catch (error) {
-                console.error(error);
-                showToast(error.message || 'Unable to remove question.', { type: 'error' });
-              }
+          questionListContainer
+            .querySelectorAll('[data-role="remove-question"]')
+            .forEach((button) => {
+              button.addEventListener('click', async (event) => {
+                const questionId =
+                  event.currentTarget.closest('[data-question-id]')?.dataset
+                    ?.questionId;
+                if (!questionId) return;
+                if (!window.confirm('Remove this question from the free quiz?'))
+                  return;
+                try {
+                  await dataService.deleteFreeQuizQuestion(questionId);
+                  questions = questions.filter(
+                    (item) => item.id !== questionId
+                  );
+                  selectedQuestionIds.delete(questionId);
+                  renderQuestions();
+                  actions.refresh();
+                  showToast('Question removed.', { type: 'success' });
+                } catch (error) {
+                  console.error(error);
+                  showToast(error.message || 'Unable to remove question.', {
+                    type: 'error',
+                  });
+                }
+              });
             });
-          });
 
-          questionListContainer.querySelectorAll('[data-role="question-select"]').forEach((checkbox) => {
-            checkbox.addEventListener('change', (event) => {
-              const value = event.currentTarget.value;
-              if (!value) return;
-              if (event.currentTarget.checked) {
-                selectedQuestionIds.add(value);
-              } else {
-                selectedQuestionIds.delete(value);
-              }
-              updateSelectionUI();
+          questionListContainer
+            .querySelectorAll('[data-role="question-select"]')
+            .forEach((checkbox) => {
+              checkbox.addEventListener('change', (event) => {
+                const value = event.currentTarget.value;
+                if (!value) return;
+                if (event.currentTarget.checked) {
+                  selectedQuestionIds.add(value);
+                } else {
+                  selectedQuestionIds.delete(value);
+                }
+                updateSelectionUI();
+              });
             });
-          });
 
           updateSelectionUI(filtered);
         };
@@ -490,7 +544,9 @@ async function openManageQuizModal(quiz, topics, actions) {
         selectAllBtn?.addEventListener('click', () => {
           const filtered = getFilteredQuestions();
           if (!filtered.length) return;
-          const allSelected = filtered.every((item) => selectedQuestionIds.has(item.id));
+          const allSelected = filtered.every((item) =>
+            selectedQuestionIds.has(item.id)
+          );
           if (allSelected) {
             filtered.forEach((item) => selectedQuestionIds.delete(item.id));
           } else {
@@ -508,7 +564,11 @@ async function openManageQuizModal(quiz, topics, actions) {
         bulkDeleteBtn?.addEventListener('click', async () => {
           const ids = Array.from(selectedQuestionIds);
           if (!ids.length) return;
-          if (!window.confirm(`Delete ${ids.length} selected question${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) {
+          if (
+            !window.confirm(
+              `Delete ${ids.length} selected question${ids.length === 1 ? '' : 's'}? This cannot be undone.`
+            )
+          ) {
             return;
           }
 
@@ -524,9 +584,12 @@ async function openManageQuizModal(quiz, topics, actions) {
             selectedQuestionIds.clear();
             renderQuestions();
             actions.refresh();
-            showToast(`Deleted ${ids.length} question${ids.length === 1 ? '' : 's'}.`, {
-              type: 'success',
-            });
+            showToast(
+              `Deleted ${ids.length} question${ids.length === 1 ? '' : 's'}.`,
+              {
+                type: 'success',
+              }
+            );
           } catch (error) {
             console.error(error);
             showToast(error.message || 'Unable to delete selected questions.', {
@@ -538,12 +601,18 @@ async function openManageQuizModal(quiz, topics, actions) {
           }
         });
 
-        body.querySelector('[data-role="add-manual-question"]').addEventListener('click', () => {
-          openModal({
-            title: 'Add Question',
-            size: 'lg',
-            render: ({ body: qBody, footer: qFooter, close: closeQuestionModal }) => {
-              qBody.innerHTML = `
+        body
+          .querySelector('[data-role="add-manual-question"]')
+          .addEventListener('click', () => {
+            openModal({
+              title: 'Add Question',
+              size: 'lg',
+              render: ({
+                body: qBody,
+                footer: qFooter,
+                close: closeQuestionModal,
+              }) => {
+                qBody.innerHTML = `
                 <form id="manual-question-form" class="space-y-4">
                   <label class="text-sm font-medium text-slate-700">
                     <span>Question prompt</span>
@@ -563,56 +632,73 @@ async function openManageQuizModal(quiz, topics, actions) {
                   </div>
                 </form>
               `;
-              qFooter.innerHTML = `
+                qFooter.innerHTML = `
                 <button type="button" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600" data-role="cancel">Cancel</button>
                 <button type="button" class="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white" data-role="save">Add question</button>
               `;
-              qFooter.querySelector('[data-role="cancel"]').addEventListener('click', closeQuestionModal);
-              qFooter.querySelector('[data-role="save"]').addEventListener('click', async () => {
-                const form = qBody.querySelector('#manual-question-form');
-                const formData = new FormData(form);
-                const prompt = formData.get('prompt').trim();
-                if (!prompt) {
-                  showToast('Question prompt is required.', { type: 'error' });
-                  return;
-                }
-                try {
-                  const { entries, correct } = serializeOptions(form);
-                  const imageFile = formData.get('image');
-                  await dataService.createFreeQuizQuestion({
-                    quizId: currentQuiz.id,
-                    prompt,
-                    explanation: formData.get('explanation').trim(),
-                    imageFile: imageFile && imageFile.size ? imageFile : null,
-                    options: entries,
-                    correctOption: correct,
+                qFooter
+                  .querySelector('[data-role="cancel"]')
+                  .addEventListener('click', closeQuestionModal);
+                qFooter
+                  .querySelector('[data-role="save"]')
+                  .addEventListener('click', async () => {
+                    const form = qBody.querySelector('#manual-question-form');
+                    const formData = new FormData(form);
+                    const prompt = formData.get('prompt').trim();
+                    if (!prompt) {
+                      showToast('Question prompt is required.', {
+                        type: 'error',
+                      });
+                      return;
+                    }
+                    try {
+                      const { entries, correct } = serializeOptions(form);
+                      const imageFile = formData.get('image');
+                      await dataService.createFreeQuizQuestion({
+                        quizId: currentQuiz.id,
+                        prompt,
+                        explanation: formData.get('explanation').trim(),
+                        imageFile:
+                          imageFile && imageFile.size ? imageFile : null,
+                        options: entries,
+                        correctOption: correct,
+                      });
+                      showToast('Question added.', { type: 'success' });
+                      const refreshed = await dataService.getFreeQuizDetail(
+                        currentQuiz.id
+                      );
+                      questions = refreshed.questions || [];
+                      selectedQuestionIds = new Set();
+                      questionSearchTerm = '';
+                      if (questionSearchInput) {
+                        questionSearchInput.value = '';
+                      }
+                      renderQuestions();
+                      actions.refresh();
+                      closeQuestionModal();
+                    } catch (error) {
+                      console.error(error);
+                      showToast(error.message || 'Unable to add question.', {
+                        type: 'error',
+                      });
+                    }
                   });
-                  showToast('Question added.', { type: 'success' });
-                  const refreshed = await dataService.getFreeQuizDetail(currentQuiz.id);
-                  questions = refreshed.questions || [];
-                  selectedQuestionIds = new Set();
-                  questionSearchTerm = '';
-                  if (questionSearchInput) {
-                    questionSearchInput.value = '';
-                  }
-                  renderQuestions();
-                  actions.refresh();
-                  closeQuestionModal();
-                } catch (error) {
-                  console.error(error);
-                  showToast(error.message || 'Unable to add question.', { type: 'error' });
-                }
-              });
-            },
+              },
+            });
           });
-        });
 
-        body.querySelector('[data-role="import-from-bank"]').addEventListener('click', () => {
-          openModal({
-            title: 'Add from question bank',
-            size: 'lg',
-            render: ({ body: bankBody, footer: bankFooter, close: closeBankModal }) => {
-              bankBody.innerHTML = `
+        body
+          .querySelector('[data-role="import-from-bank"]')
+          .addEventListener('click', () => {
+            openModal({
+              title: 'Add from question bank',
+              size: 'lg',
+              render: ({
+                body: bankBody,
+                footer: bankFooter,
+                close: closeBankModal,
+              }) => {
+                bankBody.innerHTML = `
                 <form class="space-y-4">
                   <label class="text-sm font-medium text-slate-700">
                     <span>Select topic</span>
@@ -624,20 +710,27 @@ async function openManageQuizModal(quiz, topics, actions) {
                   <div data-role="question-list" class="max-h-80 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50"></div>
                 </form>
               `;
-              bankFooter.innerHTML = `
+                bankFooter.innerHTML = `
                 <button type="button" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600" data-role="close">Close</button>
               `;
-              bankFooter.querySelector('[data-role="close"]').addEventListener('click', closeBankModal);
+                bankFooter
+                  .querySelector('[data-role="close"]')
+                  .addEventListener('click', closeBankModal);
 
-              const topicSelect = bankBody.querySelector('select[name="topic"]');
-              const questionList = bankBody.querySelector('[data-role="question-list"]');
+                const topicSelect = bankBody.querySelector(
+                  'select[name="topic"]'
+                );
+                const questionList = bankBody.querySelector(
+                  '[data-role="question-list"]'
+                );
 
-              const renderBankQuestions = (items) => {
-                if (!items.length) {
-                  questionList.innerHTML = '<p class="py-6 text-center text-sm text-slate-500">No questions yet for this topic.</p>';
-                  return;
-                }
-                questionList.innerHTML = `
+                const renderBankQuestions = (items) => {
+                  if (!items.length) {
+                    questionList.innerHTML =
+                      '<p class="py-6 text-center text-sm text-slate-500">No questions yet for this topic.</p>';
+                    return;
+                  }
+                  questionList.innerHTML = `
                   <ul class="divide-y divide-slate-200">
                     ${items
                       .map(
@@ -651,17 +744,128 @@ async function openManageQuizModal(quiz, topics, actions) {
                       .join('')}
                   </ul>
                 `;
-                questionList.querySelectorAll('[data-role="add-from-bank"]').forEach((button) => {
-                  button.addEventListener('click', async (event) => {
-                    const questionId = event.currentTarget.closest('[data-bank-question-id]')?.dataset?.bankQuestionId;
-                    if (!questionId) return;
-                    try {
-                      await dataService.importFreeQuizQuestionFromBank({
-                        quizId: currentQuiz.id,
-                        questionId,
+                  questionList
+                    .querySelectorAll('[data-role="add-from-bank"]')
+                    .forEach((button) => {
+                      button.addEventListener('click', async (event) => {
+                        const questionId = event.currentTarget.closest(
+                          '[data-bank-question-id]'
+                        )?.dataset?.bankQuestionId;
+                        if (!questionId) return;
+                        try {
+                          await dataService.importFreeQuizQuestionFromBank({
+                            quizId: currentQuiz.id,
+                            questionId,
+                          });
+                          showToast('Question added from bank.', {
+                            type: 'success',
+                          });
+                          const refreshed = await dataService.getFreeQuizDetail(
+                            currentQuiz.id
+                          );
+                          questions = refreshed.questions || [];
+                          selectedQuestionIds = new Set();
+                          questionSearchTerm = '';
+                          if (questionSearchInput) {
+                            questionSearchInput.value = '';
+                          }
+                          renderQuestions();
+                          actions.refresh();
+                        } catch (error) {
+                          console.error(error);
+                          showToast(
+                            error.message ||
+                              'Unable to add question from bank.',
+                            { type: 'error' }
+                          );
+                        }
                       });
-                      showToast('Question added from bank.', { type: 'success' });
-                      const refreshed = await dataService.getFreeQuizDetail(currentQuiz.id);
+                    });
+                };
+
+                topicSelect.addEventListener('change', async (event) => {
+                  const topicId = event.target.value;
+                  if (!topicId) {
+                    questionList.innerHTML = '';
+                    return;
+                  }
+                  try {
+                    const questionsFromTopic =
+                      await dataService.listQuestions(topicId);
+                    renderBankQuestions(questionsFromTopic);
+                  } catch (error) {
+                    console.error(error);
+                    showToast(
+                      error.message || 'Unable to fetch questions for topic.',
+                      { type: 'error' }
+                    );
+                  }
+                });
+              },
+            });
+          });
+
+        body
+          .querySelector('[data-role="import-from-file"]')
+          .addEventListener('click', () => {
+            openModal({
+              title: 'Upload questions',
+              render: ({
+                body: uploadBody,
+                footer: uploadFooter,
+                close: closeUploadModal,
+              }) => {
+                uploadBody.innerHTML = `
+                <form id="upload-form" class="space-y-4">
+                  <p class="text-sm text-slate-600">Upload questions in AIKEN format (.txt) to append them to this free quiz.</p>
+                  <input type="file" name="file" accept=".txt,.aiken" class="w-full rounded-lg border border-slate-200 px-3 py-2" required />
+                </form>
+              `;
+                uploadFooter.innerHTML = `
+                <button type="button" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600" data-role="cancel">Cancel</button>
+                <button type="button" class="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white" data-role="import">Import</button>
+              `;
+                uploadFooter
+                  .querySelector('[data-role="cancel"]')
+                  .addEventListener('click', closeUploadModal);
+                uploadFooter
+                  .querySelector('[data-role="import"]')
+                  .addEventListener('click', async () => {
+                    const form = uploadBody.querySelector('#upload-form');
+                    const file = form.file.files?.[0];
+                    if (!file) {
+                      showToast('Select a file to continue.', {
+                        type: 'error',
+                      });
+                      return;
+                    }
+                    try {
+                      const result =
+                        await dataService.importFreeQuizQuestionsFromAiken({
+                          quizId: currentQuiz.id,
+                          file,
+                        });
+                      const inserted = Number(result?.insertedCount ?? 0);
+                      const skipped = Number(result?.skippedCount ?? 0);
+                      const toastType = skipped ? 'warning' : 'success';
+                      const toastMessage = skipped
+                        ? `${inserted} question${inserted === 1 ? '' : 's'} added • ${skipped} skipped`
+                        : `${inserted} question${inserted === 1 ? '' : 's'} added to the quiz.`;
+                      showToast(toastMessage, { type: toastType });
+                      if (
+                        skipped &&
+                        Array.isArray(result?.parseErrors) &&
+                        result.parseErrors.length
+                      ) {
+                        const firstIssue = result.parseErrors[0];
+                        const detail = firstIssue?.message
+                          ? `First issue: ${firstIssue.message}`
+                          : 'Skipped items had formatting issues. Fix them and retry.';
+                        showToast(detail, { type: 'info' });
+                      }
+                      const refreshed = await dataService.getFreeQuizDetail(
+                        currentQuiz.id
+                      );
                       questions = refreshed.questions || [];
                       selectedQuestionIds = new Set();
                       questionSearchTerm = '';
@@ -670,96 +874,25 @@ async function openManageQuizModal(quiz, topics, actions) {
                       }
                       renderQuestions();
                       actions.refresh();
+                      closeUploadModal();
                     } catch (error) {
                       console.error(error);
-                      showToast(error.message || 'Unable to add question from bank.', { type: 'error' });
+                      showToast(
+                        error.message || 'Unable to import questions.',
+                        { type: 'error' }
+                      );
                     }
                   });
-                });
-              };
-
-              topicSelect.addEventListener('change', async (event) => {
-                const topicId = event.target.value;
-                if (!topicId) {
-                  questionList.innerHTML = '';
-                  return;
-                }
-                try {
-                  const questionsFromTopic = await dataService.listQuestions(topicId);
-                  renderBankQuestions(questionsFromTopic);
-                } catch (error) {
-                  console.error(error);
-                  showToast(error.message || 'Unable to fetch questions for topic.', { type: 'error' });
-                }
-              });
-            },
+              },
+            });
           });
-        });
-
-        body.querySelector('[data-role="import-from-file"]').addEventListener('click', () => {
-          openModal({
-            title: 'Upload questions',
-            render: ({ body: uploadBody, footer: uploadFooter, close: closeUploadModal }) => {
-              uploadBody.innerHTML = `
-                <form id="upload-form" class="space-y-4">
-                  <p class="text-sm text-slate-600">Upload questions in AIKEN format (.txt) to append them to this free quiz.</p>
-                  <input type="file" name="file" accept=".txt,.aiken" class="w-full rounded-lg border border-slate-200 px-3 py-2" required />
-                </form>
-              `;
-              uploadFooter.innerHTML = `
-                <button type="button" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600" data-role="cancel">Cancel</button>
-                <button type="button" class="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white" data-role="import">Import</button>
-              `;
-              uploadFooter.querySelector('[data-role="cancel"]').addEventListener('click', closeUploadModal);
-              uploadFooter.querySelector('[data-role="import"]').addEventListener('click', async () => {
-                const form = uploadBody.querySelector('#upload-form');
-                const file = form.file.files?.[0];
-                if (!file) {
-                  showToast('Select a file to continue.', { type: 'error' });
-                  return;
-                }
-                try {
-                  const result = await dataService.importFreeQuizQuestionsFromAiken({
-                    quizId: currentQuiz.id,
-                    file,
-                  });
-                  const inserted = Number(result?.insertedCount ?? 0);
-                  const skipped = Number(result?.skippedCount ?? 0);
-                  const toastType = skipped ? 'warning' : 'success';
-                  const toastMessage = skipped
-                    ? `${inserted} question${inserted === 1 ? '' : 's'} added • ${skipped} skipped`
-                    : `${inserted} question${inserted === 1 ? '' : 's'} added to the quiz.`;
-                  showToast(toastMessage, { type: toastType });
-                  if (skipped && Array.isArray(result?.parseErrors) && result.parseErrors.length) {
-                    const firstIssue = result.parseErrors[0];
-                    const detail = firstIssue?.message
-                      ? `First issue: ${firstIssue.message}`
-                      : 'Skipped items had formatting issues. Fix them and retry.';
-                    showToast(detail, { type: 'info' });
-                  }
-                  const refreshed = await dataService.getFreeQuizDetail(currentQuiz.id);
-                  questions = refreshed.questions || [];
-                  selectedQuestionIds = new Set();
-                  questionSearchTerm = '';
-                  if (questionSearchInput) {
-                    questionSearchInput.value = '';
-                  }
-                  renderQuestions();
-                  actions.refresh();
-                  closeUploadModal();
-                } catch (error) {
-                  console.error(error);
-                  showToast(error.message || 'Unable to import questions.', { type: 'error' });
-                }
-              });
-            },
-          });
-        });
       },
     });
   } catch (error) {
     console.error(error);
-    showToast(error.message || 'Unable to open quiz manager.', { type: 'error' });
+    showToast(error.message || 'Unable to open quiz manager.', {
+      type: 'error',
+    });
   }
 }
 
@@ -800,28 +933,41 @@ export async function freeQuizzesView(state, actions) {
     `,
     onMount(container) {
       const refresh = () => actions.refresh();
-      container.querySelector('[data-role="refresh"]').addEventListener('click', refresh);
-      container.querySelector('[data-role="create-quiz"]').addEventListener('click', () => {
-        openCreateQuizModal(actions);
-      });
+      container
+        .querySelector('[data-role="refresh"]')
+        .addEventListener('click', refresh);
+      container
+        .querySelector('[data-role="create-quiz"]')
+        .addEventListener('click', () => {
+          openCreateQuizModal(actions);
+        });
       container.querySelectorAll('[data-quiz-id]').forEach((card) => {
         const quizId = card.dataset.quizId;
         const quiz = quizzes.find((item) => item.id === quizId);
         if (!quiz) return;
-        card.querySelector('[data-role="manage-quiz"]').addEventListener('click', () => {
-          openManageQuizModal(quiz, topics, actions);
-        });
-        card.querySelector('[data-role="delete-quiz"]').addEventListener('click', async () => {
-          if (!window.confirm('Delete this free quiz? This cannot be undone.')) return;
-          try {
-            await dataService.deleteFreeQuiz(quiz.id);
-            showToast('Free quiz removed.', { type: 'success' });
-            actions.refresh();
-          } catch (error) {
-            console.error(error);
-            showToast(error.message || 'Unable to delete quiz.', { type: 'error' });
-          }
-        });
+        card
+          .querySelector('[data-role="manage-quiz"]')
+          .addEventListener('click', () => {
+            openManageQuizModal(quiz, topics, actions);
+          });
+        card
+          .querySelector('[data-role="delete-quiz"]')
+          .addEventListener('click', async () => {
+            if (
+              !window.confirm('Delete this free quiz? This cannot be undone.')
+            )
+              return;
+            try {
+              await dataService.deleteFreeQuiz(quiz.id);
+              showToast('Free quiz removed.', { type: 'success' });
+              actions.refresh();
+            } catch (error) {
+              console.error(error);
+              showToast(error.message || 'Unable to delete quiz.', {
+                type: 'error',
+              });
+            }
+          });
       });
     },
   };

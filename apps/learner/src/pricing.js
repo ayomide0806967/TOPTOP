@@ -10,7 +10,9 @@ const gateEl = document.querySelector('[data-role="department-gate"]');
 const gateOptionsEl = document.querySelector(
   '[data-role="department-options"]'
 );
-const gateLoadingEl = document.querySelector('[data-role="department-loading"]');
+const gateLoadingEl = document.querySelector(
+  '[data-role="department-loading"]'
+);
 const gateGeneralBtn = document.querySelector('[data-role="select-general"]');
 
 const THEME_MAP = {
@@ -469,7 +471,6 @@ function showError(message) {
   showBanner(message, 'error');
 }
 
-
 function clearError() {
   if (!errorEl) return;
   errorEl.classList.add('hidden');
@@ -638,7 +639,10 @@ async function ensureAuthSession() {
         state.profileLoaded = false;
         if (state.user) {
           ensureProfile().catch((profileError) => {
-            console.warn('[Pricing] Failed to refresh profile after auth change', profileError);
+            console.warn(
+              '[Pricing] Failed to refresh profile after auth change',
+              profileError
+            );
           });
         }
       });
@@ -663,7 +667,9 @@ async function ensureProfile() {
     const supabase = await getSupabaseClient();
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, first_name, last_name, phone, email, username, subscription_status')
+      .select(
+        'id, full_name, first_name, last_name, phone, email, username, subscription_status'
+      )
       .eq('id', state.user.id)
       .maybeSingle();
     if (error) {
@@ -679,9 +685,6 @@ async function ensureProfile() {
   }
   return state.profile;
 }
-
-
-
 
 function attachPlanHandlers() {
   if (!grid) return;
@@ -708,7 +711,6 @@ function maybeTriggerPendingCheckout() {
   window.localStorage.removeItem('pendingPlanId');
   handlePlanSelection(planId);
 }
-
 
 function shouldUseRegistrationFlow() {
   if (!state.user) return true;
@@ -745,11 +747,15 @@ function buildContactPayload(planId) {
   const { first: fullFirst, last: fullLast } = splitNameParts(
     profile.full_name || metadata.full_name || ''
   );
-  const firstName = profile.first_name || metadata.first_name || fullFirst || 'Learner';
-  const lastName = profile.last_name || metadata.last_name || fullLast || 'Account';
+  const firstName =
+    profile.first_name || metadata.first_name || fullFirst || 'Learner';
+  const lastName =
+    profile.last_name || metadata.last_name || fullLast || 'Account';
   const phone = profile.phone || metadata.phone || '';
   const username =
-    metadata.username || profile.username || (email ? email.split('@')[0] : `user-${Date.now()}`);
+    metadata.username ||
+    profile.username ||
+    (email ? email.split('@')[0] : `user-${Date.now()}`);
 
   return {
     planId,
@@ -778,7 +784,10 @@ async function extractEdgeFunctionError(error, fallbackMessage) {
     }
   }
 
-  if (error?.message && error.message !== 'Edge Function returned a non-2xx status code') {
+  if (
+    error?.message &&
+    error.message !== 'Edge Function returned a non-2xx status code'
+  ) {
     return error.message;
   }
 
@@ -807,17 +816,22 @@ async function refreshProfileStatus() {
       p_user_id: state.user.id,
     });
   } catch (error) {
-    console.warn('[Pricing] Unable to refresh profile subscription status', error);
+    console.warn(
+      '[Pricing] Unable to refresh profile subscription status',
+      error
+    );
   }
   state.profileLoaded = false;
   await ensureProfile();
 }
 
-
 async function startExistingUserCheckout(planId) {
   const entry = state.planLookup.get(planId);
   if (!entry || !entry.plan) {
-    showBanner('We could not locate that plan. Please refresh and try again.', 'error');
+    showBanner(
+      'We could not locate that plan. Please refresh and try again.',
+      'error'
+    );
     return;
   }
 
@@ -836,18 +850,21 @@ async function startExistingUserCheckout(planId) {
     showBanner('Preparing secure checkout. Please wait…', 'info');
 
     const supabase = await getSupabaseClient();
-    const { data, error } = await supabase.functions.invoke('paystack-initiate', {
-      body: {
-        planId: planRecord.id || planId,
-        userId: state.user.id,
-        registration: {
-          first_name: contact.firstName,
-          last_name: contact.lastName,
-          phone: contact.phone,
-          username: contact.username,
+    const { data, error } = await supabase.functions.invoke(
+      'paystack-initiate',
+      {
+        body: {
+          planId: planRecord.id || planId,
+          userId: state.user.id,
+          registration: {
+            first_name: contact.firstName,
+            last_name: contact.lastName,
+            phone: contact.phone,
+            username: contact.username,
+          },
         },
-      },
-    });
+      }
+    );
 
     if (error) {
       const message = await extractEdgeFunctionError(
@@ -869,14 +886,20 @@ async function startExistingUserCheckout(planId) {
     launchExistingUserCheckout(data, contact);
   } catch (error) {
     console.error('[Pricing] Checkout initialisation failed', error);
-    showBanner(error.message || 'Unable to start checkout. Please try again.', 'error');
+    showBanner(
+      error.message || 'Unable to start checkout. Please try again.',
+      'error'
+    );
     resetCheckoutState();
   }
 }
 
 function launchExistingUserCheckout(paystackData, contact) {
   if (!window.PaystackPop) {
-    showBanner('Payment library failed to load. Please refresh and try again.', 'error');
+    showBanner(
+      'Payment library failed to load. Please refresh and try again.',
+      'error'
+    );
     resetCheckoutState();
     return;
   }
@@ -894,7 +917,10 @@ function launchExistingUserCheckout(paystackData, contact) {
         verifyExistingPayment(reference)
           .then(() => refreshProfileStatus())
           .then(() => {
-            showBanner('Payment confirmed! Redirecting to your dashboard…', 'success');
+            showBanner(
+              'Payment confirmed! Redirecting to your dashboard…',
+              'success'
+            );
             resetCheckoutState();
             window.setTimeout(() => {
               window.location.href = 'admin-board.html';
@@ -911,7 +937,10 @@ function launchExistingUserCheckout(paystackData, contact) {
           });
       },
       onClose: () => {
-        showBanner('Checkout closed before completion. You can try again anytime.', 'warning');
+        showBanner(
+          'Checkout closed before completion. You can try again anytime.',
+          'warning'
+        );
         resetCheckoutState();
       },
     });
@@ -919,11 +948,13 @@ function launchExistingUserCheckout(paystackData, contact) {
     handler.openIframe();
   } catch (error) {
     console.error('[Pricing] Failed to open Paystack checkout', error);
-    showBanner('We could not open the payment window. Please refresh and try again.', 'error');
+    showBanner(
+      'We could not open the payment window. Please refresh and try again.',
+      'error'
+    );
     resetCheckoutState();
   }
 }
-
 
 function persistRegistrationPlan(planId) {
   const entry = state.planLookup.get(planId);
@@ -984,11 +1015,13 @@ function redirectToResume(planId) {
   window.location.href = `${newPath}?planId=${planId}`;
 }
 
-
 async function handlePlanSelection(planId) {
   const entry = state.planLookup.get(planId);
   if (!entry || !entry.plan) {
-    showBanner('We could not locate that plan. Please refresh and try again.', 'error');
+    showBanner(
+      'We could not locate that plan. Please refresh and try again.',
+      'error'
+    );
     return;
   }
 
@@ -1011,10 +1044,6 @@ async function handlePlanSelection(planId) {
   );
   redirectToRegistration(planId);
 }
-
-
-
-
 
 function persistDepartmentPreference(value) {
   if (typeof window === 'undefined') return;

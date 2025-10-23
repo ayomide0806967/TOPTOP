@@ -4,65 +4,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
 };
 
 const BULK_EMAIL_DOMAIN = 'bulk.academicnightingale.com';
 const MAX_BULK_QUANTITY = 500;
 
-const HANDLE_WORDS = [
-  'amber',
-  'bloom',
-  'breeze',
-  'cedar',
-  'dawn',
-  'ember',
-  'forest',
-  'garden',
-  'harbor',
-  'island',
-  'juniper',
-  'lagoon',
-  'meadow',
-  'north',
-  'oasis',
-  'prairie',
-  'quartz',
-  'river',
-  'spruce',
-  'summit',
-  'tandem',
-  'valley',
-  'willow',
-  'zenith',
-];
-
-const PASSWORD_WORDS = [
-  'bright',
-  'calm',
-  'daring',
-  'eager',
-  'fable',
-  'gallant',
-  'harbor',
-  'ivory',
-  'jolly',
-  'kind',
-  'lively',
-  'mellow',
-  'noble',
-  'ocean',
-  'pearl',
-  'quaint',
-  'ripple',
-  'sunny',
-  'tidy',
-  'vivid',
-  'warm',
-  'witty',
-  'young',
-  'zesty',
-];
+const MAX_CREDENTIAL_LENGTH = 10;
+const LOWERCASE_LETTERS = 'abcdefghijklmnopqrstuvwxyz';
+const UPPERCASE_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const NUMERIC_DIGITS = '0123456789';
 
 interface GenerateRequestBody {
   planId: string;
@@ -79,22 +31,13 @@ interface CreatedAccountRecord {
 
 function normalisePrefix(value?: string | null): string {
   if (!value) return 'learner';
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 12) || 'learner';
-}
-
-function randomFrom<T>(items: readonly T[]): T {
-  if (!items.length) {
-    throw new Error('Cannot pick from an empty list');
-  }
-  const buffer = new Uint32Array(1);
-  crypto.getRandomValues(buffer);
-  const index = buffer[0] % items.length;
-  return items[index];
+  return (
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, MAX_CREDENTIAL_LENGTH - 2) || 'learner'
+  );
 }
 
 function randomInt(min: number, max: number): number {
@@ -104,66 +47,154 @@ function randomInt(min: number, max: number): number {
   return min + (buffer[0] % span);
 }
 
-function capitalise(word: string): string {
-  if (!word) return '';
-  return word.charAt(0).toUpperCase() + word.slice(1);
+function randomCharacters(source: string, length: number): string {
+  if (length <= 0) return '';
+  const buffer = new Uint32Array(length);
+  crypto.getRandomValues(buffer);
+  let result = '';
+  for (let i = 0; i < length; i += 1) {
+    result += source[buffer[i] % source.length];
+  }
+  return result;
+}
+
+function shuffleCharacters(value: string): string {
+  const characters = value.split('');
+  for (let i = characters.length - 1; i > 0; i -= 1) {
+    const j = randomInt(0, i);
+    const temp = characters[i];
+    characters[i] = characters[j];
+    characters[j] = temp;
+  }
+  return characters.join('');
+}
+
+function randomAlphaNumericString(
+  length: number,
+  {
+    lowercaseOnly = false,
+    ensureLetter = false,
+    ensureDigit = false,
+  }: {
+    lowercaseOnly?: boolean;
+    ensureLetter?: boolean;
+    ensureDigit?: boolean;
+  } = {}
+): string {
+  if (length <= 0) return '';
+  const requiredCharacters = (ensureLetter ? 1 : 0) + (ensureDigit ? 1 : 0);
+  if (requiredCharacters > length) {
+    throw new Error(
+      'Cannot satisfy alphanumeric requirements with the allotted length.'
+    );
+  }
+  const lettersPool = lowercaseOnly
+    ? LOWERCASE_LETTERS
+    : LOWERCASE_LETTERS + UPPERCASE_LETTERS;
+  const combinedPool = lettersPool + NUMERIC_DIGITS;
+  if (!combinedPool.length) {
+    throw new Error('No characters available to generate credentials.');
+  }
+
+  const pieces: string[] = [];
+  if (ensureLetter) {
+    pieces.push(randomCharacters(lettersPool, 1));
+  }
+  if (ensureDigit) {
+    pieces.push(randomCharacters(NUMERIC_DIGITS, 1));
+  }
+  while (pieces.join('').length < length) {
+    pieces.push(randomCharacters(combinedPool, 1));
+  }
+
+  const initial = pieces.join('').slice(0, length);
+  return shuffleCharacters(initial);
+}
+
+function ensureLetterPresence(value: string, lettersPool: string): string {
+  if (/[a-z]/i.test(value)) return value;
+  const pool = lettersPool || LOWERCASE_LETTERS + UPPERCASE_LETTERS;
+  const index = value.length > 0 ? randomInt(0, value.length - 1) : 0;
+  const replacement = randomCharacters(pool, 1);
+  return value.slice(0, index) + replacement + value.slice(index + 1);
+}
+
+function ensureDigitPresence(value: string): string {
+  if (/[0-9]/.test(value)) return value;
+  const index = value.length > 0 ? randomInt(0, value.length - 1) : 0;
+  const replacement = randomCharacters(NUMERIC_DIGITS, 1);
+  return value.slice(0, index) + replacement + value.slice(index + 1);
 }
 
 function generatePassword(): string {
-  const first = randomFrom(PASSWORD_WORDS);
-  let second = randomFrom(PASSWORD_WORDS);
-  if (PASSWORD_WORDS.length > 1) {
-    while (second === first) {
-      second = randomFrom(PASSWORD_WORDS);
-    }
-  }
-  const number = randomInt(100, 999);
-  return `${capitalise(first)}${capitalise(second)}${number}`;
+  let password = randomAlphaNumericString(MAX_CREDENTIAL_LENGTH, {
+    lowercaseOnly: false,
+    ensureLetter: true,
+    ensureDigit: true,
+  });
+  password = ensureLetterPresence(
+    password,
+    LOWERCASE_LETTERS + UPPERCASE_LETTERS
+  );
+  password = ensureDigitPresence(password);
+  return password;
 }
 
 async function generateUniqueUsername(
   supabaseAdmin: ReturnType<typeof createClient>,
   base: string,
-  attempt = 0,
+  attempt = 0
 ): Promise<string> {
-  const handleSegments = () => {
-    const segments = [] as string[];
-    const safeBase = base.replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-');
-    if (safeBase) segments.push(safeBase);
+  const fallbackBase = 'learner';
+  const sanitisedBase = base.replace(/[^a-z0-9]/gi, '').toLowerCase();
+  let prefixSource = sanitisedBase || fallbackBase;
 
-    const primary = randomFrom(HANDLE_WORDS);
-    let secondary = randomFrom(HANDLE_WORDS);
-    if (HANDLE_WORDS.length > 1) {
-      while (secondary === primary) {
-        secondary = randomFrom(HANDLE_WORDS);
-      }
-    }
-
-    segments.push(primary, secondary, String(randomInt(10, 99)));
-    if (attempt > 0) {
-      segments.push(String(attempt));
-    }
-
-    return segments
-      .map((segment) => segment.toLowerCase().replace(/[^a-z0-9]+/g, '-'))
-      .filter(Boolean)
-      .join('-')
-      .replace(/-+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 30);
-  };
-
-  let candidate = handleSegments();
-  if (!candidate) {
-    candidate = `${base}-${randomInt(10, 99)}`.replace(/[^a-z0-9-]/g, '').slice(0, 30);
+  if (!/[a-z]/.test(prefixSource)) {
+    const lettersOnly = sanitisedBase.replace(/[^a-z]/g, '');
+    prefixSource = lettersOnly || fallbackBase;
   }
 
+  const maxPrefixLength = Math.max(1, MAX_CREDENTIAL_LENGTH - 3);
+  let prefix = prefixSource.slice(0, maxPrefixLength);
+  if (!prefix) {
+    prefix = fallbackBase.slice(0, maxPrefixLength);
+  }
+
+  let candidate: string;
+
   if (attempt >= 25) {
-    candidate = `${base}-${crypto.randomUUID().slice(0, 6)}`
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, '')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 30);
+    candidate = randomAlphaNumericString(MAX_CREDENTIAL_LENGTH, {
+      lowercaseOnly: true,
+      ensureLetter: true,
+      ensureDigit: true,
+    }).toLowerCase();
+  } else {
+    const suffixLength = MAX_CREDENTIAL_LENGTH - prefix.length;
+    const suffix = randomAlphaNumericString(suffixLength, {
+      lowercaseOnly: true,
+      ensureLetter: prefix.length === 0,
+      ensureDigit: true,
+    }).toLowerCase();
+    candidate = (prefix + suffix).slice(0, MAX_CREDENTIAL_LENGTH);
+  }
+
+  candidate = candidate.replace(/[^a-z0-9]/g, '').toLowerCase();
+  candidate = ensureLetterPresence(candidate, LOWERCASE_LETTERS).toLowerCase();
+  candidate = ensureDigitPresence(candidate);
+  candidate = candidate.toLowerCase();
+
+  if (candidate.length < 2) {
+    candidate = randomAlphaNumericString(MAX_CREDENTIAL_LENGTH, {
+      lowercaseOnly: true,
+      ensureLetter: true,
+      ensureDigit: true,
+    }).toLowerCase();
+    candidate = ensureLetterPresence(
+      candidate,
+      LOWERCASE_LETTERS
+    ).toLowerCase();
+    candidate = ensureDigitPresence(candidate);
+    candidate = candidate.toLowerCase();
   }
 
   const { data, error } = await supabaseAdmin
@@ -191,7 +222,9 @@ function resolveExpiry(plan: any, override?: string | null): string | null {
     }
   }
 
-  const durationDays = Number(plan?.duration_days ?? plan?.metadata?.duration_days);
+  const durationDays = Number(
+    plan?.duration_days ?? plan?.metadata?.duration_days
+  );
   if (Number.isFinite(durationDays) && durationDays > 0) {
     const expires = new Date();
     expires.setUTCDate(expires.getUTCDate() + durationDays);
@@ -221,7 +254,7 @@ serve(async (req) => {
     const rawDepartmentId =
       typeof body.departmentId === 'string'
         ? body.departmentId.trim()
-        : body.departmentId ?? '';
+        : (body.departmentId ?? '');
     const requestedDepartmentId = rawDepartmentId || null;
     const normalisedDepartmentId =
       requestedDepartmentId &&
@@ -242,10 +275,13 @@ serve(async (req) => {
     }
 
     if (!Number.isInteger(quantity) || quantity <= 0) {
-      return new Response(JSON.stringify({ error: 'quantity must be a positive integer.' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ error: 'quantity must be a positive integer.' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     if (quantity > MAX_BULK_QUANTITY) {
@@ -256,7 +292,7 @@ serve(async (req) => {
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
+        }
       );
     }
 
@@ -288,15 +324,18 @@ serve(async (req) => {
       inheritedDepartmentId !== normalisedDepartmentId
     ) {
       return new Response(
-        JSON.stringify({ error: 'Selected plan does not belong to the chosen department.' }),
+        JSON.stringify({
+          error: 'Selected plan does not belong to the chosen department.',
+        }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
+        }
       );
     }
 
-    const departmentId = normalisedDepartmentId || inheritedDepartmentId || null;
+    const departmentId =
+      normalisedDepartmentId || inheritedDepartmentId || null;
     let usernameBase = customPrefix || normalisePrefix(plan.code || plan.name);
     let departmentName: string | null = null;
 
@@ -332,7 +371,10 @@ serve(async (req) => {
 
     try {
       for (let i = 0; i < quantity; i += 1) {
-        const username = await generateUniqueUsername(supabaseAdmin, usernameBase);
+        const username = await generateUniqueUsername(
+          supabaseAdmin,
+          usernameBase
+        );
         const password = generatePassword();
         const email = `${username}@${BULK_EMAIL_DOMAIN}`;
 
@@ -420,7 +462,10 @@ serve(async (req) => {
         });
       }
     } catch (generationError) {
-      console.error('[generate-bulk-accounts] Generation failed, rolling back', generationError);
+      console.error(
+        '[generate-bulk-accounts] Generation failed, rolling back',
+        generationError
+      );
       for (const account of createdAccounts.reverse()) {
         try {
           if (account.subscriptionId) {
@@ -432,19 +477,23 @@ serve(async (req) => {
               throw subscriptionCleanupError;
             }
           } else {
-            const { error: genericSubscriptionCleanupError } = await supabaseAdmin
-              .from('user_subscriptions')
-              .delete()
-              .eq('user_id', account.userId);
+            const { error: genericSubscriptionCleanupError } =
+              await supabaseAdmin
+                .from('user_subscriptions')
+                .delete()
+                .eq('user_id', account.userId);
             if (genericSubscriptionCleanupError) {
               throw genericSubscriptionCleanupError;
             }
           }
         } catch (cleanupError) {
-          console.error('[generate-bulk-accounts] Failed to cleanup subscription', {
-            userId: account.userId,
-            cleanupError,
-          });
+          console.error(
+            '[generate-bulk-accounts] Failed to cleanup subscription',
+            {
+              userId: account.userId,
+              cleanupError,
+            }
+          );
         }
 
         try {
@@ -485,7 +534,7 @@ serve(async (req) => {
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
+      }
     );
   }
 });

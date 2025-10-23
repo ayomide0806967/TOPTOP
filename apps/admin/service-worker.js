@@ -28,10 +28,12 @@ const APP_SHELL = [
   '../assets/academicnightingale-icon-32.png',
   '../assets/academicnightingale-icon-192.png',
   '../assets/academicnightingale-icon-512.png',
-  '../assets/tailwind.css'
+  '../assets/tailwind.css',
 ];
 
-const SHELL_SET = new Set(APP_SHELL.map((path) => new URL(path, BASE_URL).href));
+const SHELL_SET = new Set(
+  APP_SHELL.map((path) => new URL(path, BASE_URL).href)
+);
 const OFFLINE_URL = new URL('./offline.html', BASE_URL).href;
 
 self.addEventListener('install', (event) => {
@@ -48,7 +50,11 @@ self.addEventListener('activate', (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => key !== STATIC_CACHE && key !== RUNTIME_CACHE).map((key) => caches.delete(key)))
+        Promise.all(
+          keys
+            .filter((key) => key !== STATIC_CACHE && key !== RUNTIME_CACHE)
+            .map((key) => caches.delete(key))
+        )
       )
       .then(() => self.clients.claim())
   );
@@ -62,7 +68,10 @@ function staleWhileRevalidate(request) {
     const networkFetch = fetch(request)
       .then((response) => {
         const clone = response.clone();
-        caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, clone)).catch(() => {});
+        caches
+          .open(RUNTIME_CACHE)
+          .then((cache) => cache.put(request, clone))
+          .catch(() => {});
         return response;
       })
       .catch(() => cached);
@@ -76,7 +85,10 @@ function cacheFirst(request) {
     return fetch(request)
       .then((response) => {
         const clone = response.clone();
-        caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, clone)).catch(() => {});
+        caches
+          .open(RUNTIME_CACHE)
+          .then((cache) => cache.put(request, clone))
+          .catch(() => {});
         return response;
       })
       .catch(() => cached);
@@ -87,7 +99,10 @@ function networkFirst(request) {
   return fetch(request)
     .then((response) => {
       const clone = response.clone();
-      caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, clone)).catch(() => {});
+      caches
+        .open(RUNTIME_CACHE)
+        .then((cache) => cache.put(request, clone))
+        .catch(() => {});
       return response;
     })
     .catch(() => caches.match(request));
@@ -105,10 +120,17 @@ self.addEventListener('fetch', (event) => {
       fetch(request)
         .then((response) => {
           const clone = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, clone)).catch(() => {});
+          caches
+            .open(RUNTIME_CACHE)
+            .then((cache) => cache.put(request, clone))
+            .catch(() => {});
           return response;
         })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match(OFFLINE_URL)))
+        .catch(() =>
+          caches
+            .match(request)
+            .then((cached) => cached || caches.match(OFFLINE_URL))
+        )
     );
     return;
   }
@@ -123,10 +145,17 @@ self.addEventListener('fetch', (event) => {
         fetch(request)
           .then((response) => {
             const clone = response.clone();
-            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, clone)).catch(() => {});
+            caches
+              .open(RUNTIME_CACHE)
+              .then((cache) => cache.put(request, clone))
+              .catch(() => {});
             return response;
           })
-          .catch(() => caches.match(request).then((cached) => cached || caches.match(OFFLINE_URL)))
+          .catch(() =>
+            caches
+              .match(request)
+              .then((cached) => cached || caches.match(OFFLINE_URL))
+          )
       );
       return;
     }

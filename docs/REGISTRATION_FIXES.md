@@ -3,6 +3,7 @@
 > **Legacy note:** This document captures the historic two-step registration flow where credentials were finalised after payment. The new unified flow gathers usernames and passwords on `registration-before-payment.html`.
 
 ## Overview
+
 Comprehensive audit and fixes for the username/password creation during registration flow. Multiple critical issues were identified and resolved to ensure consistency with the login system.
 
 ---
@@ -12,11 +13,13 @@ Comprehensive audit and fixes for the username/password creation during registra
 ### **Issue #1: Missing HTML5 Validation on Username Field**
 
 #### **Severity**: 🔴 HIGH
+
 #### **Impact**: Users could submit invalid usernames that would fail on backend
 
 **Location**: `registration-after-payment.html` line 127-135
 
 **Before:**
+
 ```html
 <input
   id="after-username"
@@ -29,6 +32,7 @@ Comprehensive audit and fixes for the username/password creation during registra
 ```
 
 **After:**
+
 ```html
 <input
   id="after-username"
@@ -47,6 +51,7 @@ Comprehensive audit and fixes for the username/password creation during registra
 ```
 
 **Fix Applied**:
+
 - ✅ Added `minlength="3"` validation
 - ✅ Added `pattern="[a-zA-Z0-9_-]+"` to enforce allowed characters
 - ✅ Added helpful `title` attribute for validation feedback
@@ -57,11 +62,13 @@ Comprehensive audit and fixes for the username/password creation during registra
 ### **Issue #2: Missing HTML5 Validation on Password Fields**
 
 #### **Severity**: 🔴 HIGH
+
 #### **Impact**: Users could submit short passwords that would fail validation
 
 **Location**: `registration-after-payment.html` lines 144-152, 170-178
 
 **Before:**
+
 ```html
 <input
   id="after-password"
@@ -73,6 +80,7 @@ Comprehensive audit and fixes for the username/password creation during registra
 ```
 
 **After:**
+
 ```html
 <input
   id="after-password"
@@ -86,6 +94,7 @@ Comprehensive audit and fixes for the username/password creation during registra
 ```
 
 **Fix Applied**:
+
 - ✅ Added `minlength="6"` to password field
 - ✅ Added `minlength="6"` to confirm password field
 - ✅ Added helpful `title` attributes
@@ -96,9 +105,11 @@ Comprehensive audit and fixes for the username/password creation during registra
 ### **Issue #3: Username Normalization Inconsistency**
 
 #### **Severity**: 🔴 CRITICAL
+
 #### **Impact**: Username mismatch between registration and login
 
 **Problem Flow**:
+
 1. User types "JohnDoe" during registration
 2. Frontend sends "JohnDoe" to backend
 3. Backend normalizes to "johndoe" and stores it
@@ -109,19 +120,23 @@ Comprehensive audit and fixes for the username/password creation during registra
 **Location**: `registration-after.js` line 115-123
 
 **Before:**
+
 ```javascript
 function validateUsername(username) {
   if (!username || username.length < 3) {
     throw new Error('Username must be at least 3 characters long.');
   }
   if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
-    throw new Error('Username can only contain letters, numbers, hyphens, and underscores.');
+    throw new Error(
+      'Username can only contain letters, numbers, hyphens, and underscores.'
+    );
   }
   return username; // ❌ Returns as-is (mixed case)
 }
 ```
 
 **After:**
+
 ```javascript
 /**
  * Validate and normalize username
@@ -133,23 +148,26 @@ function validateUsername(username) {
   if (!username || username.trim().length === 0) {
     throw new Error('Username is required.');
   }
-  
+
   const trimmed = username.trim();
-  
+
   if (trimmed.length < 3) {
     throw new Error('Username must be at least 3 characters long.');
   }
-  
+
   if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
-    throw new Error('Username can only contain letters, numbers, hyphens, and underscores.');
+    throw new Error(
+      'Username can only contain letters, numbers, hyphens, and underscores.'
+    );
   }
-  
+
   // ✅ Normalize to lowercase to match login flow and backend
   return trimmed.toLowerCase();
 }
 ```
 
 **Fix Applied**:
+
 - ✅ Username now normalized to lowercase in frontend
 - ✅ Consistent with backend normalization
 - ✅ Consistent with login flow normalization
@@ -162,6 +180,7 @@ function validateUsername(username) {
 ### **Issue #4: Username Availability Check Not Called**
 
 #### **Severity**: 🔴 HIGH
+
 #### **Impact**: Poor UX - users submit taken usernames and get backend errors
 
 **Problem**: Function `assertUsernameAvailable()` existed but was **NEVER CALLED**
@@ -169,6 +188,7 @@ function validateUsername(username) {
 **Location**: `registration-after.js` line 204-248
 
 **Before:**
+
 ```javascript
 async function handleSubmit(event) {
   event.preventDefault();
@@ -180,7 +200,7 @@ async function handleSubmit(event) {
     const confirmPassword = confirmPasswordInput.value;
 
     // ❌ No username availability check!
-    
+
     if (password !== confirmPassword) {
       passwordErrorEl?.classList.remove('hidden');
       return;
@@ -199,6 +219,7 @@ async function handleSubmit(event) {
 ```
 
 **After:**
+
 ```javascript
 /**
  * Handle registration form submission
@@ -212,7 +233,7 @@ async function handleSubmit(event) {
     // Step 1: Validate and normalize username
     const username = validateUsername(usernameInput.value);
     console.log('[After Registration] Normalized username:', username);
-    
+
     // Step 2: Validate passwords
     const password = passwordInput.value;
     const confirmPassword = confirmPasswordInput.value;
@@ -254,6 +275,7 @@ async function handleSubmit(event) {
 ```
 
 **Fix Applied**:
+
 - ✅ Now calls `assertUsernameAvailable()` before submission
 - ✅ Checks against normalized username
 - ✅ Provides clear error if username is taken
@@ -267,9 +289,11 @@ async function handleSubmit(event) {
 ### **Issue #5: Weak Password Validation Order**
 
 #### **Severity**: 🟡 MEDIUM
+
 #### **Impact**: Confusing error messages, poor UX
 
 **Before:**
+
 ```javascript
 if (password !== confirmPassword) {
   passwordErrorEl?.classList.remove('hidden');
@@ -283,6 +307,7 @@ if (password.length < 6) {
 ```
 
 **After:**
+
 ```javascript
 if (!password || password.length === 0) {
   showFeedback('Password is required.');
@@ -302,6 +327,7 @@ if (password !== confirmPassword) {
 ```
 
 **Fix Applied**:
+
 - ✅ Check password existence first
 - ✅ Check password length second
 - ✅ Check password match last
@@ -312,13 +338,13 @@ if (password !== confirmPassword) {
 
 ## 📊 Validation Consistency Matrix
 
-| Validation Rule | Login HTML | Login JS | Registration HTML | Registration JS | Backend |
-|----------------|------------|----------|-------------------|-----------------|---------|
-| Username min 3 chars | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Username pattern | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Username lowercase | N/A | ✅ | N/A | ✅ | ✅ |
-| Password min 6 chars | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Username availability | N/A | ✅ | N/A | ✅ | ✅ |
+| Validation Rule       | Login HTML | Login JS | Registration HTML | Registration JS | Backend |
+| --------------------- | ---------- | -------- | ----------------- | --------------- | ------- |
+| Username min 3 chars  | ✅         | ✅       | ✅                | ✅              | ✅      |
+| Username pattern      | ✅         | ✅       | ✅                | ✅              | ✅      |
+| Username lowercase    | N/A        | ✅       | N/A               | ✅              | ✅      |
+| Password min 6 chars  | ✅         | ✅       | ✅                | ✅              | ✅      |
+| Username availability | N/A        | ✅       | N/A               | ✅              | ✅      |
 
 **Result**: ✅ **100% Consistency Achieved**
 
@@ -352,6 +378,7 @@ graph TD
 ## 🧪 Testing Checklist
 
 ### Username Validation
+
 - [x] Empty username → "Username is required" error
 - [x] Username < 3 chars → HTML5 validation error
 - [x] Username with spaces → HTML5 validation error
@@ -361,6 +388,7 @@ graph TD
 - [x] Mixed case username (e.g., "JohnDoe") → Stored as "johndoe"
 
 ### Password Validation
+
 - [x] Empty password → "Password is required" error
 - [x] Password < 6 chars → HTML5 validation error
 - [x] Passwords don't match → "Passwords do not match" error
@@ -368,6 +396,7 @@ graph TD
 - [x] Password strength meter updates in real-time
 
 ### Integration
+
 - [x] Registration → Auto-login → Dashboard
 - [x] Registration → Login manually → Dashboard
 - [x] Username "JohnDoe" registered → Login with "johndoe" → Success
@@ -379,12 +408,14 @@ graph TD
 ## 🔐 Security Improvements
 
 ### Before
+
 - ❌ No client-side format validation
 - ❌ Username case inconsistency
 - ❌ No username availability check
 - ❌ Weak error messages
 
 ### After
+
 - ✅ Multi-layer validation (HTML5 + JS + Backend)
 - ✅ Consistent username normalization
 - ✅ Real-time username availability check
@@ -396,6 +427,7 @@ graph TD
 ## 📝 Code Quality Improvements
 
 ### Before
+
 - ❌ No JSDoc comments
 - ❌ Inconsistent validation order
 - ❌ Missing error feedback
@@ -403,6 +435,7 @@ graph TD
 - ❌ Unused functions
 
 ### After
+
 - ✅ Comprehensive JSDoc comments
 - ✅ Logical validation flow
 - ✅ Complete error feedback
@@ -438,6 +471,6 @@ graph TD
 
 ---
 
-**Last Updated**: 2025-09-30  
-**Author**: Senior Developer  
+**Last Updated**: 2025-09-30
+**Author**: Senior Developer
 **Status**: ✅ All Critical Issues Fixed

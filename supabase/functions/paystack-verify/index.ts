@@ -1,7 +1,5 @@
 import { serve } from 'https://deno.land/std@0.223.0/http/server.ts';
-import {
-  upsertPaymentAndSubscription,
-} from '../_shared/paystack.ts';
+import { upsertPaymentAndSubscription } from '../_shared/paystack.ts';
 import { getPaystackSecretKey } from '../_shared/paystackConfig.ts';
 
 interface VerifyRequestBody {

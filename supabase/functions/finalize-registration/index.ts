@@ -8,7 +8,8 @@ const ALLOWED_ORIGINS = (Deno.env.get('REGISTRATION_ALLOWED_ORIGINS') || '')
 
 const BASE_CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
   Vary: 'Origin',
 } as const;
 
@@ -35,7 +36,7 @@ function buildCorsHeaders(origin: string | null) {
 function jsonResponse(
   status: number,
   origin: string | null,
-  payload: Record<string, unknown>,
+  payload: Record<string, unknown>
 ) {
   const headers = buildCorsHeaders(origin);
   if (!headers) {
@@ -96,7 +97,9 @@ serve(async (req) => {
     const sanitizedLastName =
       typeof payload.lastName === 'string' ? payload.lastName.trim() : null;
     const normalizedEmail =
-      typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : null;
+      typeof payload.email === 'string'
+        ? payload.email.trim().toLowerCase()
+        : null;
     const sanitizedPhone =
       typeof payload.phone === 'string' ? payload.phone.trim() : null;
 
@@ -128,38 +131,48 @@ serve(async (req) => {
     }
 
     if (!profile) {
-      return jsonResponse(404, origin, { error: 'Profile not found for this user' });
+      return jsonResponse(404, origin, {
+        error: 'Profile not found for this user',
+      });
     }
 
     if (!profile.registration_token) {
       return jsonResponse(409, origin, {
-        error: 'Registration has already been finalized or the token is missing.',
+        error:
+          'Registration has already been finalized or the token is missing.',
       });
     }
 
     const hashedProvidedToken = await hashToken(registrationToken);
     if (hashedProvidedToken !== profile.registration_token) {
-      return jsonResponse(403, origin, { error: 'Invalid registration token.' });
+      return jsonResponse(403, origin, {
+        error: 'Invalid registration token.',
+      });
     }
 
     if (profile.registration_token_expires_at) {
       const expiresAt = new Date(profile.registration_token_expires_at);
-      if (Number.isFinite(expiresAt.getTime()) && Date.now() > expiresAt.getTime()) {
+      if (
+        Number.isFinite(expiresAt.getTime()) &&
+        Date.now() > expiresAt.getTime()
+      ) {
         return jsonResponse(410, origin, {
-          error: 'Registration token has expired. Restart the registration process.',
+          error:
+            'Registration token has expired. Restart the registration process.',
         });
       }
     }
 
-    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-      password,
-      user_metadata: {
-        username: normalizedUsername,
-        first_name: sanitizedFirstName,
-        last_name: sanitizedLastName,
-        phone: sanitizedPhone,
-      },
-    });
+    const { error: updateError } =
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password,
+        user_metadata: {
+          username: normalizedUsername,
+          first_name: sanitizedFirstName,
+          last_name: sanitizedLastName,
+          phone: sanitizedPhone,
+        },
+      });
 
     if (updateError) {
       throw updateError;
@@ -184,7 +197,7 @@ serve(async (req) => {
           registration_token: null,
           registration_token_expires_at: null,
         },
-        { onConflict: 'id' },
+        { onConflict: 'id' }
       );
 
     if (profileUpsertError) {

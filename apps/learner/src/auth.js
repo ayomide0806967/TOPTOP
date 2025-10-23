@@ -33,10 +33,10 @@ const USERNAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
  */
 function showFeedback(message, type = 'error') {
   if (!feedbackEl) return;
-  
+
   feedbackEl.textContent = message;
   feedbackEl.classList.remove('hidden');
-  
+
   // Remove all color classes
   feedbackEl.classList.remove(
     'bg-green-50',
@@ -49,10 +49,14 @@ function showFeedback(message, type = 'error') {
     'border-blue-200',
     'text-blue-700'
   );
-  
+
   // Apply appropriate color classes
   if (type === 'success') {
-    feedbackEl.classList.add('bg-green-50', 'border-green-200', 'text-green-700');
+    feedbackEl.classList.add(
+      'bg-green-50',
+      'border-green-200',
+      'text-green-700'
+    );
   } else if (type === 'info') {
     feedbackEl.classList.add('bg-blue-50', 'border-blue-200', 'text-blue-700');
   } else {
@@ -75,11 +79,11 @@ function clearFeedback() {
  */
 function setLoading(isLoading) {
   if (!submitBtn || !submitText) return;
-  
+
   submitBtn.disabled = isLoading;
   submitBtn.classList.toggle('opacity-60', isLoading);
   submitText.textContent = isLoading ? 'Signing in…' : 'Sign in';
-  
+
   // Disable inputs during loading
   if (usernameInput) usernameInput.disabled = isLoading;
   if (passwordInput) passwordInput.disabled = isLoading;
@@ -98,11 +102,17 @@ async function extractFunctionError(error, fallbackMessage) {
       const text = await cloned.text();
       if (text) return text;
     } catch (parseError) {
-      console.warn('[Auth] Failed to parse function error response', parseError);
+      console.warn(
+        '[Auth] Failed to parse function error response',
+        parseError
+      );
     }
   }
 
-  if (error?.message && error.message !== 'Edge Function returned a non-2xx status code') {
+  if (
+    error?.message &&
+    error.message !== 'Edge Function returned a non-2xx status code'
+  ) {
     return error.message;
   }
 
@@ -122,17 +132,24 @@ function validateUsername(username) {
   if (!username || username.trim().length === 0) {
     return { valid: false, error: 'Username is required.' };
   }
-  
+
   const trimmed = username.trim();
-  
+
   if (trimmed.length < MIN_USERNAME_LENGTH) {
-    return { valid: false, error: `Username must be at least ${MIN_USERNAME_LENGTH} characters.` };
+    return {
+      valid: false,
+      error: `Username must be at least ${MIN_USERNAME_LENGTH} characters.`,
+    };
   }
-  
+
   if (!USERNAME_PATTERN.test(trimmed)) {
-    return { valid: false, error: 'Username can only contain letters, numbers, hyphens, and underscores.' };
+    return {
+      valid: false,
+      error:
+        'Username can only contain letters, numbers, hyphens, and underscores.',
+    };
   }
-  
+
   return { valid: true };
 }
 
@@ -145,11 +162,14 @@ function validatePassword(password) {
   if (!password || password.length === 0) {
     return { valid: false, error: 'Password is required.' };
   }
-  
+
   if (password.length < MIN_PASSWORD_LENGTH) {
-    return { valid: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
+    return {
+      valid: false,
+      error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
+    };
   }
-  
+
   return { valid: true };
 }
 
@@ -206,7 +226,10 @@ async function getEmailFromUsername(supabase, username) {
     };
   } catch (error) {
     console.error('[Auth] Unexpected error in getEmailFromUsername:', error);
-    return { email: null, error: 'An unexpected error occurred. Please try again.' };
+    return {
+      email: null,
+      error: 'An unexpected error occurred. Please try again.',
+    };
   }
 }
 
@@ -226,29 +249,37 @@ async function signInWithCredentials(supabase, email, password) {
 
     if (error) {
       console.error('[Auth] Sign-in error:', error);
-      
+
       // Handle specific error cases
       if (error.message?.includes('Invalid login credentials')) {
-        return { 
-          success: false, 
-          error: 'Invalid username or password. If you haven\'t completed registration, click "Continue previous registration" below.' 
+        return {
+          success: false,
+          error:
+            'Invalid username or password. If you haven\'t completed registration, click "Continue previous registration" below.',
         };
       }
-      
+
       if (error.message?.includes('Email not confirmed')) {
-        return { 
-          success: false, 
-          error: 'Your email has not been confirmed. Please check your email or contact support.' 
+        return {
+          success: false,
+          error:
+            'Your email has not been confirmed. Please check your email or contact support.',
         };
       }
-      
-      return { success: false, error: error.message || 'Unable to sign in. Please try again.' };
+
+      return {
+        success: false,
+        error: error.message || 'Unable to sign in. Please try again.',
+      };
     }
 
     return { success: true, session: data?.session || null };
   } catch (error) {
     console.error('[Auth] Unexpected error in signInWithCredentials:', error);
-    return { success: false, error: 'An unexpected error occurred. Please try again.' };
+    return {
+      success: false,
+      error: 'An unexpected error occurred. Please try again.',
+    };
   }
 }
 
@@ -264,7 +295,9 @@ async function syncActiveSession(supabase, session) {
 
     const refreshToken = activeSession?.refresh_token;
     if (!refreshToken) {
-      console.warn('[Auth] No refresh token found for session synchronisation.');
+      console.warn(
+        '[Auth] No refresh token found for session synchronisation.'
+      );
       return;
     }
 
@@ -341,14 +374,16 @@ async function handleLogin(event, supabase) {
 
     if (needsSupport) {
       showFeedback(
-        'This account is currently inactive. Please contact support for assistance.',
+        'This account is currently inactive. Please contact support for assistance.'
       );
       setLoading(false);
       return;
     }
 
     if (needsSupport) {
-      showFeedback('This account is currently inactive. Please contact support for assistance.');
+      showFeedback(
+        'This account is currently inactive. Please contact support for assistance.'
+      );
       setLoading(false);
       return;
     }
@@ -366,7 +401,7 @@ async function handleLogin(event, supabase) {
       error: signInError,
       session,
     } = await signInWithCredentials(supabase, email, password);
-    
+
     if (!success) {
       showFeedback(signInError || 'Unable to sign in.');
       setLoading(false);
@@ -391,12 +426,11 @@ async function handleLogin(event, supabase) {
 
     // Success - show feedback and redirect
     showFeedback('Signed in successfully. Redirecting…', 'success');
-    
+
     // Auth state listener will handle redirect, but add fallback
     setTimeout(() => {
       window.location.replace(DASHBOARD_URL);
     }, 500);
-
   } catch (error) {
     console.error('[Auth] Unexpected error during login:', error);
     showFeedback('An unexpected error occurred. Please try again.');
@@ -415,7 +449,9 @@ async function handleLogin(event, supabase) {
  */
 async function checkExistingSession(supabase) {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     return !!session?.user;
   } catch (error) {
     console.error('[Auth] Error checking session:', error);
@@ -430,11 +466,11 @@ async function checkExistingSession(supabase) {
  */
 async function handleImpersonation(supabase, token) {
   try {
-    const { error } = await supabase.auth.setSession({ 
-      access_token: token, 
-      refresh_token: '' 
+    const { error } = await supabase.auth.setSession({
+      access_token: token,
+      refresh_token: '',
     });
-    
+
     if (error) {
       console.error('[Auth] Impersonation error:', error);
       showFeedback('Invalid impersonation token.');
@@ -483,15 +519,18 @@ async function init() {
 
     // Set up form submission handler
     if (loginForm) {
-      loginForm.addEventListener('submit', (event) => handleLogin(event, supabase));
+      loginForm.addEventListener('submit', (event) =>
+        handleLogin(event, supabase)
+      );
     } else {
       console.error('[Auth] Login form not found');
       showFeedback('Login form not found. Please refresh the page.');
     }
-
   } catch (error) {
     console.error('[Auth] Initialization failed:', error);
-    showFeedback('Unable to initialize authentication. Please reload the page.');
+    showFeedback(
+      'Unable to initialize authentication. Please reload the page.'
+    );
     setLoading(false);
   }
 }

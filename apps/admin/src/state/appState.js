@@ -1,7 +1,7 @@
 export class AppState extends EventTarget {
-  constructor() {
+  constructor(initialView = 'dashboard') {
     super();
-    this.currentView = 'dashboard';
+    this.currentView = initialView;
     this.selectedDepartmentId = null;
     this.selectedCourseId = null;
     this.selectedTopicId = null;

@@ -62,7 +62,12 @@ describe('user subscription helpers', () => {
   });
 
   it('detects expired subscriptions based on expiry date', () => {
-    const entry = buildSubscription({ id: 'b2', status: 'active', startOffsetDays: -40, endOffsetDays: -5 });
+    const entry = buildSubscription({
+      id: 'b2',
+      status: 'active',
+      startOffsetDays: -40,
+      endOffsetDays: -5,
+    });
     const normalized = normalizeUserSubscription(entry);
 
     expect(getUserSubscriptionStatus(entry)).toBe('expired');
@@ -73,7 +78,12 @@ describe('user subscription helpers', () => {
   it('sorts active subscriptions ahead of expired ones', () => {
     const active = normalizeUserSubscription(buildSubscription({ id: 'c3' }));
     const expired = normalizeUserSubscription(
-      buildSubscription({ id: 'd4', status: 'active', startOffsetDays: -60, endOffsetDays: -1 })
+      buildSubscription({
+        id: 'd4',
+        status: 'active',
+        startOffsetDays: -60,
+        endOffsetDays: -1,
+      })
     );
 
     const ordered = [expired, active].sort(compareNormalizedSubscriptions);

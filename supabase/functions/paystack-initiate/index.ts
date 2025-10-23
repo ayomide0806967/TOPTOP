@@ -18,7 +18,8 @@ interface InitiateRequestBody {
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
 };
 
 const respond = (
@@ -81,7 +82,11 @@ serve(async (req) => {
     }
 
     const { planId, userId, registration } = body;
-    console.log('[paystack-initiate] Request body:', { planId, userId, registration });
+    console.log('[paystack-initiate] Request body:', {
+      planId,
+      userId,
+      registration,
+    });
 
     if (!planId || !userId) {
       return respondError(req, 'planId and userId are required.', 400);
@@ -106,10 +111,17 @@ serve(async (req) => {
 
     if (planError || !plan) {
       console.error('[paystack-initiate] Plan not found:', planError);
-      return respondError(req, 'Subscription plan not found.', 404, { planId, error: planError });
+      return respondError(req, 'Subscription plan not found.', 404, {
+        planId,
+        error: planError,
+      });
     }
 
-    console.log('[paystack-initiate] Plan found:', { id: plan.id, price: plan.price, currency: plan.currency });
+    console.log('[paystack-initiate] Plan found:', {
+      id: plan.id,
+      price: plan.price,
+      currency: plan.currency,
+    });
 
     console.log('[paystack-initiate] Fetching user:', userId);
     const { data: user, error: userError } = await supabaseAdmin
@@ -120,7 +132,10 @@ serve(async (req) => {
 
     if (userError || !user) {
       console.error('[paystack-initiate] User not found:', userError);
-      return respondError(req, 'User profile not found.', 404, { userId, error: userError });
+      return respondError(req, 'User profile not found.', 404, {
+        userId,
+        error: userError,
+      });
     }
 
     console.log('[paystack-initiate] User found:', { email: user.email });
@@ -128,11 +143,16 @@ serve(async (req) => {
     // Validate price
     if (!plan.price || plan.price <= 0) {
       console.error('[paystack-initiate] Invalid plan price:', plan.price);
-      return respondError(req, 'Plan has invalid price.', 400, { price: plan.price });
+      return respondError(req, 'Plan has invalid price.', 400, {
+        price: plan.price,
+      });
     }
 
     const amountKobo = Math.round(plan.price * 100);
-    console.log('[paystack-initiate] Amount calculation:', { price: plan.price, amountKobo });
+    console.log('[paystack-initiate] Amount calculation:', {
+      price: plan.price,
+      amountKobo,
+    });
 
     // Generate a unique reference
     const reference = `CBT_${userId.substring(0, 8)}_${Date.now()}`;
@@ -165,7 +185,10 @@ serve(async (req) => {
       metadata: metadata,
     };
 
-    console.log('[paystack-initiate] Returning data for client:', JSON.stringify(responseData, null, 2));
+    console.log(
+      '[paystack-initiate] Returning data for client:',
+      JSON.stringify(responseData, null, 2)
+    );
 
     return respondJson(req, responseData);
   } catch (error) {

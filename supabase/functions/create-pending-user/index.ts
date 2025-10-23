@@ -8,7 +8,8 @@ const ALLOWED_ORIGINS = (Deno.env.get('REGISTRATION_ALLOWED_ORIGINS') || '')
 
 const BASE_CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
   Vary: 'Origin',
 } as const;
 
@@ -36,7 +37,7 @@ function buildCorsHeaders(origin: string | null) {
 function jsonResponse(
   status: number,
   origin: string | null,
-  payload: Record<string, unknown>,
+  payload: Record<string, unknown>
 ): Response {
   const headers = buildCorsHeaders(origin);
   if (!headers) {
@@ -85,20 +86,27 @@ serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!supabaseUrl || !serviceKey) {
-      throw new Error('Missing environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+      throw new Error(
+        'Missing environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY'
+      );
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
     const body = await req.json();
-    const { email, firstName, lastName, phone, username, password, planId } = body ?? {};
+    const { email, firstName, lastName, phone, username, password, planId } =
+      body ?? {};
 
-    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedEmail = String(email || '')
+      .trim()
+      .toLowerCase();
     const sanitizedFirstName = String(firstName || '').trim();
     const sanitizedLastName = String(lastName || '').trim();
     const sanitizedPhone = typeof phone === 'string' ? phone.trim() : '';
     const normalizedPhone = sanitizedPhone || null;
-    const normalizedUsername = String(username || '').trim().toLowerCase();
+    const normalizedUsername = String(username || '')
+      .trim()
+      .toLowerCase();
     const normalizedPlanId = typeof planId === 'string' ? planId.trim() : '';
     const rawPassword = String(password || '');
 
@@ -121,19 +129,24 @@ serve(async (req) => {
 
     const ACTIVE_STATUSES = new Set(['active', 'trialing']);
 
-    const { data: existingProfile, error: profileLookupError } = await supabaseAdmin
-      .from('profiles')
-      .select('id, subscription_status')
-      .eq('email', normalizedEmail)
-      .maybeSingle();
+    const { data: existingProfile, error: profileLookupError } =
+      await supabaseAdmin
+        .from('profiles')
+        .select('id, subscription_status')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
 
     if (profileLookupError && profileLookupError.code !== 'PGRST116') {
       throw profileLookupError;
     }
 
-    if (existingProfile && ACTIVE_STATUSES.has(existingProfile.subscription_status || '')) {
+    if (
+      existingProfile &&
+      ACTIVE_STATUSES.has(existingProfile.subscription_status || '')
+    ) {
       return jsonResponse(409, origin, {
-        error: 'An active subscription already exists for this email. Please sign in instead.',
+        error:
+          'An active subscription already exists for this email. Please sign in instead.',
       });
     }
 
@@ -160,11 +173,12 @@ serve(async (req) => {
       }
     }
 
-    const { data: usernameOwner, error: usernameLookupError } = await supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .eq('username', normalizedUsername)
-      .maybeSingle();
+    const { data: usernameOwner, error: usernameLookupError } =
+      await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('username', normalizedUsername)
+        .maybeSingle();
 
     if (usernameLookupError && usernameLookupError.code !== 'PGRST116') {
       throw usernameLookupError;
@@ -172,41 +186,45 @@ serve(async (req) => {
 
     if (usernameOwner && usernameOwner.id !== existingProfile?.id) {
       return jsonResponse(409, origin, {
-        error: 'This username is already taken. Refresh to receive a new username and try again.',
+        error:
+          'This username is already taken. Refresh to receive a new username and try again.',
       });
     }
 
-    const { data: userList, error: fetchUserError } = await supabaseAdmin.auth.admin.listUsers({
-      page: 1,
-      perPage: 200,
-      filter: `email.eq.${normalizedEmail}`,
-    });
+    const { data: userList, error: fetchUserError } =
+      await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 200,
+        filter: `email.eq.${normalizedEmail}`,
+      });
 
     if (fetchUserError) {
       throw fetchUserError;
     }
 
     const authUser = userList?.users?.find(
-      (user) => user.email?.toLowerCase() === normalizedEmail,
+      (user) => user.email?.toLowerCase() === normalizedEmail
     );
 
     if (authUser) {
       return jsonResponse(409, origin, {
-        error: 'An account already exists for this email. Please sign in instead.',
+        error:
+          'An account already exists for this email. Please sign in instead.',
       });
     }
 
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email: normalizedEmail,
-      email_confirm: true,
-      password: rawPassword,
-      user_metadata: {
-        first_name: sanitizedFirstName,
-        last_name: sanitizedLastName,
-        phone: normalizedPhone,
-        username: normalizedUsername,
-      },
-    });
+    const { data: newUser, error: createError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email: normalizedEmail,
+        email_confirm: true,
+        password: rawPassword,
+        user_metadata: {
+          first_name: sanitizedFirstName,
+          last_name: sanitizedLastName,
+          phone: normalizedPhone,
+          username: normalizedUsername,
+        },
+      });
 
     if (createError) {
       throw createError;
@@ -245,7 +263,7 @@ serve(async (req) => {
               department_id,
               department:departments(id, name, slug)
             )
-          `,
+          `
         )
         .eq('id', normalizedPlanId)
         .maybeSingle();
@@ -285,28 +303,28 @@ serve(async (req) => {
       }
     }
 
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .upsert(
-        {
-          id: userId,
-          email: normalizedEmail,
-          first_name: sanitizedFirstName,
-          last_name: sanitizedLastName,
-          phone: normalizedPhone,
-          username: normalizedUsername,
-          full_name: `${sanitizedFirstName} ${sanitizedLastName}`.trim() || null,
-          subscription_status: 'pending_payment',
-          registration_token: hashedToken,
-          registration_token_expires_at: expiresAt,
-          registration_stage: 'awaiting_payment',
-          pending_plan_id: normalizedPlanId || null,
-          pending_plan_snapshot: planSnapshot,
-          pending_plan_selected_at: new Date().toISOString(),
-          pending_plan_expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-        },
-        { onConflict: 'id' },
-      );
+    const { error: profileError } = await supabaseAdmin.from('profiles').upsert(
+      {
+        id: userId,
+        email: normalizedEmail,
+        first_name: sanitizedFirstName,
+        last_name: sanitizedLastName,
+        phone: normalizedPhone,
+        username: normalizedUsername,
+        full_name: `${sanitizedFirstName} ${sanitizedLastName}`.trim() || null,
+        subscription_status: 'pending_payment',
+        registration_token: hashedToken,
+        registration_token_expires_at: expiresAt,
+        registration_stage: 'awaiting_payment',
+        pending_plan_id: normalizedPlanId || null,
+        pending_plan_snapshot: planSnapshot,
+        pending_plan_selected_at: new Date().toISOString(),
+        pending_plan_expires_at: new Date(
+          Date.now() + 72 * 60 * 60 * 1000
+        ).toISOString(),
+      },
+      { onConflict: 'id' }
+    );
 
     if (profileError) {
       throw profileError;

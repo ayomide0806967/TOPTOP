@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Exam Monitor | Academic Nightingale</title>
+    <link rel="stylesheet" href="../assets/tailwind.css" />
+  </head>
+  <body class="min-h-screen bg-slate-50 text-slate-900">
+    <script>
+      window.__SUPABASE_CONFIG__ = window.__SUPABASE_CONFIG__ || {
+        url: 'https://ghnhfagydcynhkgbazbj.supabase.co',
+        anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobmhmYWd5ZGN5bmhrZ2JhemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwMDM2MjQsImV4cCI6MjA3NDU3OTYyNH0.KHgZ_ESTneR0CqWBGfu-JOmI3eBBLCZr1XG-g2vpclw',
+      };
+    </script>
+    <div class="flex min-h-screen flex-col">
+      <header class="border-b border-slate-200 bg-white">
+        <div
+          class="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between"
+        >
+          <div>
+            <a
+              href="./dashboard.html"
+              class="inline-flex items-center gap-2 text-sm font-semibold text-cyan-600 hover:text-cyan-700"
+            >
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M15 18l-6-6 6-6"
+                />
+              </svg>
+              Back to dashboard
+            </a>
+            <h1
+              id="exam-title"
+              class="mt-2 text-2xl font-semibold tracking-tight"
+            >
+              Exam monitor
+            </h1>
+            <p class="mt-1 text-sm text-slate-500">
+              Track live participant progress and scores in real-time.
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <button
+              id="refresh-attempts-btn"
+              class="inline-flex items-center gap-2 rounded-full bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main class="flex-1 pb-16">
+        <div class="mx-auto w-full max-w-6xl space-y-8 px-4 py-6 sm:px-6">
+          <div
+            id="page-loader"
+            class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm"
+          >
+            <svg
+              class="h-4 w-4 animate-spin text-cyan-600"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke-width="4"
+              ></circle>
+              <path
+                class="opacity-75"
+                stroke-width="4"
+                d="M4 12a8 8 0 018-8"
+              ></path>
+            </svg>
+            Loading live attempts…
+          </div>
+
+          <section id="exam-detail"></section>
+
+          <section>
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" id="exam-stats">
+              <!-- Populated dynamically -->
+            </div>
+          </section>
+
+          <section class="space-y-4">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 class="text-lg font-semibold text-slate-900">
+                Participant attempts
+              </h2>
+              <p class="text-sm text-slate-500">
+                Data refreshes automatically when activity is detected.
+              </p>
+            </div>
+            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div class="max-h-[60vh] overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-100">
+                  <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th scope="col" class="px-3 py-3 text-left">Participant</th>
+                      <th scope="col" class="px-3 py-3 text-left">Status</th>
+                      <th scope="col" class="px-3 py-3 text-left">Progress</th>
+                      <th scope="col" class="px-3 py-3 text-left">Score</th>
+                      <th scope="col" class="px-3 py-3 text-left">Started</th>
+                      <th scope="col" class="px-3 py-3 text-left">Duration</th>
+                      <th scope="col" class="px-3 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="attempts-table-body" class="divide-y divide-slate-100"></tbody>
+                </table>
+              </div>
+              <div
+                id="attempts-empty-state"
+                class="border-t border-slate-100 bg-white px-6 py-8 text-center text-sm text-slate-500"
+              >
+                Waiting for participants to join this exam.
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <script type="module" src="./src/pages/examMonitor.js"></script>
+    <script type="module" src="./src/pwa-bootstrap.js"></script>
+  </body>
+</html>

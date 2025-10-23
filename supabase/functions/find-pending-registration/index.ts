@@ -4,7 +4,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
 };
 
 serve(async (req) => {
@@ -15,36 +16,52 @@ serve(async (req) => {
   try {
     const { email, firstName, lastName, phone } = await req.json();
 
-    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedEmail = String(email || '')
+      .trim()
+      .toLowerCase();
     const normalizedFirstName = String(firstName || '').trim();
     const normalizedLastName = String(lastName || '').trim();
     const normalizedPhone = String(phone || '').trim();
 
-    if (!normalizedEmail || !normalizedFirstName || !normalizedLastName || !normalizedPhone) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (
+      !normalizedEmail ||
+      !normalizedFirstName ||
+      !normalizedLastName ||
+      !normalizedPhone
+    ) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
     if (!supabaseUrl || !serviceRoleKey) {
-      console.error('[find-pending-registration] Missing Supabase environment configuration');
+      console.error(
+        '[find-pending-registration] Missing Supabase environment configuration'
+      );
       return new Response(
-        JSON.stringify({ error: 'Server configuration error. Please contact support.' }),
+        JSON.stringify({
+          error: 'Server configuration error. Please contact support.',
+        }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
+        }
       );
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-    const normalizeText = (value: string | null) => (value || '').trim().toLowerCase();
-    const digitsOnly = (value: string | null) => (value || '').replace(/\D+/g, '');
+    const normalizeText = (value: string | null) =>
+      (value || '').trim().toLowerCase();
+    const digitsOnly = (value: string | null) =>
+      (value || '').replace(/\D+/g, '');
 
     const stripAccents = (value: string) =>
       value
@@ -53,10 +70,7 @@ serve(async (req) => {
         .replace(/[^a-z\s]/gi, ' ');
 
     const sanitizeName = (value: string) =>
-      stripAccents(value)
-        .toLowerCase()
-        .replace(/\s+/g, ' ')
-        .trim();
+      stripAccents(value).toLowerCase().replace(/\s+/g, ' ').trim();
 
     const levenshtein = (a: string, b: string) => {
       if (a === b) return 0;
@@ -81,7 +95,7 @@ serve(async (req) => {
             matrix[i][j] = Math.min(
               matrix[i - 1][j] + 1,
               matrix[i][j - 1] + 1,
-              matrix[i - 1][j - 1] + 1,
+              matrix[i - 1][j - 1] + 1
             );
           }
         }
@@ -107,7 +121,12 @@ serve(async (req) => {
         return true;
       }
 
-      if (withinTolerance(levenshtein(aRaw, bRaw), Math.max(aRaw.length, bRaw.length))) {
+      if (
+        withinTolerance(
+          levenshtein(aRaw, bRaw),
+          Math.max(aRaw.length, bRaw.length)
+        )
+      ) {
         return true;
       }
 
@@ -119,7 +138,7 @@ serve(async (req) => {
           if (
             withinTolerance(
               levenshtein(aToken, bToken),
-              Math.max(aToken.length, bToken.length),
+              Math.max(aToken.length, bToken.length)
             )
           ) {
             return true;
@@ -154,21 +173,29 @@ serve(async (req) => {
     }
 
     if (profileError && profileError.code !== 'PGRST116') {
-      console.error('[find-pending-registration] Profile lookup error', profileError);
+      console.error(
+        '[find-pending-registration] Profile lookup error',
+        profileError
+      );
       return new Response(
-        JSON.stringify({ error: 'Failed to lookup registration. Please try again later.' }),
+        JSON.stringify({
+          error: 'Failed to lookup registration. Please try again later.',
+        }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
+        }
       );
     }
 
     if (!profile) {
-      return new Response(JSON.stringify({ error: 'No matching pending registration found.' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ error: 'No matching pending registration found.' }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const profileFirst = sanitizeName(profile.first_name ?? '');
@@ -213,7 +240,7 @@ serve(async (req) => {
         {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
+        }
       );
     }
 
@@ -227,13 +254,19 @@ serve(async (req) => {
       .maybeSingle();
 
     if (transactionError && transactionError.code !== 'PGRST116') {
-      console.error('[find-pending-registration] payment_transactions lookup error', transactionError);
+      console.error(
+        '[find-pending-registration] payment_transactions lookup error',
+        transactionError
+      );
       return new Response(
-        JSON.stringify({ error: 'Unable to fetch payment details right now. Please try again later.' }),
+        JSON.stringify({
+          error:
+            'Unable to fetch payment details right now. Please try again later.',
+        }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
+        }
       );
     }
 
@@ -252,13 +285,19 @@ serve(async (req) => {
         .maybeSingle();
 
       if (legacyError && legacyError.code !== 'PGRST116') {
-        console.error('[find-pending-registration] Legacy payments lookup error', legacyError);
+        console.error(
+          '[find-pending-registration] Legacy payments lookup error',
+          legacyError
+        );
         return new Response(
-          JSON.stringify({ error: 'Unable to fetch payment details right now. Please try again later.' }),
+          JSON.stringify({
+            error:
+              'Unable to fetch payment details right now. Please try again later.',
+          }),
           {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
+          }
         );
       }
 
@@ -267,11 +306,13 @@ serve(async (req) => {
 
     if (!reference) {
       return new Response(
-        JSON.stringify({ error: 'No successful payment found for this registration.' }),
+        JSON.stringify({
+          error: 'No successful payment found for this registration.',
+        }),
         {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
+        }
       );
     }
 
@@ -281,11 +322,10 @@ serve(async (req) => {
         userId: profile.id,
       }),
       {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
     );
-
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

@@ -48,10 +48,17 @@
       }
       /* Modern beige header card */
       #header-card {
-        background: linear-gradient(135deg, rgba(14, 165, 233, 0.16) 0%, rgba(20, 184, 166, 0.18) 45%, rgba(59, 130, 246, 0.18) 100%);
+        background: linear-gradient(
+          135deg,
+          rgba(14, 165, 233, 0.16) 0%,
+          rgba(20, 184, 166, 0.18) 45%,
+          rgba(59, 130, 246, 0.18) 100%
+        );
         border: none;
         border-radius: 20px;
-        box-shadow: 0 18px 35px rgba(14, 116, 144, 0.12), 0 6px 18px rgba(15, 118, 110, 0.08);
+        box-shadow:
+          0 18px 35px rgba(14, 116, 144, 0.12),
+          0 6px 18px rgba(15, 118, 110, 0.08);
         position: relative;
         overflow: hidden;
       }
@@ -114,10 +121,16 @@
         gap: 6px;
         font-weight: 700;
         color: #1f2937;
-        background: linear-gradient(135deg, rgba(245, 241, 232, 0.95), rgba(237, 232, 220, 0.95));
+        background: linear-gradient(
+          135deg,
+          rgba(245, 241, 232, 0.95),
+          rgba(237, 232, 220, 0.95)
+        );
         padding: 10px 16px;
         border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+        box-shadow:
+          0 4px 12px rgba(0, 0, 0, 0.15),
+          0 2px 4px rgba(0, 0, 0, 0.1);
         border: 1px solid rgba(139, 115, 85, 0.3);
         backdrop-filter: blur(10px);
         font-size: 16px;
@@ -278,7 +291,11 @@
         box-shadow: none;
       }
       #loadingMessage {
-        background: linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(20, 184, 166, 0.08));
+        background: linear-gradient(
+          135deg,
+          rgba(14, 165, 233, 0.1),
+          rgba(20, 184, 166, 0.08)
+        );
         border: 1px solid rgba(14, 165, 233, 0.18);
         display: flex;
         flex-direction: column;
@@ -297,7 +314,11 @@
         width: 88px;
         height: 88px;
         border-radius: 28px;
-        background: radial-gradient(circle at 30% 30%, rgba(14, 165, 233, 0.22), rgba(15, 118, 110, 0.08));
+        background: radial-gradient(
+          circle at 30% 30%,
+          rgba(14, 165, 233, 0.22),
+          rgba(15, 118, 110, 0.08)
+        );
         box-shadow: 0 18px 35px rgba(14, 116, 144, 0.18);
         backdrop-filter: blur(8px);
         overflow: hidden;
@@ -340,7 +361,8 @@
         animation-delay: 0.45s;
       }
       @keyframes loadingPulse {
-        0%, 100% {
+        0%,
+        100% {
           opacity: 0.25;
           transform: scale(1);
         }
@@ -354,7 +376,7 @@
         width: 100%;
         overflow-x: hidden;
       }
-      
+
       /* Modern Confirmation Modal */
       .confirm-modal-overlay {
         position: fixed;
@@ -369,11 +391,13 @@
         opacity: 0;
         animation: fadeIn 0.2s ease forwards;
       }
-      
+
       @keyframes fadeIn {
-        to { opacity: 1; }
+        to {
+          opacity: 1;
+        }
       }
-      
+
       @keyframes slideUp {
         from {
           transform: translateY(20px);
@@ -384,7 +408,7 @@
           opacity: 1;
         }
       }
-      
+
       .confirm-modal {
         background: white;
         border-radius: 20px;
@@ -394,24 +418,24 @@
         animation: slideUp 0.3s ease;
         overflow: hidden;
       }
-      
+
       .confirm-modal-header {
         background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
         padding: 24px;
         color: white;
       }
-      
+
       .confirm-modal-body {
         padding: 24px;
       }
-      
+
       .confirm-modal-footer {
         padding: 16px 24px 24px;
         display: flex;
         gap: 12px;
         justify-content: flex-end;
       }
-      
+
       .confirm-stat {
         display: flex;
         align-items: center;
@@ -421,7 +445,7 @@
         border-radius: 12px;
         margin-bottom: 8px;
       }
-      
+
       .confirm-stat-icon {
         width: 40px;
         height: 40px;
@@ -431,7 +455,7 @@
         justify-content: center;
         font-size: 20px;
       }
-      
+
       .confirm-btn {
         padding: 12px 24px;
         border-radius: 10px;
@@ -442,25 +466,25 @@
         border: none;
         outline: none;
       }
-      
+
       .confirm-btn:active {
         transform: scale(0.98);
       }
-      
+
       .confirm-btn-cancel {
         background: #f1f5f9;
         color: #475569;
       }
-      
+
       .confirm-btn-cancel:hover {
         background: #e2e8f0;
       }
-      
+
       .confirm-btn-submit {
         background: #14b8a6;
         color: white;
       }
-      
+
       .confirm-btn-submit:hover {
         background: #0d9488;
       }
@@ -694,7 +718,9 @@
         </div>
       </div>
 
-      <div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[1000] flex flex-row gap-3">
+      <div
+        class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[1000] flex flex-row gap-3"
+      >
         <button id="calculatorTrigger" class="gf-calculator-trigger">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path
@@ -748,7 +774,12 @@
         <div id="paletteContent" class="gf-palette-content">
           <div class="flex justify-between items-center mb-4 pb-4 border-b">
             <h2 class="font-bold text-lg">Question Navigator</h2>
-            <button id="closePaletteBtn" class="text-2xl hover:text-red-600 transition-colors">&times;</button>
+            <button
+              id="closePaletteBtn"
+              class="text-2xl hover:text-red-600 transition-colors"
+            >
+              &times;
+            </button>
           </div>
           <div class="mb-4">
             <button id="paletteSubmitBtn" class="gf-btn primary w-full">
@@ -1139,5 +1170,5 @@
     </script>
     <script type="module" src="./src/exam-face.js"></script>
     <script type="module" src="src/pwa-bootstrap.js"></script>
-</body>
+  </body>
 </html>

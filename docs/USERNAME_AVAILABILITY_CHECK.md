@@ -3,6 +3,7 @@
 > **Legacy note:** References to `registration-after.js` describe the retired post-payment credential screen. Username generation and validation now happen on the unified registration form before payment.
 
 ## Overview
+
 Comprehensive documentation of how the system handles duplicate usernames during registration, with **dual-layer validation** (frontend + backend).
 
 ---
@@ -10,6 +11,7 @@ Comprehensive documentation of how the system handles duplicate usernames during
 ## 🛡️ Dual-Layer Protection
 
 ### **Layer 1: Frontend Check** (Before Submission)
+
 **Location**: `apps/learner/src/registration-after.js`
 
 ```javascript
@@ -18,11 +20,11 @@ async function assertUsernameAvailable(username, currentUserId) {
   const { data, error } = await supabase
     .from('profiles')
     .select('id')
-    .eq('username', username)  // ✅ Checks normalized username
+    .eq('username', username) // ✅ Checks normalized username
     .maybeSingle();
 
   if (error) {
-    throw error;  // Database error
+    throw error; // Database error
   }
 
   if (data && data.id !== currentUserId) {
@@ -32,6 +34,7 @@ async function assertUsernameAvailable(username, currentUserId) {
 ```
 
 **Called in `handleSubmit()`**:
+
 ```javascript
 async function handleSubmit(event) {
   event.preventDefault();
@@ -41,7 +44,7 @@ async function handleSubmit(event) {
     // Step 1: Validate and normalize username
     const username = validateUsername(usernameInput.value);
     console.log('[After Registration] Normalized username:', username);
-    
+
     // Step 2: Validate passwords
     // ... password validation ...
 
@@ -54,7 +57,7 @@ async function handleSubmit(event) {
     }
 
     console.log('[After Registration] Checking username availability...');
-    await assertUsernameAvailable(username, userId);  // ✅ CALLED HERE
+    await assertUsernameAvailable(username, userId); // ✅ CALLED HERE
     console.log('[After Registration] Username is available');
 
     // Step 4: Update profile and credentials
@@ -72,6 +75,7 @@ async function handleSubmit(event) {
 ```
 
 ### **Layer 2: Backend Check** (Final Validation)
+
 **Location**: `supabase/functions/finalize-registration/index.ts`
 
 ```typescript
@@ -79,14 +83,14 @@ async function handleSubmit(event) {
 const { data: existingUser, error: checkError } = await supabaseAdmin
   .from('profiles')
   .select('id')
-  .eq('username', normalizedUsername)  // ✅ Checks normalized username
+  .eq('username', normalizedUsername) // ✅ Checks normalized username
   .maybeSingle();
 
 if (checkError) throw checkError;
 
 if (existingUser && existingUser.id !== userId) {
   return new Response(JSON.stringify({ error: 'Username is already taken' }), {
-    status: 409,  // ✅ HTTP 409 Conflict
+    status: 409, // ✅ HTTP 409 Conflict
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
@@ -115,7 +119,7 @@ graph TD
     O -->|Yes| P[Return 409 error: 'Username is already taken']
     O -->|No| Q[Store username in database]
     Q --> R[Success! Auto-login]
-    
+
     style J fill:#ff6b6b
     style P fill:#ff6b6b
     style R fill:#51cf66
@@ -126,6 +130,7 @@ graph TD
 ## 📝 User Experience Scenarios
 
 ### **Scenario 1: Username Available** ✅
+
 ```
 User types: "JohnDoe"
 Frontend normalizes: "johndoe"
@@ -136,6 +141,7 @@ Message: "Signed in successfully. Redirecting…"
 ```
 
 ### **Scenario 2: Username Taken (Caught by Frontend)** ❌
+
 ```
 User types: "JohnDoe"
 Frontend normalizes: "johndoe"
@@ -146,7 +152,8 @@ Button: Re-enabled for retry
 ```
 
 ### **Scenario 3: Username Taken (Caught by Backend)** ❌
-*Race condition: Another user takes the username between frontend check and backend save*
+
+_Race condition: Another user takes the username between frontend check and backend save_
 
 ```
 User types: "JohnDoe"
@@ -160,6 +167,7 @@ Button: Re-enabled for retry
 ```
 
 ### **Scenario 4: Case-Insensitive Duplicate** ❌
+
 ```
 Existing user: "johndoe"
 New user types: "JohnDoe"
@@ -170,7 +178,8 @@ Message: "This username is already taken. Please choose another."
 ```
 
 ### **Scenario 5: Same User Re-registering** ✅
-*Edge case: User refreshes page during registration*
+
+_Edge case: User refreshes page during registration_
 
 ```
 User ID: 456
@@ -195,11 +204,13 @@ if (data && data.id !== currentUserId) {
 ```
 
 **Reason**: Allows users to keep their own username if they:
+
 - Refresh the page during registration
 - Go back and forward in the flow
 - Re-submit the form
 
 **Example**:
+
 ```
 User 123 registers with "johndoe"
 User 123 refreshes page
@@ -227,6 +238,7 @@ catch (error) {
 ```
 
 **User sees**:
+
 ```
 ┌─────────────────────────────────────────────────┐
 │ ⚠️ This username is already taken. Please       │
@@ -245,16 +257,17 @@ Confirm: [••••••••]
 
 ```typescript
 return new Response(JSON.stringify({ error: 'Username is already taken' }), {
-  status: 409,  // Conflict
+  status: 409, // Conflict
   headers: { ...corsHeaders, 'Content-Type': 'application/json' },
 });
 ```
 
 **Frontend handles it**:
+
 ```javascript
 if (data?.error) {
   console.error('[After Registration] Business error:', data.error);
-  throw new Error(data.error);  // Shows: "Username is already taken"
+  throw new Error(data.error); // Shows: "Username is already taken"
 }
 ```
 
@@ -263,6 +276,7 @@ if (data?.error) {
 ## 🧪 Testing Scenarios
 
 ### **Test 1: Basic Duplicate Check**
+
 ```
 1. Register user with username "testuser"
 2. Try to register another user with "testuser"
@@ -270,6 +284,7 @@ Expected: ❌ "This username is already taken"
 ```
 
 ### **Test 2: Case-Insensitive Check**
+
 ```
 1. Register user with username "TestUser"
 2. Try to register another user with "testuser"
@@ -277,6 +292,7 @@ Expected: ❌ "This username is already taken"
 ```
 
 ### **Test 3: Same User Re-registration**
+
 ```
 1. Start registration for user ID 123 with "testuser"
 2. Refresh page (user ID still 123)
@@ -285,6 +301,7 @@ Expected: ✅ Allowed to proceed
 ```
 
 ### **Test 4: Race Condition**
+
 ```
 1. User A starts registration with "testuser"
 2. User B completes registration with "testuser" first
@@ -294,6 +311,7 @@ Expected: ❌ Backend catches it with 409 error
 ```
 
 ### **Test 5: Database Error**
+
 ```
 1. Simulate database connection failure
 2. Try to register
@@ -305,18 +323,22 @@ Expected: ❌ "Database error occurred. Please try again."
 ## 🔐 Security Considerations
 
 ### **1. No Username Enumeration**
+
 ✅ Error message is generic: "This username is already taken"
-❌ Does NOT reveal: "User 'johndoe' exists with email j***@example.com"
+❌ Does NOT reveal: "User 'johndoe' exists with email j\*\*\*@example.com"
 
 ### **2. Normalized Comparison**
+
 ✅ All checks use lowercase: `eq('username', normalizedUsername)`
 ❌ Prevents bypass: User can't register "JohnDoe" if "johndoe" exists
 
 ### **3. Dual-Layer Validation**
+
 ✅ Frontend check: Fast feedback, good UX
 ✅ Backend check: Security guarantee, handles race conditions
 
 ### **4. User ID Verification**
+
 ✅ Checks `currentUserId` to allow same-user updates
 ❌ Prevents: User A claiming User B's username during re-registration
 
@@ -325,16 +347,19 @@ Expected: ❌ "Database error occurred. Please try again."
 ## 📊 Performance Considerations
 
 ### **Frontend Check**
+
 - **Query**: `SELECT id FROM profiles WHERE username = 'johndoe' LIMIT 1`
 - **Speed**: ~50-100ms (depending on network)
 - **Impact**: Minimal - only runs on form submission
 
 ### **Backend Check**
+
 - **Query**: Same as frontend
 - **Speed**: ~10-20ms (server-side, no network latency)
 - **Impact**: Minimal - part of registration transaction
 
 ### **Optimization**
+
 - Uses `maybeSingle()` instead of `select()` - returns at most 1 row
 - Only selects `id` field, not entire profile
 - Indexed column (username) for fast lookups
@@ -344,9 +369,11 @@ Expected: ❌ "Database error occurred. Please try again."
 ## 🐛 Known Edge Cases
 
 ### **Edge Case 1: Concurrent Registrations**
+
 **Scenario**: Two users submit "johndoe" at exactly the same time
 
 **Handling**:
+
 1. Frontend checks pass for both (race condition)
 2. Backend processes sequentially
 3. First request: ✅ Succeeds
@@ -355,9 +382,11 @@ Expected: ❌ "Database error occurred. Please try again."
 **Result**: ✅ Handled correctly by backend
 
 ### **Edge Case 2: Username with Different Cases**
+
 **Scenario**: "JohnDoe" vs "johndoe" vs "JOHNDOE"
 
 **Handling**:
+
 1. All normalized to "johndoe" in frontend
 2. Database stores "johndoe"
 3. All variations blocked
@@ -365,9 +394,11 @@ Expected: ❌ "Database error occurred. Please try again."
 **Result**: ✅ Handled correctly
 
 ### **Edge Case 3: Whitespace Variations**
+
 **Scenario**: " johndoe " vs "johndoe"
 
 **Handling**:
+
 1. `validateUsername()` trims whitespace
 2. " johndoe " becomes "johndoe"
 3. Comparison works correctly
@@ -379,6 +410,7 @@ Expected: ❌ "Database error occurred. Please try again."
 ## 📚 Related Code
 
 ### **Frontend Files**
+
 - `apps/learner/registration-after-payment.html` - Registration form
 - `apps/learner/src/registration-after.js` - Registration logic
   - `validateUsername()` - Normalizes username
@@ -386,9 +418,11 @@ Expected: ❌ "Database error occurred. Please try again."
   - `handleSubmit()` - Orchestrates flow
 
 ### **Backend Files**
+
 - `supabase/functions/finalize-registration/index.ts` - Backend validation
 
 ### **Database**
+
 - `profiles` table with `username` column (unique, indexed)
 
 ---
@@ -405,6 +439,6 @@ Expected: ❌ "Database error occurred. Please try again."
 
 ---
 
-**Last Updated**: 2025-09-30  
-**Author**: Senior Developer  
+**Last Updated**: 2025-09-30
+**Author**: Senior Developer
 **Status**: ✅ Fully Implemented & Tested

@@ -3,15 +3,25 @@ import { getSupabaseClient } from '../../shared/supabaseClient.js';
 const statusBanner = document.getElementById('status-banner');
 const planSummary = document.getElementById('planSummary');
 const planNameEl = document.querySelector('[data-role="plan-name"]');
-const planDescriptionEl = document.querySelector('[data-role="plan-description"]');
-const planDepartmentEl = document.querySelector('[data-role="plan-department"]');
-const planDailyLimitEl = document.querySelector('[data-role="plan-daily-limit"]');
+const planDescriptionEl = document.querySelector(
+  '[data-role="plan-description"]'
+);
+const planDepartmentEl = document.querySelector(
+  '[data-role="plan-department"]'
+);
+const planDailyLimitEl = document.querySelector(
+  '[data-role="plan-daily-limit"]'
+);
 const planDurationEl = document.querySelector('[data-role="plan-duration"]');
 const planPriceEl = document.querySelector('[data-role="plan-price"]');
 const planChipEl = document.querySelector('[data-role="plan-chip"]');
 const planEditor = document.querySelector('[data-role="plan-editor"]');
-const planEditorToggle = document.querySelector('[data-role="toggle-plan-editor"]');
-const planEditorDepartment = document.querySelector('[data-role="plan-editor-department"]');
+const planEditorToggle = document.querySelector(
+  '[data-role="toggle-plan-editor"]'
+);
+const planEditorDepartment = document.querySelector(
+  '[data-role="plan-editor-department"]'
+);
 const planEditorPlan = document.querySelector('[data-role="plan-editor-plan"]');
 const planEditorHelp = document.querySelector('[data-role="plan-editor-help"]');
 const payButton = document.getElementById('payButton');
@@ -95,7 +105,10 @@ function readStoredPlan(planId) {
       return parsed;
     }
   } catch (error) {
-    console.warn('[ResumeRegistration] Failed to parse stored plan snapshot', error);
+    console.warn(
+      '[ResumeRegistration] Failed to parse stored plan snapshot',
+      error
+    );
   }
   return null;
 }
@@ -200,7 +213,8 @@ function groupProducts(rows) {
   });
 
   return Array.from(map.values()).filter(
-    (product) => product.is_active && product.plans.some((plan) => plan.is_active)
+    (product) =>
+      product.is_active && product.plans.some((plan) => plan.is_active)
   );
 }
 
@@ -217,7 +231,9 @@ function deriveDepartments(products) {
       });
     }
   });
-  return Array.from(lookup.values()).sort((a, b) => a.name.localeCompare(b.name));
+  return Array.from(lookup.values()).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
 }
 
 function populateContactCard(profile) {
@@ -231,16 +247,19 @@ function populateContactCard(profile) {
   const phone = profile?.phone || metadata.phone || '—';
   const username = profile?.username || metadata.username || '—';
 
-  if (contactFields.fullName) contactFields.fullName.textContent = fullName || '—';
+  if (contactFields.fullName)
+    contactFields.fullName.textContent = fullName || '—';
   if (contactFields.email) contactFields.email.textContent = email || '—';
   if (contactFields.phone) contactFields.phone.textContent = phone || '—';
-  if (contactFields.username) contactFields.username.textContent = username || '—';
+  if (contactFields.username)
+    contactFields.username.textContent = username || '—';
 }
 
 async function ensurePendingPlanContext() {
   const profileSnapshot = state.profile?.pending_plan_snapshot || null;
   const pendingPlanId =
-    state.profile?.pending_plan_id || window.localStorage.getItem(STORAGE_PENDING_PLAN_ID);
+    state.profile?.pending_plan_id ||
+    window.localStorage.getItem(STORAGE_PENDING_PLAN_ID);
 
   let plan = null;
 
@@ -294,7 +313,12 @@ async function ensurePendingPlanContext() {
   state.profile.pending_plan_id = state.selectedPlan.id;
   state.profile.pending_plan_snapshot = state.selectedPlan;
   state.profile.registration_stage = 'awaiting_payment';
-  state.selectedDepartment = product.department_id || (product.id && !product.department_id ? 'general' : state.selectedDepartment) || '';
+  state.selectedDepartment =
+    product.department_id ||
+    (product.id && !product.department_id
+      ? 'general'
+      : state.selectedDepartment) ||
+    '';
   persistPlanSnapshot(state.selectedPlan);
   renderPlanDetails(state.selectedPlan);
   updatePayButtonState();
@@ -323,7 +347,9 @@ function renderPlanDetails(plan) {
     planSummary.classList.add('hidden');
     planSummary.textContent = '';
     if (planNameEl) planNameEl.textContent = '—';
-    if (planDescriptionEl) planDescriptionEl.textContent = 'We will show your plan summary once it is available.';
+    if (planDescriptionEl)
+      planDescriptionEl.textContent =
+        'We will show your plan summary once it is available.';
     if (planDepartmentEl) planDepartmentEl.textContent = '—';
     if (planDailyLimitEl) planDailyLimitEl.textContent = '—';
     if (planDurationEl) planDurationEl.textContent = '—';
@@ -333,7 +359,8 @@ function renderPlanDetails(plan) {
   }
 
   const product = plan.product || plan.subscription_product || {};
-  const departmentName = product.department_name || product.department?.name || 'Your department';
+  const departmentName =
+    product.department_name || product.department?.name || 'Your department';
   const durationLabel = plan.duration_days
     ? `${plan.duration_days} day${plan.duration_days === 1 ? '' : 's'}`
     : 'Flexible access';
@@ -355,7 +382,10 @@ function renderPlanDetails(plan) {
   if (planDurationEl) planDurationEl.textContent = durationLabel;
   if (planPriceEl) planPriceEl.textContent = priceLabel;
   const status = (state.profile?.subscription_status || '').toLowerCase();
-  const chipText = status === 'active' || status === 'trialing' ? 'Active plan' : 'Pending activation';
+  const chipText =
+    status === 'active' || status === 'trialing'
+      ? 'Active plan'
+      : 'Pending activation';
   if (planChipEl) planChipEl.textContent = chipText;
 
   const summaryParts = [priceLabel, durationLabel, limitLabel];
@@ -372,7 +402,9 @@ function setLoading(isLoading) {
   state.isLoading = isLoading;
   if (payButton) {
     payButton.disabled = isLoading || !state.selectedPlan;
-    payButton.textContent = isLoading ? 'Preparing Paystack…' : 'Pay securely with Paystack';
+    payButton.textContent = isLoading
+      ? 'Preparing Paystack…'
+      : 'Pay securely with Paystack';
   }
 }
 
@@ -397,8 +429,10 @@ function buildContactPayload() {
 
   return {
     email,
-    firstName: profile.first_name || metadata.first_name || derivedFirst || 'Learner',
-    lastName: profile.last_name || metadata.last_name || derivedLast || 'Account',
+    firstName:
+      profile.first_name || metadata.first_name || derivedFirst || 'Learner',
+    lastName:
+      profile.last_name || metadata.last_name || derivedLast || 'Account',
     phone: profile.phone || metadata.phone || '',
     username:
       profile.username ||
@@ -425,8 +459,16 @@ async function loadProducts() {
   state.products = products;
   state.departments = deriveDepartments(products);
   state.generalProducts = products.filter((product) => !product.department_id);
-  if (state.generalProducts.length && !state.departments.some((dept) => dept.id === 'general')) {
-    state.departments.push({ id: 'general', name: 'General Access', slug: 'general', color: 'default' });
+  if (
+    state.generalProducts.length &&
+    !state.departments.some((dept) => dept.id === 'general')
+  ) {
+    state.departments.push({
+      id: 'general',
+      name: 'General Access',
+      slug: 'general',
+      color: 'default',
+    });
   }
   state.planLookup = new Map();
 
@@ -485,7 +527,8 @@ function persistPlanSnapshot(plan) {
 function populatePlanEditor(currentPlanId) {
   if (!planEditor || !planEditorDepartment || !planEditorPlan) return;
   if (!state.productsLoaded || !state.products.length) {
-    planEditorDepartment.innerHTML = '<option value="">No departments available</option>';
+    planEditorDepartment.innerHTML =
+      '<option value="">No departments available</option>';
     planEditorPlan.innerHTML = '<option value="">No plans available</option>';
     if (planEditorHelp) {
       planEditorHelp.textContent =
@@ -494,7 +537,10 @@ function populatePlanEditor(currentPlanId) {
     return;
   }
 
-  const departmentOptions = state.departments.map((dept) => ({ id: dept.id, name: dept.name }));
+  const departmentOptions = state.departments.map((dept) => ({
+    id: dept.id,
+    name: dept.name,
+  }));
 
   if (!state.selectedDepartment && state.selectedPlan?.product?.department_id) {
     state.selectedDepartment = state.selectedPlan.product.department_id;
@@ -508,9 +554,12 @@ function populatePlanEditor(currentPlanId) {
     .join('');
   planEditorDepartment.value = state.selectedDepartment || '';
 
-  const sourceProducts = state.selectedDepartment === 'general'
-    ? state.generalProducts
-    : state.products.filter((product) => product.department_id === state.selectedDepartment);
+  const sourceProducts =
+    state.selectedDepartment === 'general'
+      ? state.generalProducts
+      : state.products.filter(
+          (product) => product.department_id === state.selectedDepartment
+        );
 
   const plansForDepartment = sourceProducts.flatMap((product) =>
     product.plans
@@ -519,25 +568,35 @@ function populatePlanEditor(currentPlanId) {
   );
 
   if (!plansForDepartment.length) {
-    planEditorPlan.innerHTML = '<option value="">No plans available yet</option>';
+    planEditorPlan.innerHTML =
+      '<option value="">No plans available yet</option>';
     if (planEditorHelp) {
-      planEditorHelp.textContent = 'No active plans for this department. Choose a different department.';
+      planEditorHelp.textContent =
+        'No active plans for this department. Choose a different department.';
     }
     return;
   }
 
   planEditorPlan.innerHTML = plansForDepartment
-    .map(({ plan }) => `<option value="${plan.id}">${plan.name} — ${formatCurrency(plan.price, plan.currency || 'NGN')}</option>`)
+    .map(
+      ({ plan }) =>
+        `<option value="${plan.id}">${plan.name} — ${formatCurrency(plan.price, plan.currency || 'NGN')}</option>`
+    )
     .join('');
 
   let targetPlanId = currentPlanId || state.selectedPlan?.id || '';
-  if (!targetPlanId || !planEditorPlan.querySelector(`option[value="${targetPlanId}"]`)) {
+  if (
+    !targetPlanId ||
+    !planEditorPlan.querySelector(`option[value="${targetPlanId}"]`)
+  ) {
     targetPlanId = plansForDepartment[0].plan.id;
   }
 
   planEditorPlan.value = targetPlanId;
 
-  const currentEntry = state.planLookup.get(targetPlanId) || plansForDepartment.find(({ plan }) => plan.id === targetPlanId);
+  const currentEntry =
+    state.planLookup.get(targetPlanId) ||
+    plansForDepartment.find(({ plan }) => plan.id === targetPlanId);
   if (currentEntry) {
     const fullPlan = currentEntry.plan || currentEntry;
     const product = currentEntry.product || fullPlan.product || {};
@@ -545,7 +604,8 @@ function populatePlanEditor(currentPlanId) {
       ...fullPlan,
       product,
     };
-    state.selectedDepartment = product.department_id || state.selectedDepartment;
+    state.selectedDepartment =
+      product.department_id || state.selectedDepartment;
     renderPlanDetails(state.selectedPlan);
     persistPlanSnapshot(state.selectedPlan);
     if (state.profile) {
@@ -555,7 +615,8 @@ function populatePlanEditor(currentPlanId) {
   }
 
   if (planEditorHelp) {
-    const productName = plansForDepartment[0]?.product?.name || 'your department';
+    const productName =
+      plansForDepartment[0]?.product?.name || 'your department';
     planEditorHelp.textContent = `Update your selection for ${productName}. Your payment will reference the plan shown above.`;
   }
 }
@@ -570,7 +631,10 @@ function handlePlanSelection(event) {
   const planId = event.target.value;
   const lookup = state.planLookup.get(planId);
   if (!lookup) {
-    showBanner('We could not load that plan. Please choose another option.', 'warning');
+    showBanner(
+      'We could not load that plan. Please choose another option.',
+      'warning'
+    );
     return;
   }
   const plan = {
@@ -578,7 +642,8 @@ function handlePlanSelection(event) {
     product: lookup.product,
   };
   state.selectedPlan = plan;
-  state.selectedDepartment = plan.product?.department_id || state.selectedDepartment;
+  state.selectedDepartment =
+    plan.product?.department_id || state.selectedDepartment;
   state.profile.pending_plan_id = plan.id;
   state.profile.pending_plan_snapshot = plan;
   state.profile.registration_stage = 'awaiting_payment';
@@ -601,11 +666,17 @@ async function extractEdgeFunctionError(error, fallbackMessage) {
       const text = await cloned.text();
       if (text) return text;
     } catch (parseError) {
-      console.warn('[ResumeRegistration] Failed to parse edge error response', parseError);
+      console.warn(
+        '[ResumeRegistration] Failed to parse edge error response',
+        parseError
+      );
     }
   }
 
-  if (error?.message && error.message !== 'Edge Function returned a non-2xx status code') {
+  if (
+    error?.message &&
+    error.message !== 'Edge Function returned a non-2xx status code'
+  ) {
     return error.message;
   }
 
@@ -633,7 +704,10 @@ async function refreshProfileStatus() {
       p_user_id: state.user.id,
     });
   } catch (error) {
-    console.warn('[ResumeRegistration] Unable to refresh profile status', error);
+    console.warn(
+      '[ResumeRegistration] Unable to refresh profile status',
+      error
+    );
   }
 }
 
@@ -685,7 +759,10 @@ async function pollForActivation({ attempts = 6, interval = 3000 } = {}) {
 
 function launchPaystackCheckout(paystackData, contact) {
   if (!window.PaystackPop) {
-    showBanner('Payment library failed to load. Please refresh and try again.', 'error');
+    showBanner(
+      'Payment library failed to load. Please refresh and try again.',
+      'error'
+    );
     setLoading(false);
     return;
   }
@@ -702,7 +779,10 @@ function launchPaystackCheckout(paystackData, contact) {
         const reference = response.reference || paystackData.reference;
         state.activeReference = reference;
         handlePaymentSuccess(reference).catch((error) => {
-          console.error('[ResumeRegistration] Post-payment handling failed', error);
+          console.error(
+            '[ResumeRegistration] Post-payment handling failed',
+            error
+          );
           showBanner(
             error.message ||
               'We received your payment but could not finish activation automatically. Please contact support with your reference.',
@@ -712,17 +792,29 @@ function launchPaystackCheckout(paystackData, contact) {
         });
       },
       onClose: () => {
-        showBanner('Checkout closed before completion. You can try again anytime.', 'warning');
+        showBanner(
+          'Checkout closed before completion. You can try again anytime.',
+          'warning'
+        );
         state.activeReference = null;
         setLoading(false);
       },
     });
 
     handler.openIframe();
-    showBanner('Paystack checkout opened in a secure window. Complete payment to continue.', 'info');
+    showBanner(
+      'Paystack checkout opened in a secure window. Complete payment to continue.',
+      'info'
+    );
   } catch (error) {
-    console.error('[ResumeRegistration] Failed to open Paystack checkout', error);
-    showBanner('We could not open the payment window. Please refresh and try again.', 'error');
+    console.error(
+      '[ResumeRegistration] Failed to open Paystack checkout',
+      error
+    );
+    showBanner(
+      'We could not open the payment window. Please refresh and try again.',
+      'error'
+    );
     setLoading(false);
   }
 }
@@ -737,7 +829,10 @@ async function handlePaymentSuccess(reference) {
 
     const activated = await pollForActivation({ attempts: 6, interval: 3000 });
     if (activated) {
-      showBanner('Payment confirmed! Redirecting to your dashboard…', 'success');
+      showBanner(
+        'Payment confirmed! Redirecting to your dashboard…',
+        'success'
+      );
       successSection?.classList.remove('hidden');
       window.localStorage.removeItem('pendingPlanId');
       window.localStorage.removeItem('registrationPlan');
@@ -753,7 +848,11 @@ async function handlePaymentSuccess(reference) {
     );
   } catch (error) {
     console.error('[ResumeRegistration] Payment verification failed', error);
-    showBanner(error.message || 'We could not verify your payment automatically. Please try again.', 'error');
+    showBanner(
+      error.message ||
+        'We could not verify your payment automatically. Please try again.',
+      'error'
+    );
   } finally {
     state.activeReference = null;
     setLoading(false);
@@ -763,7 +862,10 @@ async function handlePaymentSuccess(reference) {
 async function startCheckout() {
   if (!state.supabase || !state.user) return;
   if (!state.selectedPlan) {
-    showBanner('We could not detect your selected plan. Please refresh and try again.', 'warning');
+    showBanner(
+      'We could not detect your selected plan. Please refresh and try again.',
+      'warning'
+    );
     return;
   }
 
@@ -771,7 +873,10 @@ async function startCheckout() {
   const contact = buildContactPayload();
 
   if (!contact.email) {
-    showBanner('We need an email address before starting checkout. Please update your profile or contact support.', 'error');
+    showBanner(
+      'We need an email address before starting checkout. Please update your profile or contact support.',
+      'error'
+    );
     return;
   }
 
@@ -779,18 +884,21 @@ async function startCheckout() {
   clearBanner();
 
   try {
-    const { data, error } = await state.supabase.functions.invoke('paystack-initiate', {
-      body: {
-        planId: plan.id,
-        userId: state.user.id,
-        registration: {
-          first_name: contact.firstName,
-          last_name: contact.lastName,
-          phone: contact.phone,
-          username: contact.username,
+    const { data, error } = await state.supabase.functions.invoke(
+      'paystack-initiate',
+      {
+        body: {
+          planId: plan.id,
+          userId: state.user.id,
+          registration: {
+            first_name: contact.firstName,
+            last_name: contact.lastName,
+            phone: contact.phone,
+            username: contact.username,
+          },
         },
-      },
-    });
+      }
+    );
 
     if (error) {
       const message = await extractEdgeFunctionError(
@@ -812,7 +920,10 @@ async function startCheckout() {
     launchPaystackCheckout(data, contact);
   } catch (error) {
     console.error('[ResumeRegistration] Checkout initialisation failed', error);
-    showBanner(error.message || 'Unable to start checkout. Please try again.', 'error');
+    showBanner(
+      error.message || 'Unable to start checkout. Please try again.',
+      'error'
+    );
     setLoading(false);
     state.activeReference = null;
   }
@@ -882,12 +993,19 @@ async function initialise() {
     await ensurePendingPlanContext();
   } catch (error) {
     console.error('[ResumeRegistration] Initialisation failed', error);
-    showBanner(error.message || 'Unable to resume checkout right now. Please refresh the page.', 'error');
+    showBanner(
+      error.message ||
+        'Unable to resume checkout right now. Please refresh the page.',
+      'error'
+    );
     updatePayButtonState();
   }
 }
 
 initialise().catch((error) => {
   console.error('[ResumeRegistration] Unexpected error during init', error);
-  showBanner('Something went wrong while preparing checkout. Please refresh and try again.', 'error');
+  showBanner(
+    'Something went wrong while preparing checkout. Please refresh and try again.',
+    'error'
+  );
 });

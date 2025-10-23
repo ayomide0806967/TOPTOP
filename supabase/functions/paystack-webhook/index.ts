@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.223.0/http/server.ts';
 import {
   upsertPaymentAndSubscription,
   verifyPaystackSignature,
+  getServiceClient,
 } from '../_shared/paystack.ts';
 import { getPaystackForwardUrl } from '../_shared/paystackConfig.ts';
 
@@ -34,6 +35,7 @@ serve(async (req) => {
     const metadata = data.metadata ?? {};
     const userId = metadata.user_id as string | undefined;
     const planId = metadata.plan_id as string | undefined;
+    const seatUpgradeId = metadata.seat_upgrade_id as string | undefined;
     const reference =
       (data.reference as string) ||
       metadata.reference ||
@@ -61,6 +63,59 @@ serve(async (req) => {
           error
         );
         return new Response('Failed to record transaction', { status: 500 });
+      }
+    }
+
+    if (seatUpgradeId && reference) {
+      const admin = getServiceClient();
+      try {
+        const { data: existing, error: existingError } = await admin
+          .from('quiz_seat_transactions')
+          .select('id, metadata, seat_subscription_id, additional_seats')
+          .eq('id', seatUpgradeId)
+          .single();
+
+        if (existingError || !existing) {
+          console.error('[Paystack webhook] Seat transaction not found', existingError);
+        }
+
+        const { data: transaction, error: txnError } = await admin
+          .from('quiz_seat_transactions')
+          .update({
+            status: 'paid',
+            paystack_reference: reference,
+            metadata: {
+              ...(existing?.metadata ?? {}),
+              ...(metadata || {}),
+              paystack_payload: data,
+            },
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', seatUpgradeId)
+          .select('*')
+          .single();
+
+        if (txnError || !transaction) {
+          console.error('[Paystack webhook] Failed to update seat transaction', txnError);
+        } else {
+          const additionalSeats = Number(
+            transaction.additional_seats ??
+              existing?.additional_seats ??
+              metadata.additional_seats ??
+              0
+          );
+          if (additionalSeats > 0) {
+            const { error: creditError } = await admin.rpc('apply_quiz_seat_credit', {
+              p_subscription_id: transaction.seat_subscription_id,
+              p_additional: additionalSeats,
+            });
+            if (creditError) {
+              console.error('[Paystack webhook] Failed to credit seats', creditError);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[Paystack webhook] Seat upgrade handling failed', error);
       }
     }
   }

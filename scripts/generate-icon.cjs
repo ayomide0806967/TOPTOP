@@ -7,10 +7,10 @@ function crc32(buf) {
     crc ^= buf[i];
     for (let k = 0; k < 8; k += 1) {
       const mask = -(crc & 1);
-      crc = (crc >>> 1) ^ (0xEDB88320 & mask);
+      crc = (crc >>> 1) ^ (0xedb88320 & mask);
     }
   }
-  return (~crc) >>> 0;
+  return ~crc >>> 0;
 }
 
 function makeChunk(type, data) {
@@ -50,7 +50,7 @@ function createPng({ width, height, color, output }) {
   const idat = zlib.deflateSync(raw);
 
   const png = Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     makeChunk('IHDR', ihdr),
     makeChunk('IDAT', idat),
     makeChunk('IEND', Buffer.alloc(0)),
@@ -61,17 +61,38 @@ function createPng({ width, height, color, output }) {
 }
 
 const tasks = [
-  { width: 32, height: 32, file: 'apps/assets/academicnightingale-icon-32.png' },
-  { width: 192, height: 192, file: 'apps/assets/academicnightingale-icon-192.png' },
-  { width: 512, height: 512, file: 'apps/assets/academicnightingale-icon-512.png' },
+  {
+    width: 32,
+    height: 32,
+    file: 'apps/assets/academicnightingale-icon-32.png',
+  },
+  {
+    width: 192,
+    height: 192,
+    file: 'apps/assets/academicnightingale-icon-192.png',
+  },
+  {
+    width: 512,
+    height: 512,
+    file: 'apps/assets/academicnightingale-icon-512.png',
+  },
   { width: 1280, height: 720, file: 'apps/assets/admin-screenshot-wide.png' },
-  { width: 1080, height: 1920, file: 'apps/assets/admin-screenshot-portrait.png' },
+  {
+    width: 1080,
+    height: 1920,
+    file: 'apps/assets/admin-screenshot-portrait.png',
+  },
 ];
 
 const brandColor = [14, 116, 144, 255];
 
 for (const task of tasks) {
-  createPng({ width: task.width, height: task.height, color: brandColor, output: task.file });
+  createPng({
+    width: task.width,
+    height: task.height,
+    color: brandColor,
+    output: task.file,
+  });
 }
 
 const smallPng = fs.readFileSync('apps/assets/academicnightingale-icon-32.png');

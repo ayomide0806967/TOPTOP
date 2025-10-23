@@ -74,7 +74,10 @@ async function handleFormSubmit(event) {
 
     const supabase = await ensureSupabaseClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: new URL('reset-password.html', window.location.origin).toString(),
+      redirectTo: new URL(
+        'reset-password.html',
+        window.location.origin
+      ).toString(),
     });
 
     if (error) {
@@ -82,7 +85,9 @@ async function handleFormSubmit(event) {
 
       // Avoid leaking whether an email exists. Treat "not found" responses as success.
       if (message.includes('not found')) {
-        console.warn('[Forgot Password] Email not found; returning generic success response.');
+        console.warn(
+          '[Forgot Password] Email not found; returning generic success response.'
+        );
         showSuccessState();
         return;
       }
@@ -91,7 +96,6 @@ async function handleFormSubmit(event) {
     }
 
     showSuccessState();
-
   } catch (error) {
     showFeedback(error.message || 'An unexpected error occurred.');
   } finally {

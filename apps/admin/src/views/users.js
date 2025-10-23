@@ -34,8 +34,12 @@ function renderStatusBadge(status) {
     suspended: 'bg-rose-50 text-rose-700 border border-rose-200',
     expired: 'bg-slate-100 text-slate-500 border border-slate-200',
   };
-  const label = normalized.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  const classes = palette[normalized] || 'bg-slate-100 text-slate-600 border border-slate-200';
+  const label = normalized
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const classes =
+    palette[normalized] ||
+    'bg-slate-100 text-slate-600 border border-slate-200';
   return `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${classes}">${escapeHtml(label)}</span>`;
 }
 
@@ -83,10 +87,18 @@ export async function usersView() {
   const filterDefinitions = [
     { key: 'all', label: 'All', count: statusCounts.all || 0 },
     { key: 'active', label: 'Active', count: statusCounts.active || 0 },
-    { key: 'pending_payment', label: 'Pending payment', count: statusCounts.pending_payment || 0 },
+    {
+      key: 'pending_payment',
+      label: 'Pending payment',
+      count: statusCounts.pending_payment || 0,
+    },
     { key: 'expired', label: 'Expired', count: statusCounts.expired || 0 },
     { key: 'no_plan', label: 'No plan', count: statusCounts.no_plan || 0 },
-    { key: 'suspended', label: 'Suspended', count: statusCounts.suspended || 0 },
+    {
+      key: 'suspended',
+      label: 'Suspended',
+      count: statusCounts.suspended || 0,
+    },
   ].filter((item) => item.count > 0 || item.key === 'all');
 
   const filterButtonsHtml = filterDefinitions
@@ -102,7 +114,7 @@ export async function usersView() {
           <span>${label}</span>
           <span class="rounded-full px-2 py-0.5 text-[0.65rem] font-semibold">${count}</span>
         </button>
-      `,
+      `
     )
     .join('');
 
@@ -118,8 +130,10 @@ export async function usersView() {
       ]
         .concat(
           Array.isArray(profile.subscriptions)
-            ? profile.subscriptions.map((subscription) => subscription.plan_name)
-            : [],
+            ? profile.subscriptions.map(
+                (subscription) => subscription.plan_name
+              )
+            : []
         )
         .filter(Boolean)
         .join(' ')
@@ -127,8 +141,14 @@ export async function usersView() {
 
       const profilePayload = encodeURIComponent(JSON.stringify(profile));
       const statusBucket = escapeHtml(profile.status_bucket || 'no_plan');
-      const additionalPlans = Math.max((profile.subscriptions?.length || 0) - 1, 0);
-      const planLabel = profile.plan_name && profile.plan_name !== '-' ? profile.plan_name : 'No active plan';
+      const additionalPlans = Math.max(
+        (profile.subscriptions?.length || 0) - 1,
+        0
+      );
+      const planLabel =
+        profile.plan_name && profile.plan_name !== '-'
+          ? profile.plan_name
+          : 'No active plan';
       const expiresLabel = profile.plan_expires_at
         ? `Expires ${formatDate(profile.plan_expires_at)}`
         : 'No expiry set';
@@ -186,7 +206,7 @@ export async function usersView() {
   const tableBody =
     rowsHtml ||
     `<tr><td colspan="5" class="px-4 py-12 text-center text-slate-500">${escapeHtml(
-      EMPTY_STATE_COPY,
+      EMPTY_STATE_COPY
     )}</td></tr>`;
 
   const departmentOptionsHtml = `
@@ -203,7 +223,7 @@ export async function usersView() {
     .map((plan) => {
       const label = `${plan.name}${plan.departmentName ? ` • ${plan.departmentName}` : ''}`;
       return `<option value="${escapeHtml(plan.id)}" data-department="${escapeHtml(
-        plan.departmentId || '',
+        plan.departmentId || ''
       )}">${escapeHtml(label)}</option>`;
     })
     .join('');
@@ -529,23 +549,37 @@ export async function usersView() {
       </div>
     `,
     onMount(container, _appState, actions) {
-      const rows = Array.from(container.querySelectorAll('[data-role="user-row"]'));
+      const rows = Array.from(
+        container.querySelectorAll('[data-role="user-row"]')
+      );
       const searchInput = container.querySelector('[data-role="user-search"]');
-      const filterButtons = Array.from(container.querySelectorAll('[data-role="status-filter"]'));
+      const filterButtons = Array.from(
+        container.querySelectorAll('[data-role="status-filter"]')
+      );
       const userCountEl = container.querySelector('[data-role="user-count"]');
       const bulkModal = container.querySelector('[data-role="bulk-modal"]');
       const userModal = container.querySelector('[data-role="user-modal"]');
       const bulkForm = container.querySelector('[data-role="bulk-form"]');
       const bulkResults = container.querySelector('[data-role="bulk-results"]');
-      const bulkResultsBody = container.querySelector('[data-role="bulk-results-body"]');
-      const bulkDownload = container.querySelector('[data-role="bulk-download"]');
+      const bulkResultsBody = container.querySelector(
+        '[data-role="bulk-results-body"]'
+      );
+      const bulkDownload = container.querySelector(
+        '[data-role="bulk-download"]'
+      );
       const bulkSubmit = container.querySelector('[data-role="bulk-submit"]');
-      const bulkDepartmentSelect = container.querySelector('[data-role="bulk-department"]');
+      const bulkDepartmentSelect = container.querySelector(
+        '[data-role="bulk-department"]'
+      );
       const bulkPlanSelect = container.querySelector('[data-role="bulk-plan"]');
       const userForm = container.querySelector('[data-role="user-form"]');
-      const userPlanMeta = container.querySelector('[data-role="user-plan-meta"]');
+      const userPlanMeta = container.querySelector(
+        '[data-role="user-plan-meta"]'
+      );
       const suspendBtn = container.querySelector('[data-role="suspend"]');
-      const impersonateBtn = container.querySelector('[data-role="impersonate"]');
+      const impersonateBtn = container.querySelector(
+        '[data-role="impersonate"]'
+      );
       const resetBtn = container.querySelector('[data-role="send-reset"]');
       const deleteBtn = container.querySelector('[data-role="delete-user"]');
       let bulkDownloadUrl = null;
@@ -573,7 +607,12 @@ export async function usersView() {
         button.classList.remove(...INACTIVE_FILTER_CLASSES);
         const badge = button.querySelector('span:last-child');
         if (badge) {
-          badge.classList.remove('bg-white', 'text-cyan-700', 'bg-white/70', 'text-slate-500');
+          badge.classList.remove(
+            'bg-white',
+            'text-cyan-700',
+            'bg-white/70',
+            'text-slate-500'
+          );
         }
       };
 
@@ -604,7 +643,8 @@ export async function usersView() {
         rows.forEach((row) => {
           const bucket = row.dataset.statusBucket || 'no_plan';
           const haystack = (row.dataset.search || '').toLowerCase();
-          const matchesFilter = activeFilter === 'all' || bucket === activeFilter;
+          const matchesFilter =
+            activeFilter === 'all' || bucket === activeFilter;
           const matchesSearch = !searchQuery || haystack.includes(searchQuery);
           const visible = matchesFilter && matchesSearch;
           row.classList.toggle('hidden', !visible);
@@ -677,35 +717,41 @@ export async function usersView() {
         modalEl.style.display = 'none';
       };
 
-      container.querySelectorAll('[data-role="open-bulk-modal"]').forEach((button) => {
-        button.addEventListener('click', () => {
-          bulkForm?.reset();
-          bulkResults?.classList.add('hidden');
-          if (bulkDownloadUrl) {
-            URL.revokeObjectURL(bulkDownloadUrl);
-            bulkDownloadUrl = null;
-          }
-          const initialDepartment = bulkDepartmentSelect?.value
-            ? bulkDepartmentSelect.value.toString()
-            : '';
-          filterPlansForDepartment(initialDepartment);
-          openModal(managedBulkModal);
+      container
+        .querySelectorAll('[data-role="open-bulk-modal"]')
+        .forEach((button) => {
+          button.addEventListener('click', () => {
+            bulkForm?.reset();
+            bulkResults?.classList.add('hidden');
+            if (bulkDownloadUrl) {
+              URL.revokeObjectURL(bulkDownloadUrl);
+              bulkDownloadUrl = null;
+            }
+            const initialDepartment = bulkDepartmentSelect?.value
+              ? bulkDepartmentSelect.value.toString()
+              : '';
+            filterPlansForDepartment(initialDepartment);
+            openModal(managedBulkModal);
+          });
         });
-      });
 
-      container.querySelectorAll('[data-role="close-bulk-modal"]').forEach((button) => {
-        button.addEventListener('click', () => {
-          closeModal(managedBulkModal);
-          if (bulkDownloadUrl) {
-            URL.revokeObjectURL(bulkDownloadUrl);
-            bulkDownloadUrl = null;
-          }
+      container
+        .querySelectorAll('[data-role="close-bulk-modal"]')
+        .forEach((button) => {
+          button.addEventListener('click', () => {
+            closeModal(managedBulkModal);
+            if (bulkDownloadUrl) {
+              URL.revokeObjectURL(bulkDownloadUrl);
+              bulkDownloadUrl = null;
+            }
+          });
         });
-      });
 
-      container.querySelectorAll('[data-role="close-user-modal"]').forEach((button) => {
-        button.addEventListener('click', () => closeModal(managedUserModal));
-      });
+      container
+        .querySelectorAll('[data-role="close-user-modal"]')
+        .forEach((button) => {
+          button.addEventListener('click', () => closeModal(managedUserModal));
+        });
 
       managedBulkModal?.addEventListener('click', (event) => {
         if (event.target === managedBulkModal) {
@@ -723,9 +769,11 @@ export async function usersView() {
         }
       });
 
-      container.querySelector('[data-role="refresh-users"]')?.addEventListener('click', () => {
-        actions.refresh();
-      });
+      container
+        .querySelector('[data-role="refresh-users"]')
+        ?.addEventListener('click', () => {
+          actions.refresh();
+        });
 
       searchInput?.addEventListener('input', (event) => {
         searchQuery = event.target.value.trim().toLowerCase();
@@ -763,9 +811,12 @@ export async function usersView() {
           };
 
           const accounts = await dataService.generateBulkCredentials(payload);
-          showToast(`Generated ${accounts.length} account${accounts.length === 1 ? '' : 's'}.`, {
-            type: 'success',
-          });
+          showToast(
+            `Generated ${accounts.length} account${accounts.length === 1 ? '' : 's'}.`,
+            {
+              type: 'success',
+            }
+          );
 
           bulkResults?.classList.remove('hidden');
           bulkResultsBody.innerHTML = accounts
@@ -777,7 +828,7 @@ export async function usersView() {
                   <td class="px-3 py-2 text-slate-600">${escapeHtml(account.email)}</td>
                   <td class="px-3 py-2 text-slate-400">${account.expiresAt ? formatDate(account.expiresAt) : '—'}</td>
                 </tr>
-              `,
+              `
             )
             .join('');
 
@@ -814,10 +865,13 @@ export async function usersView() {
         activeProfile = profile;
         userForm.reset();
         userForm.querySelector('[name="userId"]').value = profile.id;
-        userForm.querySelector('[name="fullName"]').value = profile.full_name || '';
+        userForm.querySelector('[name="fullName"]').value =
+          profile.full_name || '';
         userForm.querySelector('[name="email"]').value = profile.email || '';
-        userForm.querySelector('[name="username"]').value = profile.username || '';
-        userForm.querySelector('[name="departmentId"]').value = profile.department_id || '';
+        userForm.querySelector('[name="username"]').value =
+          profile.username || '';
+        userForm.querySelector('[name="departmentId"]').value =
+          profile.department_id || '';
         userForm.querySelector('[name="planId"]').value = profile.plan_id || '';
         const planDateInput = userForm.querySelector('[name="planExpiresAt"]');
         if (planDateInput) {
@@ -833,7 +887,9 @@ export async function usersView() {
         if (subscriptions.length) {
           const listMarkup = subscriptions
             .map((subscription) => {
-              const badge = renderStatusBadge(subscription.status || subscription.status_key);
+              const badge = renderStatusBadge(
+                subscription.status || subscription.status_key
+              );
               const details = [];
               if (subscription.started_at) {
                 details.push(`Started ${formatDate(subscription.started_at)}`);
@@ -841,8 +897,13 @@ export async function usersView() {
               if (subscription.expires_at) {
                 details.push(`Expires ${formatDate(subscription.expires_at)}`);
               }
-              if (subscription.purchased_at && subscription.purchased_at !== subscription.started_at) {
-                details.push(`Purchased ${formatDate(subscription.purchased_at)}`);
+              if (
+                subscription.purchased_at &&
+                subscription.purchased_at !== subscription.started_at
+              ) {
+                details.push(
+                  `Purchased ${formatDate(subscription.purchased_at)}`
+                );
               }
               if (subscription.daily_limit) {
                 details.push(`${subscription.daily_limit} questions/day`);
@@ -859,7 +920,7 @@ export async function usersView() {
                   <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div class="text-sm font-semibold text-slate-900">${escapeHtml(
-                        subscription.plan_name || 'Subscription',
+                        subscription.plan_name || 'Subscription'
                       )}</div>
                       <div class="text-xs text-slate-500">${escapeHtml(departmentLabel || '—')}</div>
                     </div>
@@ -888,14 +949,16 @@ export async function usersView() {
         openModal(managedUserModal);
       };
 
-      container.querySelectorAll('[data-role="manage-user"]').forEach((button) => {
-        button.addEventListener('click', () => {
-          const row = button.closest('[data-role="user-row"]');
-          if (!row) return;
-          const payload = JSON.parse(decodeURIComponent(row.dataset.profile));
-          populateUserModal(payload);
+      container
+        .querySelectorAll('[data-role="manage-user"]')
+        .forEach((button) => {
+          button.addEventListener('click', () => {
+            const row = button.closest('[data-role="user-row"]');
+            if (!row) return;
+            const payload = JSON.parse(decodeURIComponent(row.dataset.profile));
+            populateUserModal(payload);
+          });
         });
-      });
 
       userForm?.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -910,12 +973,15 @@ export async function usersView() {
           const payload = {
             userId: formData.get('userId'),
             email: (formData.get('email') || '').toString().trim() || undefined,
-            username: (formData.get('username') || '').toString().trim() || undefined,
-            password: (formData.get('password') || '').toString().trim() || undefined,
+            username:
+              (formData.get('username') || '').toString().trim() || undefined,
+            password:
+              (formData.get('password') || '').toString().trim() || undefined,
             departmentId: formData.get('departmentId') || undefined,
             planId: formData.get('planId') || undefined,
             planExpiresAt: formData.get('planExpiresAt') || undefined,
-            fullName: (formData.get('fullName') || '').toString().trim() || undefined,
+            fullName:
+              (formData.get('fullName') || '').toString().trim() || undefined,
           };
 
           if (!payload.password) delete payload.password;
@@ -931,7 +997,9 @@ export async function usersView() {
           actions.refresh();
         } catch (error) {
           console.error('[Users] Failed to update user', error);
-          showToast(error.message || 'Failed to update account.', { type: 'error' });
+          showToast(error.message || 'Failed to update account.', {
+            type: 'error',
+          });
         } finally {
           submitBtn.disabled = false;
           submitBtn.classList.remove('opacity-60');
@@ -944,13 +1012,18 @@ export async function usersView() {
         const current = (activeProfile.subscription_status || '').toLowerCase();
         const nextStatus = current === 'suspended' ? 'active' : 'suspended';
         try {
-          await dataService.updateUserProfileStatus(activeProfile.id, nextStatus);
+          await dataService.updateUserProfileStatus(
+            activeProfile.id,
+            nextStatus
+          );
           showToast(`User marked as ${nextStatus}.`, { type: 'success' });
           closeModal(managedUserModal);
           actions.refresh();
         } catch (error) {
           console.error('[Users] Failed to update status', error);
-          showToast(error.message || 'Unable to update status.', { type: 'error' });
+          showToast(error.message || 'Unable to update status.', {
+            type: 'error',
+          });
         }
       });
 
@@ -962,7 +1035,9 @@ export async function usersView() {
           window.location.href = '/apps/learner/';
         } catch (error) {
           console.error('[Users] Failed to impersonate', error);
-          showToast(error.message || 'Unable to impersonate user.', { type: 'error' });
+          showToast(error.message || 'Unable to impersonate user.', {
+            type: 'error',
+          });
         }
       });
 
@@ -973,13 +1048,20 @@ export async function usersView() {
           showToast('Password reset email sent.', { type: 'success' });
         } catch (error) {
           console.error('[Users] Failed to send reset email', error);
-          showToast(error.message || 'Unable to send reset email.', { type: 'error' });
+          showToast(error.message || 'Unable to send reset email.', {
+            type: 'error',
+          });
         }
       });
 
       deleteBtn?.addEventListener('click', async () => {
         if (!activeProfile) return;
-        if (!confirm('Delete this user account permanently? This cannot be undone.')) return;
+        if (
+          !confirm(
+            'Delete this user account permanently? This cannot be undone.'
+          )
+        )
+          return;
         try {
           await dataService.deleteUserProfile(activeProfile.id);
           await authService.deleteUser(activeProfile.id);
@@ -988,7 +1070,9 @@ export async function usersView() {
           actions.refresh();
         } catch (error) {
           console.error('[Users] Failed to delete user', error);
-          showToast(error.message || 'Unable to delete user.', { type: 'error' });
+          showToast(error.message || 'Unable to delete user.', {
+            type: 'error',
+          });
         }
       });
     },

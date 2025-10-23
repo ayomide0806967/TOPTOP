@@ -4,7 +4,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
 };
 
 const ACTIVE_STATUSES = new Set(['active', 'trialing']);
@@ -30,7 +31,9 @@ serve(async (req) => {
 
     if (normalized.length < 3) {
       return new Response(
-        JSON.stringify({ error: 'Username must be at least 3 characters long.' }),
+        JSON.stringify({
+          error: 'Username must be at least 3 characters long.',
+        }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -53,7 +56,10 @@ serve(async (req) => {
 
     if (!data?.email) {
       return new Response(
-        JSON.stringify({ error: 'Username not found. Please check your username and try again.' }),
+        JSON.stringify({
+          error:
+            'Username not found. Please check your username and try again.',
+        }),
         {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -78,7 +84,10 @@ serve(async (req) => {
 
       latestPaymentReference = transactions?.[0]?.reference ?? null;
     } catch (txnError) {
-      console.warn('[lookup-username] Unable to fetch latest transaction', txnError);
+      console.warn(
+        '[lookup-username] Unable to fetch latest transaction',
+        txnError
+      );
     }
 
     const responsePayload = {

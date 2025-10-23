@@ -1,28 +1,33 @@
 # Auto-Submit Feature Documentation
 
 ## Overview
+
 The exam interface now automatically submits exams when the time limit expires, regardless of whether the user is online, offline, or has closed/refreshed the page.
 
 ## Key Features
 
 ### 1. **Persistent Deadline Tracking** ✅
+
 - Exam deadline is stored in `localStorage` when the exam starts
 - Deadline persists across page refreshes and browser restarts
 - Format: `exam_deadline_{quiz_id}` → ISO timestamp
 
 ### 2. **Automatic Submission on Time Expiry** ✅
+
 - **Active Session**: Timer reaches zero → auto-submit immediately
 - **Page Refresh**: On load, checks if deadline passed → auto-submit
 - **Offline Mode**: Queues submission for when user reconnects
 - **Background Check**: Every 5 seconds checks if deadline passed
 
 ### 3. **Offline Support** ✅
+
 - Submissions are queued in `localStorage` when offline
 - Format: `pending_submission_{quiz_id}` → submission payload
 - Auto-processes when user reconnects to internet
 - User is notified to stay on page until reconnection
 
 ### 4. **Graceful Error Handling** ✅
+
 - Failed submissions are automatically queued for retry
 - Pending submissions persist across sessions
 - Automatic retry on reconnection
@@ -30,9 +35,10 @@ The exam interface now automatically submits exams when the time limit expires, 
 ## Technical Implementation
 
 ### LocalStorage Keys
+
 ```javascript
 const STORAGE_KEYS = {
-  EXAM_DEADLINE: 'exam_deadline_',      // Stores exam deadline timestamp
+  EXAM_DEADLINE: 'exam_deadline_', // Stores exam deadline timestamp
   PENDING_SUBMISSION: 'pending_submission_', // Stores pending submission data
 };
 ```
@@ -40,21 +46,27 @@ const STORAGE_KEYS = {
 ### Core Functions
 
 #### `storeExamDeadline()`
+
 Calculates and stores the exam deadline when exam starts.
+
 ```javascript
 // Stores: startTime + timeLimit = deadline
 localStorage.setItem('exam_deadline_123', '2025-09-30T13:30:00.000Z');
 ```
 
 #### `checkExamDeadline()`
+
 Checks if current time has passed the stored deadline.
+
 ```javascript
 const deadline = new Date(localStorage.getItem('exam_deadline_123'));
 return Date.now() >= deadline;
 ```
 
 #### `storePendingSubmission(submissionData)`
+
 Queues submission when offline or on error.
+
 ```javascript
 localStorage.setItem('pending_submission_123', JSON.stringify({
   quizId: 123,
@@ -64,7 +76,9 @@ localStorage.setItem('pending_submission_123', JSON.stringify({
 ```
 
 #### `processPendingSubmission()`
+
 Processes queued submissions when online.
+
 - Called on page load (if online)
 - Called when 'online' event fires
 - Automatically redirects to results on success
@@ -72,27 +86,32 @@ Processes queued submissions when online.
 ### Submission Flow
 
 #### Scenario 1: Normal Completion (Online)
+
 ```
 User clicks Submit → submitQuiz() → Update DB → Clear localStorage → Redirect to results
 ```
 
 #### Scenario 2: Time Expires (Online, Active)
+
 ```
 Timer reaches 0 → submitQuiz(true) → Update DB → Clear localStorage → Redirect to results
 ```
 
 #### Scenario 3: Time Expires (Offline)
+
 ```
 Timer reaches 0 → submitQuiz(true) → Store in localStorage → Show offline message
 User reconnects → 'online' event → processPendingSubmission() → Update DB → Redirect
 ```
 
 #### Scenario 4: Page Refresh After Time Expired
+
 ```
 Page loads → checkExamDeadline() → Deadline passed → submitQuiz(true) → Process submission
 ```
 
 #### Scenario 5: Submission Error
+
 ```
 submitQuiz() → DB error → Store in localStorage → Show error message
 Page reload → processPendingSubmission() → Retry → Success
@@ -101,6 +120,7 @@ Page reload → processPendingSubmission() → Retry → Success
 ### Timer System
 
 #### Active Timer (1-second interval)
+
 ```javascript
 setInterval(updateTimer, 1000);
 // Updates display every second
@@ -108,6 +128,7 @@ setInterval(updateTimer, 1000);
 ```
 
 #### Background Deadline Check (5-second interval)
+
 ```javascript
 setInterval(() => {
   if (checkExamDeadline()) {
@@ -123,12 +144,14 @@ setInterval(() => {
 ### Online Scenarios
 
 #### Time Expires While Taking Exam
+
 1. Timer shows "Time's up!"
 2. Toast: "Submitting quiz..."
 3. Automatic submission to database
 4. Redirect to results page
 
 #### Page Refresh After Time Expired
+
 1. Page loads
 2. Toast: "Time's up! Submitting your exam..."
 3. Automatic submission
@@ -137,6 +160,7 @@ setInterval(() => {
 ### Offline Scenarios
 
 #### Time Expires While Offline
+
 1. Timer shows "Time's up!"
 2. Toast: "You are offline. Quiz will be submitted when you reconnect."
 3. Toast: "Please stay on this page until you reconnect to the internet."
@@ -144,6 +168,7 @@ setInterval(() => {
 5. When reconnected: Auto-submit → Redirect to results
 
 #### Offline During Manual Submit
+
 1. User clicks Submit
 2. Toast: "You are offline. Quiz will be submitted when you reconnect."
 3. Submission queued
@@ -163,12 +188,14 @@ The `submitQuiz(forceSubmit)` function accepts a boolean parameter:
 ## Data Cleanup
 
 ### Successful Submission
+
 ```javascript
-clearExamDeadline();      // Removes exam_deadline_{id}
+clearExamDeadline(); // Removes exam_deadline_{id}
 clearPendingSubmission(); // Removes pending_submission_{id}
 ```
 
 ### Failed Submission
+
 - Data remains in localStorage
 - Will retry on next page load or reconnection
 
@@ -182,17 +209,20 @@ clearPendingSubmission(); // Removes pending_submission_{id}
 ## Testing Scenarios
 
 ### Test 1: Normal Time Expiry (Online)
+
 1. Start exam with 1-minute time limit
 2. Wait for timer to reach 0
 3. **Expected**: Auto-submit, redirect to results
 
 ### Test 2: Page Refresh After Expiry
+
 1. Start exam with 1-minute time limit
 2. Wait for timer to reach 0
 3. Before redirect, refresh page
 4. **Expected**: Auto-submit on load, redirect to results
 
 ### Test 3: Offline Time Expiry
+
 1. Start exam with 1-minute time limit
 2. Disconnect internet
 3. Wait for timer to reach 0
@@ -201,6 +231,7 @@ clearPendingSubmission(); // Removes pending_submission_{id}
 6. **Expected**: Auto-submit, redirect to results
 
 ### Test 4: Close Browser During Exam
+
 1. Start exam with 5-minute time limit
 2. Close browser/tab
 3. Wait 6 minutes
@@ -208,6 +239,7 @@ clearPendingSubmission(); // Removes pending_submission_{id}
 5. **Expected**: Auto-submit on load, redirect to results
 
 ### Test 5: Submission Error Handling
+
 1. Start exam
 2. Simulate database error (disconnect Supabase)
 3. Click Submit

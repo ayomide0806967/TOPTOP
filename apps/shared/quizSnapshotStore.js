@@ -45,7 +45,7 @@ export function getQuizSnapshot(subscriptionId, assignedDate) {
   if (!subscriptionId) return null;
   const snapshots = readSnapshots();
   const matches = snapshots.filter(
-    (entry) => entry.subscriptionId === subscriptionId,
+    (entry) => entry.subscriptionId === subscriptionId
   );
 
   if (!matches.length) {
@@ -53,9 +53,7 @@ export function getQuizSnapshot(subscriptionId, assignedDate) {
   }
 
   if (assignedDate) {
-    return (
-      matches.find((entry) => entry.assignedDate === assignedDate) || null
-    );
+    return matches.find((entry) => entry.assignedDate === assignedDate) || null;
   }
 
   return matches

@@ -23,31 +23,36 @@
 ### **Code Evidence**
 
 **Frontend**: `registration-before.js` line 185-244
+
 ```javascript
 async function createPendingUser(contact) {
   const supabase = await ensureSupabaseClient();
-  
-  const { data, error } = await supabase.functions.invoke('create-pending-user', {
-    body: contact,  // ❌ No validation before sending
-  });
-  
+
+  const { data, error } = await supabase.functions.invoke(
+    'create-pending-user',
+    {
+      body: contact, // ❌ No validation before sending
+    }
+  );
+
   // Error handling only AFTER backend responds
   if (error) {
     throw new Error(error.message);
   }
-  
+
   return data.userId;
 }
 ```
 
 **Backend**: `create-pending-user/index.ts` line 44-85
+
 ```typescript
 // Check for existing user
-const existingUser = users.find(u => u.email === email);
+const existingUser = users.find((u) => u.email === email);
 
 if (existingUser) {
   userId = existingUser.id;
-  
+
   // Check subscription status
   const { data: profile } = await supabaseAdmin
     .from('profiles')
@@ -56,14 +61,21 @@ if (existingUser) {
     .maybeSingle();
 
   // ❌ Only blocks if active/trialing
-  if (profile && (profile.subscription_status === 'active' || profile.subscription_status === 'trialing')) {
-    return new Response(JSON.stringify({ 
-      error: 'An active subscription already exists for this email.' 
-    }), {
-      status: 409,
-    });
+  if (
+    profile &&
+    (profile.subscription_status === 'active' ||
+      profile.subscription_status === 'trialing')
+  ) {
+    return new Response(
+      JSON.stringify({
+        error: 'An active subscription already exists for this email.',
+      }),
+      {
+        status: 409,
+      }
+    );
   }
-  
+
   // ✅ Otherwise, reuses the user
   await supabaseAdmin.auth.admin.updateUserById(userId, {
     user_metadata: { first_name: firstName, last_name: lastName, phone: phone },
@@ -80,11 +92,13 @@ if (existingUser) {
 **Problem**: User doesn't know if email is already registered until AFTER clicking "Continue to payment"
 
 **Impact**:
+
 - Poor UX - user fills entire form before finding out
 - Wasted time if they have active subscription
 - Confusion about what to do next
 
 **Example Flow**:
+
 ```
 User enters: john@example.com (already has active subscription)
 User fills: First name, Last name, Phone
@@ -104,18 +118,20 @@ User confused: "What do I do now? Should I login?"
 **Problem**: Phone numbers are NOT checked for duplicates at all
 
 **Impact**:
+
 - Multiple users can register with same phone number
 - No validation in frontend OR backend
 - Potential data integrity issues
 
 **Code Evidence**:
+
 ```javascript
 // Frontend - No phone validation
-const phone = phoneInput?.value.trim();  // ❌ Just trims, no validation
+const phone = phoneInput?.value.trim(); // ❌ Just trims, no validation
 
 // Backend - No phone duplicate check
 const { error: profileError } = await supabaseAdmin.from('profiles').upsert({
-  phone,  // ❌ No uniqueness check
+  phone, // ❌ No uniqueness check
 });
 ```
 
@@ -126,11 +142,12 @@ const { error: profileError } = await supabaseAdmin.from('profiles').upsert({
 **Current Message**: "An active subscription already exists for this email."
 
 **Problems**:
+
 - Doesn't tell user what to do
 - Doesn't mention login option
 - Doesn't explain "active subscription" means
 
-**Better Message**: 
+**Better Message**:
 "This email is already registered with an active subscription. Please [login here](#) or use a different email address."
 
 ---
@@ -140,6 +157,7 @@ const { error: profileError } = await supabaseAdmin.from('profiles').upsert({
 **Problem**: If user has `pending_payment` status, backend silently reuses their account
 
 **Scenario**:
+
 ```
 Day 1: User registers with john@example.com, abandons payment
 Day 2: Same user tries to register again
@@ -148,6 +166,7 @@ Issue: User doesn't know this happened
 ```
 
 **Potential Issues**:
+
 - User might have different details (name, phone)
 - Previous payment reference might be lost
 - Confusion if they had partially completed registration
@@ -169,41 +188,50 @@ Add real-time email checking before submission:
 async function checkEmailAvailability(email) {
   try {
     const supabase = await ensureSupabaseClient();
-    
+
     // Query profiles table for email
     const { data, error } = await supabase
       .from('profiles')
       .select('subscription_status')
       .eq('email', email.toLowerCase())
       .maybeSingle();
-    
+
     if (error && error.code !== 'PGRST116') {
-      return { available: false, error: 'Unable to verify email. Please try again.' };
+      return {
+        available: false,
+        error: 'Unable to verify email. Please try again.',
+      };
     }
-    
+
     if (!data) {
       return { available: true };
     }
-    
+
     // Email exists - check status
-    if (data.subscription_status === 'active' || data.subscription_status === 'trialing') {
-      return { 
-        available: false, 
+    if (
+      data.subscription_status === 'active' ||
+      data.subscription_status === 'trialing'
+    ) {
+      return {
+        available: false,
         status: 'active',
-        error: 'This email already has an active subscription. Please login or use a different email.'
+        error:
+          'This email already has an active subscription. Please login or use a different email.',
       };
     }
-    
+
     // Email exists but pending - allow reuse
-    return { 
-      available: true, 
+    return {
+      available: true,
       status: 'pending',
-      message: 'We found your previous registration. Continuing...'
+      message: 'We found your previous registration. Continuing...',
     };
-    
   } catch (error) {
     console.error('[Registration] Email check failed:', error);
-    return { available: false, error: 'Unable to verify email. Please try again.' };
+    return {
+      available: false,
+      error: 'Unable to verify email. Please try again.',
+    };
   }
 }
 
@@ -211,23 +239,23 @@ async function checkEmailAvailability(email) {
 async function handleFormSubmit(event) {
   event.preventDefault();
   clearFeedback();
-  
+
   try {
     const contact = prepareContactPayload(planIdInput?.value);
-    
+
     // ✅ Check email availability first
     const emailCheck = await checkEmailAvailability(contact.email);
-    
+
     if (!emailCheck.available) {
       showFeedback(emailCheck.error || 'This email is already registered.');
       setLoading(false);
       return;
     }
-    
+
     if (emailCheck.status === 'pending') {
       showFeedback(emailCheck.message, 'success');
     }
-    
+
     // Continue with registration...
     setLoading(true);
     const userId = await createPendingUser(contact);
@@ -255,26 +283,26 @@ If phone uniqueness is required:
 async function checkPhoneAvailability(phone) {
   try {
     const supabase = await ensureSupabaseClient();
-    
+
     const { data, error } = await supabase
       .from('profiles')
       .select('id')
       .eq('phone', phone)
       .maybeSingle();
-    
+
     if (error && error.code !== 'PGRST116') {
       return { available: false, error: 'Unable to verify phone number.' };
     }
-    
+
     if (data) {
-      return { 
-        available: false, 
-        error: 'This phone number is already registered. Please use a different number.'
+      return {
+        available: false,
+        error:
+          'This phone number is already registered. Please use a different number.',
       };
     }
-    
+
     return { available: true };
-    
   } catch (error) {
     console.error('[Registration] Phone check failed:', error);
     return { available: false, error: 'Unable to verify phone number.' };
@@ -290,22 +318,18 @@ Update error messages to be more helpful:
 
 ```javascript
 // Current
-'An active subscription already exists for this email.'
+'An active subscription already exists for this email.';
 
 // Better
-'This email is already registered with an active subscription. Please <a href="login.html">login here</a> or use a different email address.'
+'This email is already registered with an active subscription. Please <a href="login.html">login here</a> or use a different email address.';
 
 // Even better - with action buttons
-showFeedback(
-  'This email is already registered.',
-  'error',
-  {
-    actions: [
-      { text: 'Go to Login', href: 'login.html' },
-      { text: 'Use Different Email', action: () => emailInput.focus() }
-    ]
-  }
-);
+showFeedback('This email is already registered.', 'error', {
+  actions: [
+    { text: 'Go to Login', href: 'login.html' },
+    { text: 'Use Different Email', action: () => emailInput.focus() },
+  ],
+});
 ```
 
 ---
@@ -318,25 +342,25 @@ Show loading indicator while checking:
 async function handleFormSubmit(event) {
   event.preventDefault();
   clearFeedback();
-  
+
   try {
     const contact = prepareContactPayload(planIdInput?.value);
-    
+
     // Show checking message
     showFeedback('Verifying email address...', 'info');
     setLoading(true);
-    
+
     const emailCheck = await checkEmailAvailability(contact.email);
-    
+
     if (!emailCheck.available) {
       showFeedback(emailCheck.error, 'error');
       setLoading(false);
       return;
     }
-    
+
     clearFeedback();
     showFeedback('Email verified. Processing payment...', 'success');
-    
+
     // Continue...
   }
 }
@@ -347,6 +371,7 @@ async function handleFormSubmit(event) {
 ## User Experience Comparison
 
 ### **Current Flow** ❌
+
 ```
 1. User fills form (2 minutes)
 2. User clicks "Continue to payment"
@@ -357,6 +382,7 @@ async function handleFormSubmit(event) {
 ```
 
 ### **Improved Flow** ✅
+
 ```
 1. User fills form
 2. User clicks "Continue to payment"
@@ -371,30 +397,35 @@ async function handleFormSubmit(event) {
 ## Testing Scenarios
 
 ### **Test 1: New Email**
+
 ```
 Input: newuser@example.com
 Expected: ✅ Proceeds to payment
 ```
 
 ### **Test 2: Email with Active Subscription**
+
 ```
 Input: active@example.com (has active subscription)
 Expected: ❌ "This email already has an active subscription. Please login."
 ```
 
 ### **Test 3: Email with Pending Payment**
+
 ```
 Input: pending@example.com (has pending_payment status)
 Expected: ✅ "We found your previous registration. Continuing..."
 ```
 
 ### **Test 4: Duplicate Phone (if implemented)**
+
 ```
 Input: +234-xxx-xxxx (already registered)
 Expected: ❌ "This phone number is already registered."
 ```
 
 ### **Test 5: Network Error**
+
 ```
 Scenario: Network failure during check
 Expected: ❌ "Unable to verify email. Please try again."
@@ -404,23 +435,23 @@ Expected: ❌ "Unable to verify email. Please try again."
 
 ## Priority Recommendations
 
-| Priority | Fix | Impact | Effort |
-|----------|-----|--------|--------|
-| 🔴 **HIGH** | Add frontend email validation | Prevents wasted time, improves UX | Medium |
-| 🟡 **MEDIUM** | Improve error messages with actions | Better user guidance | Low |
-| 🟡 **MEDIUM** | Add visual feedback during check | Better perceived performance | Low |
-| 🟢 **LOW** | Add phone validation | Data integrity (if needed) | Medium |
+| Priority      | Fix                                 | Impact                            | Effort |
+| ------------- | ----------------------------------- | --------------------------------- | ------ |
+| 🔴 **HIGH**   | Add frontend email validation       | Prevents wasted time, improves UX | Medium |
+| 🟡 **MEDIUM** | Improve error messages with actions | Better user guidance              | Low    |
+| 🟡 **MEDIUM** | Add visual feedback during check    | Better perceived performance      | Low    |
+| 🟢 **LOW**    | Add phone validation                | Data integrity (if needed)        | Medium |
 
 ---
 
 ## Current vs Proposed Error Messages
 
-| Scenario | Current | Proposed |
-|----------|---------|----------|
+| Scenario            | Current                                                 | Proposed                                                                   |
+| ------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------- |
 | Active subscription | "An active subscription already exists for this email." | "This email is already registered. [Login here] or use a different email." |
-| Pending payment | (Silent reuse) | "We found your previous registration. Continuing..." |
-| Network error | Generic error | "Unable to verify email. Please check your connection and try again." |
-| Invalid email | (HTML5 only) | "Please enter a valid email address." |
+| Pending payment     | (Silent reuse)                                          | "We found your previous registration. Continuing..."                       |
+| Network error       | Generic error                                           | "Unable to verify email. Please check your connection and try again."      |
+| Invalid email       | (HTML5 only)                                            | "Please enter a valid email address."                                      |
 
 ---
 
@@ -432,6 +463,6 @@ Expected: ❌ "Unable to verify email. Please try again."
 
 ---
 
-**Last Updated**: 2025-09-30  
-**Author**: Senior Developer  
+**Last Updated**: 2025-09-30
+**Author**: Senior Developer
 **Status**: ⚠️ Issues Identified - Fixes Recommended

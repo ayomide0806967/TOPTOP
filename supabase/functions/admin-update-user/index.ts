@@ -4,7 +4,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
 };
 
 interface UpdateRequestBody {
@@ -38,7 +39,9 @@ function resolvePlanExpiry(plan: any, override?: string | null): string | null {
     }
   }
 
-  const durationDays = Number(plan?.duration_days ?? plan?.metadata?.duration_days);
+  const durationDays = Number(
+    plan?.duration_days ?? plan?.metadata?.duration_days
+  );
   if (Number.isFinite(durationDays) && durationDays > 0) {
     const expires = new Date();
     expires.setUTCDate(expires.getUTCDate() + durationDays);
@@ -73,15 +76,22 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
-    const updates: { email?: string; password?: string; user_metadata?: Record<string, unknown> } = {};
+    const updates: {
+      email?: string;
+      password?: string;
+      user_metadata?: Record<string, unknown>;
+    } = {};
 
     if (body.email) {
       const email = String(body.email).trim().toLowerCase();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-        return new Response(JSON.stringify({ error: 'Invalid email address.' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({ error: 'Invalid email address.' }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
       updates.email = email;
     }
@@ -90,35 +100,41 @@ serve(async (req) => {
     try {
       normalizedUsername = normaliseUsername(body.username);
     } catch (validationError) {
-      return new Response(JSON.stringify({ error: (validationError as Error).message }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ error: (validationError as Error).message }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     if (normalizedUsername) {
-      updates.user_metadata = { ...(updates.user_metadata || {}), username: normalizedUsername };
+      updates.user_metadata = {
+        ...(updates.user_metadata || {}),
+        username: normalizedUsername,
+      };
     }
 
     if (body.password) {
       const password = String(body.password);
       if (password.length < 8) {
         return new Response(
-          JSON.stringify({ error: 'Password must be at least 8 characters long.' }),
+          JSON.stringify({
+            error: 'Password must be at least 8 characters long.',
+          }),
           {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
+          }
         );
       }
       updates.password = password;
     }
 
     if (Object.keys(updates).length > 0) {
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-        userId,
-        updates,
-      );
+      const { error: updateError } =
+        await supabaseAdmin.auth.admin.updateUserById(userId, updates);
       if (updateError) throw updateError;
     }
 
@@ -136,11 +152,13 @@ serve(async (req) => {
       }
       if (existing) {
         return new Response(
-          JSON.stringify({ error: 'This username is already in use by another account.' }),
+          JSON.stringify({
+            error: 'This username is already in use by another account.',
+          }),
           {
             status: 409,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
+          }
         );
       }
     }
@@ -178,18 +196,22 @@ serve(async (req) => {
         .maybeSingle();
       if (planError) throw planError;
       if (!plan) {
-        return new Response(JSON.stringify({ error: 'Selected plan not found.' }), {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({ error: 'Selected plan not found.' }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
 
       // Cancel existing active subscriptions
-      const { data: activeSubscriptions, error: activeError } = await supabaseAdmin
-        .from('user_subscriptions')
-        .select('id, plan_id')
-        .eq('user_id', userId)
-        .eq('status', 'active');
+      const { data: activeSubscriptions, error: activeError } =
+        await supabaseAdmin
+          .from('user_subscriptions')
+          .select('id, plan_id')
+          .eq('user_id', userId)
+          .eq('status', 'active');
       if (activeError) throw activeError;
 
       if (Array.isArray(activeSubscriptions) && activeSubscriptions.length) {
@@ -211,7 +233,10 @@ serve(async (req) => {
         const { error: cancelError } = await supabaseAdmin
           .from('user_subscriptions')
           .update({ status: 'canceled', canceled_at: new Date().toISOString() })
-          .in('id', activeSubscriptions.map((sub) => sub.id));
+          .in(
+            'id',
+            activeSubscriptions.map((sub) => sub.id)
+          );
         if (cancelError) throw cancelError;
       }
 
@@ -227,11 +252,12 @@ serve(async (req) => {
         currency: plan.currency || 'NGN',
       };
 
-      const { data: createdSubscription, error: subscriptionError } = await supabaseAdmin
-        .from('user_subscriptions')
-        .insert(subscriptionPayload)
-        .select('*, subscription_plans(name)')
-        .single();
+      const { data: createdSubscription, error: subscriptionError } =
+        await supabaseAdmin
+          .from('user_subscriptions')
+          .insert(subscriptionPayload)
+          .select('*, subscription_plans(name)')
+          .single();
       if (subscriptionError) throw subscriptionError;
       planResult = createdSubscription;
 
@@ -244,7 +270,9 @@ serve(async (req) => {
         .eq('id', userId);
       if (defaultUpdateError) throw defaultUpdateError;
 
-      await supabaseAdmin.rpc('refresh_profile_subscription_status', { p_user_id: userId });
+      await supabaseAdmin.rpc('refresh_profile_subscription_status', {
+        p_user_id: userId,
+      });
     } else if (body.planExpiresAt) {
       const overrideDate = new Date(body.planExpiresAt);
       if (Number.isNaN(overrideDate.getTime())) {
@@ -253,27 +281,33 @@ serve(async (req) => {
           {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
+          }
         );
       }
 
       const overrideIso = overrideDate.toISOString();
 
-      const { data: activeSubscriptions, error: activeFetchError } = await supabaseAdmin
-        .from('user_subscriptions')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('status', 'active');
+      const { data: activeSubscriptions, error: activeFetchError } =
+        await supabaseAdmin
+          .from('user_subscriptions')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('status', 'active');
 
       if (activeFetchError) throw activeFetchError;
 
-      if (!Array.isArray(activeSubscriptions) || activeSubscriptions.length === 0) {
+      if (
+        !Array.isArray(activeSubscriptions) ||
+        activeSubscriptions.length === 0
+      ) {
         return new Response(
-          JSON.stringify({ error: 'No active subscription to update. Assign a plan first.' }),
+          JSON.stringify({
+            error: 'No active subscription to update. Assign a plan first.',
+          }),
           {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
+          }
         );
       }
 
@@ -286,7 +320,9 @@ serve(async (req) => {
 
       if (expiryUpdateError) throw expiryUpdateError;
 
-      await supabaseAdmin.rpc('refresh_profile_subscription_status', { p_user_id: userId });
+      await supabaseAdmin.rpc('refresh_profile_subscription_status', {
+        p_user_id: userId,
+      });
     }
 
     const { data: profile, error: profileFetchError } = await supabaseAdmin
@@ -330,7 +366,7 @@ serve(async (req) => {
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
+      }
     );
   } catch (error) {
     console.error('[admin-update-user] Error:', error);
@@ -339,7 +375,7 @@ serve(async (req) => {
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
+      }
     );
   }
 });

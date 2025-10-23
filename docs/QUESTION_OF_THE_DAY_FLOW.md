@@ -1,44 +1,50 @@
 # Question of the Day (QotD) Flow Documentation
 
 ## Overview
+
 The Question of the Day system provides learners with daily practice questions tailored to their department. The system has been refactored to provide a better user experience by not auto-loading questions and giving users control over when to start their daily practice.
 
 ## User Flow
 
 ### 1. Dashboard (admin-board.html)
+
 - **Initial State**: Shows QotD card without loading questions
 - **Display Options**:
   - **Not Started**: Shows "Start Daily Questions" button
-  - **In Progress**: Shows "Continue Quiz" button  
+  - **In Progress**: Shows "Continue Quiz" button
   - **Completed**: Shows "Review Results" button with score
 
 ### 2. Starting Daily Questions
+
 When user clicks "Start Daily Questions":
+
 1. System checks for existing quiz for today
 2. If no quiz exists, generates one via `generate_daily_quiz` RPC
 3. Redirects to `exam-face.html?daily_quiz_id={id}`
 
 ### 3. Taking the Quiz (exam-face.html)
+
 - **Features**:
   - Question navigation (Previous/Next buttons)
   - Question palette for quick navigation
   - Timer display (if time limit exists)
   - Auto-save on each answer
   - Progress tracking
-  
+
 - **Quiz States**:
   - `assigned`: Initial state, not started
   - `in_progress`: Started, timer running
   - `completed`: Finished, redirects to results
 
 ### 4. Viewing Results (result-face.html)
+
 - **Display Elements**:
   - Overall score and percentage
   - Time taken vs time limit
   - Question-by-question review
   - Correct answers highlighted
   - Explanations shown for each question
-  
+
 - **Navigation Options**:
   - Back to Dashboard button
   - Option to generate new quiz (with confirmation)
@@ -48,6 +54,7 @@ When user clicks "Start Daily Questions":
 ### Database Schema
 
 #### daily_quizzes
+
 - `id`: UUID primary key
 - `user_id`: Reference to auth.users
 - `assigned_date`: Date of quiz
@@ -59,6 +66,7 @@ When user clicks "Start Daily Questions":
 - `total_questions`: Total question count
 
 #### daily_quiz_questions
+
 - `id`: UUID primary key
 - `daily_quiz_id`: Reference to daily_quizzes
 - `question_id`: Reference to questions
@@ -70,6 +78,7 @@ When user clicks "Start Daily Questions":
 ### Key Files
 
 #### Frontend
+
 - `/apps/learner/admin-board.html` - Dashboard
 - `/apps/learner/src/dashboard.js` - Dashboard logic (refactored)
 - `/apps/learner/exam-face.html` - Quiz interface
@@ -78,6 +87,7 @@ When user clicks "Start Daily Questions":
 - `/apps/learner/src/result-face.js` - Results logic
 
 #### Shared Modules
+
 - `/apps/shared/supabaseClient.js` - Supabase client singleton
 - `/apps/shared/errorHandler.js` - Global error handling
 - `/apps/shared/loadingManager.js` - Loading state management
@@ -86,6 +96,7 @@ When user clicks "Start Daily Questions":
 ### API Endpoints
 
 #### RPC Functions
+
 - `generate_daily_quiz(p_subscription_id uuid default null, p_limit integer default null)` - Generates quiz for current day using the selected subscription (or the learner’s default preference)
 - `get_user_schedule_health()` - Gets schedule status
 

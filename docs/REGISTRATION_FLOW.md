@@ -1,9 +1,11 @@
 # Complete Registration Flow Documentation
 
 ## Overview
+
 This document describes the complete user registration, payment, and login flow for the CBT Fast application.
 
 ### Iteration History
+
 - **Iteration 1 – Two-step checkout (legacy)**: Users filled contact details, launched Paystack, and then completed credentials on a separate `registration-after-payment.html`. Resume flow existed for unfinished setups.
 - **Iteration 2 – Unified checkout (current)**: A single progressive form gathers contact + credentials, auto-generates usernames, launches Paystack, and verifies payment without navigation. Auto sign-in and username reminders happen on the same page. Resume screen now only serves guidance.
 
@@ -11,19 +13,21 @@ This document describes the complete user registration, payment, and login flow 
 
 ```
 User Journey:
-1. Browse Plans → 2. Register (Before Payment) → 3. Paystack Checkout → 
+1. Browse Plans → 2. Register (Before Payment) → 3. Paystack Checkout →
 4. Payment Verification → 5. Create Username/Password → 6. Auto-Login → 7. Dashboard
 ```
 
 ## Detailed Step-by-Step Flow
 
 ### Step 1: Plan Selection
+
 - **Page**: Pricing/Plans page (not yet created)
 - **Action**: User selects a subscription plan
 - **Data Stored**: Plan ID in localStorage
 - **Next**: Redirect to `registration-before-payment.html?planId={id}`
 
 ### Step 2: Unified Registration & Credentials
+
 - **Page**: `apps/learner/registration-before-payment.html`
 - **Script**: `apps/learner/src/registration-before.js`
 - **User Inputs** (progressively revealed on the same page):
@@ -42,6 +46,7 @@ User Journey:
 - **Next**: Launches Paystack checkout inline (no intermediate page)
 
 ### Step 3: Paystack Payment
+
 - **Integration**: Paystack Popup/Inline
 - **Backend Call**: `paystack-initiate` function
   - Creates payment transaction record
@@ -51,6 +56,7 @@ User Journey:
 - **Next**: Stay on the same page for automatic verification
 
 ### Step 4: Payment Verification & Auto Login
+
 - **Trigger**: Paystack callback on the registration page
 - **Backend Call**: `paystack-verify`
   - Confirms the transaction with Paystack
@@ -59,11 +65,12 @@ User Journey:
 - **Frontend Actions**:
   - Shows an activation success message with the reserved username
   - Attempts automatic sign-in using the stored password
- - Prompts the learner to save their username/password securely; provides a copy shortcut
-  - Calls `finalize-registration` with `{ userId, username, password, registrationToken, ... }` so the backend validates the registration token, sets the final password, and clears the token
+- Prompts the learner to save their username/password securely; provides a copy shortcut
+- Calls `finalize-registration` with `{ userId, username, password, registrationToken, ... }` so the backend validates the registration token, sets the final password, and clears the token
 - **Next**: Redirects to `admin-board.html` if auto sign-in works, otherwise instructs the learner to sign in manually
 
 ### Step 5: Login (Future Sessions)
+
 - **Page**: `apps/learner/login.html`
 - **Script**: `apps/learner/src/auth.js`
 - **User Inputs**: Username or Email + Password
@@ -75,6 +82,7 @@ User Journey:
 - **On Failure**: Show helpful error messages
 
 ### Legacy Resume Flow
+
 - **Page**: `apps/learner/resume-registration.html`
 - **Status**: Informational only; directs learners to log in or reset their password because credentials are now created before payment
 - **Backend**: No longer calls `find-pending-registration`
@@ -82,6 +90,7 @@ User Journey:
 ## Database Schema
 
 ### profiles table
+
 ```sql
 - id (uuid, primary key, references auth.users)
 - email (text)
@@ -99,6 +108,7 @@ User Journey:
 ```
 
 ### payment_transactions table
+
 ```sql
 - id (uuid, primary key)
 - user_id (uuid, references profiles)
@@ -115,6 +125,7 @@ User Journey:
 ```
 
 ### user_subscriptions table
+
 ```sql
 - id (uuid, primary key)
 - user_id (uuid, references profiles)
@@ -143,6 +154,7 @@ User Journey:
 ## Edge Functions
 
 ### 1. create-pending-user
+
 - **Path**: `supabase/functions/create-pending-user/index.ts`
 - **Purpose**: Issue pending accounts and registration tokens prior to payment
 - **Input**: `{ email, firstName, lastName, phone, username, password }`
@@ -156,17 +168,20 @@ User Journey:
   - Returns the raw token to the client (must be stored temporarily for finalize step)
 
 ### 2. paystack-initiate
+
 - **Path**: `supabase/functions/paystack-initiate/`
 - **Purpose**: Initialize Paystack payment (unchanged)
 - **Input/Output**: `{ planId, userId, registration: { first_name, last_name, phone, username } }` → `{ reference, amount, currency, publicKey, metadata }`
 
 ### 3. paystack-verify
+
 - **Path**: `supabase/functions/paystack-verify/index.ts`
 - **Output**: `{ status: 'success', subscription_id, transaction_id }`
 - **Actions changes**:
   - `_shared/paystack.ts` now rejects underpayments, enforces `status === 'success'`, and treats quantity as 1 to prevent tampering.
 
 ### 4. finalize-registration (secured)
+
 - **Path**: `supabase/functions/finalize-registration/index.ts`
 - **Input**: `{ userId, username, password, registrationToken, firstName?, lastName?, email?, phone? }`
 - **Output**: `{ success: true }`

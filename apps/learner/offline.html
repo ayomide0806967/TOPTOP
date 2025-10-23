@@ -15,7 +15,12 @@
         display: grid;
         place-items: center;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        background: linear-gradient(180deg, #cdeee6 0%, #e8f7ff 45%, #ffffff 100%);
+        background: linear-gradient(
+          180deg,
+          #cdeee6 0%,
+          #e8f7ff 45%,
+          #ffffff 100%
+        );
         color: #0f172a;
         padding: 24px;
         box-sizing: border-box;
@@ -76,17 +81,25 @@
     <main class="card">
       <h1>You are offline</h1>
       <p>
-        Academic Nightingale needs a connection to sync quizzes and fresh content.
-        Your progress is saved locally and will resume once you are back online.
+        Academic Nightingale needs a connection to sync quizzes and fresh
+        content. Your progress is saved locally and will resume once you are
+        back online.
       </p>
       <div class="actions">
-        <button type="button" class="primary" onclick="window.location.reload()">
+        <button
+          type="button"
+          class="primary"
+          onclick="window.location.reload()"
+        >
           Retry Connection
         </button>
         <a href="index.html" class="secondary">Go to Home</a>
       </div>
-      <p class="meta">Tip: keep the app installed for quick access even without stable internet.</p>
+      <p class="meta">
+        Tip: keep the app installed for quick access even without stable
+        internet.
+      </p>
     </main>
     <script type="module" src="src/pwa-bootstrap.js"></script>
-</body>
+  </body>
 </html>
