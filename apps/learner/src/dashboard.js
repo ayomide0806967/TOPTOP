@@ -238,7 +238,13 @@ const DEFAULT_ASSIGNMENT_RULES = Object.freeze({
   overrides: [],
 });
 
-const ASSIGNMENT_MODES = new Set(['full_set', 'fixed_count', 'percentage']);
+const ASSIGNMENT_MODES = new Set([
+  'full_set',
+  'fixed_count',
+  'percentage',
+  'tier_auto',
+  'equal_split',
+]);
 
 const ACTIVE_PLAN_STATUSES = new Set(['active', 'trialing']);
 
@@ -555,6 +561,12 @@ function describeExtraAssignment(rules) {
     return baseRule.value
       ? `${baseRule.value}% of the set per attempt`
       : 'Percentage (not configured)';
+  }
+  if (baseRule.mode === 'tier_auto') {
+    return 'Auto by tier (250=100%, 200=75%, 100=50%)';
+  }
+  if (baseRule.mode === 'equal_split') {
+    return 'Equal split across selected tiers';
   }
   return 'Entire set delivered';
 }

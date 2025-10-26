@@ -732,7 +732,14 @@ function stripQuestionPrefix(line) {
   return line.replace(QUESTION_NUMBER_PREFIX_PATTERN, '').trim();
 }
 
-const ASSIGNMENT_MODES = new Set(['full_set', 'fixed_count', 'percentage']);
+const ASSIGNMENT_MODES = new Set([
+  'full_set',
+  'fixed_count',
+  'percentage',
+  // New consolidated tier distribution modes
+  'tier_auto', // 250=100% (cap 250), 200=75% (cap 200), 100=50% (cap 100)
+  'equal_split', // Split equally across selected tiers
+]);
 
 const DEFAULT_ASSIGNMENT_RULES = Object.freeze({
   default: { mode: 'full_set', value: null },
@@ -785,6 +792,7 @@ function normalizeAssignmentValue(mode, value) {
   if (mode === 'percentage') {
     return Math.min(100, Math.max(1, Math.round(numeric)));
   }
+  // tier_auto and equal_split do not require a numeric value
   return null;
 }
 

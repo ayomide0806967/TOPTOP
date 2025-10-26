@@ -232,6 +232,12 @@ function describeAssignment(set) {
       ? `${value}% of the set per attempt`
       : 'Percentage (not configured)';
   }
+  if (mode === 'tier_auto') {
+    return 'Auto by tier: 250=100%, 200=75%, 100=50% (with caps)';
+  }
+  if (mode === 'equal_split') {
+    return 'Equal split across selected tiers';
+  }
   return 'Entire set delivered';
 }
 
@@ -763,11 +769,13 @@ function openSetEditor({ mode, set, departments, planTiers, plans, onSave }) {
             <div>
               <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Question distribution</p>
               <label class="mt-2 block text-sm font-medium text-slate-700">
-                <span>Default delivery</span>
+                <span>Tier distribution</span>
                 <select name="assignment_mode" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600">
-                  <option value="full_set" ${defaultAssignmentMode === 'full_set' ? 'selected' : ''}>Deliver entire set</option>
-                  <option value="fixed_count" ${defaultAssignmentMode === 'fixed_count' ? 'selected' : ''}>Deliver fixed number</option>
-                  <option value="percentage" ${defaultAssignmentMode === 'percentage' ? 'selected' : ''}>Deliver percentage</option>
+                  <option value="full_set" ${defaultAssignmentMode === 'full_set' ? 'selected' : ''}>Broadcast: every selected tier gets all</option>
+                  <option value="tier_auto" ${defaultAssignmentMode === 'tier_auto' ? 'selected' : ''}>Auto by tier: 250=100%, 200=75%, 100=50%</option>
+                  <option value="equal_split" ${defaultAssignmentMode === 'equal_split' ? 'selected' : ''}>Equal split across selected tiers</option>
+                  <option value="fixed_count" ${defaultAssignmentMode === 'fixed_count' ? 'selected' : ''}>Fixed number for everyone</option>
+                  <option value="percentage" ${defaultAssignmentMode === 'percentage' ? 'selected' : ''}>Percentage for everyone</option>
                 </select>
               </label>
             </div>
@@ -820,7 +828,7 @@ function openSetEditor({ mode, set, departments, planTiers, plans, onSave }) {
           assignmentValueInput.placeholder = 'Not required';
           assignmentValueInput.value = '';
           assignmentHintEl.textContent =
-            'Learners receive every question in the set.';
+            'All selected tiers receive every question in the set (broadcast).';
         } else if (mode === 'fixed_count') {
           assignmentValueInput.disabled = false;
           assignmentValueInput.min = '1';
@@ -828,13 +836,25 @@ function openSetEditor({ mode, set, departments, planTiers, plans, onSave }) {
           assignmentValueInput.placeholder = 'e.g. 10';
           assignmentHintEl.textContent =
             'Deliver a fixed number of questions per attempt.';
-        } else {
+        } else if (mode === 'percentage') {
           assignmentValueInput.disabled = false;
           assignmentValueInput.min = '1';
           assignmentValueInput.max = '100';
           assignmentValueInput.placeholder = 'e.g. 50';
           assignmentHintEl.textContent =
             'Deliver a percentage of the set (1-100%).';
+        } else if (mode === 'tier_auto') {
+          assignmentValueInput.disabled = true;
+          assignmentValueInput.placeholder = 'Not required';
+          assignmentValueInput.value = '';
+          assignmentHintEl.textContent =
+            'Auto by tier: 250=100% (cap 250), 200=75% (cap 200), 100=50% (cap 100).';
+        } else if (mode === 'equal_split') {
+          assignmentValueInput.disabled = true;
+          assignmentValueInput.placeholder = 'Not required';
+          assignmentValueInput.value = '';
+          assignmentHintEl.textContent =
+            'Split questions equally across selected plan tiers (same ordered list, different prefixes).';
         }
       };
 
@@ -902,7 +922,7 @@ function openSetEditor({ mode, set, departments, planTiers, plans, onSave }) {
           .toString()
           .toLowerCase();
         let assignmentValueRaw = formData.get('assignment_value');
-        if (assignmentMode !== 'full_set') {
+        if (assignmentMode === 'fixed_count' || assignmentMode === 'percentage') {
           assignmentValueRaw = assignmentValueRaw
             ? assignmentValueRaw.toString().trim()
             : '';
@@ -939,11 +959,9 @@ function openSetEditor({ mode, set, departments, planTiers, plans, onSave }) {
             default: {
               mode: assignmentMode,
               value:
-                assignmentMode === 'full_set'
-                  ? null
-                  : assignmentMode === 'percentage'
-                    ? Number(assignmentValueRaw)
-                    : Number(assignmentValueRaw),
+                assignmentMode === 'fixed_count' || assignmentMode === 'percentage'
+                  ? Number(assignmentValueRaw)
+                  : null,
             },
             overrides: [],
           },

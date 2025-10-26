@@ -45,7 +45,14 @@ const DEFAULT_ASSIGNMENT_RULES = Object.freeze({
   overrides: [],
 });
 
-const ASSIGNMENT_MODES = new Set(['full_set', 'fixed_count', 'percentage']);
+const ASSIGNMENT_MODES = new Set([
+  'full_set',
+  'fixed_count',
+  'percentage',
+  // New consolidated tier distribution modes
+  'tier_auto',
+  'equal_split',
+]);
 
 function normalizeAssignmentValue(mode, value) {
   if (mode === 'full_set') return null;
@@ -59,6 +66,7 @@ function normalizeAssignmentValue(mode, value) {
   if (mode === 'percentage') {
     return Math.min(100, Math.max(1, Math.round(numeric)));
   }
+  // tier_auto and equal_split do not use numeric values
   return null;
 }
 
@@ -120,7 +128,7 @@ function getEffectiveAssignmentRule(rules, planId) {
   return normalized.default || DEFAULT_ASSIGNMENT_RULES.default;
 }
 
-function selectEntriesByRule(entries, rule) {
+function selectEntriesByRule(entries, rule, context = {}) {
   if (!Array.isArray(entries) || !entries.length) return [];
   const mode = rule?.mode || 'full_set';
   if (mode === 'fixed_count') {
@@ -132,13 +140,56 @@ function selectEntriesByRule(entries, rule) {
     const limit = Math.max(1, Math.round((entries.length * percentage) / 100));
     return entries.slice(0, Math.min(entries.length, limit));
   }
+  if (mode === 'tier_auto') {
+    const T = entries.length;
+    const tier = (context.planTier || '').toString();
+    if (!T || !tier) return entries.slice();
+    let limit = T;
+    if (tier === '250') {
+      // 100% capped at 250
+      limit = Math.min(T, 250);
+    } else if (tier === '200') {
+      // 200 if T >= 200, else round(0.75 * T)
+      limit = T >= 200 ? 200 : Math.max(1, Math.round(T * 0.75));
+      limit = Math.min(limit, T);
+    } else if (tier === '100') {
+      // min(100, round(0.5 * T))
+      limit = Math.min(100, Math.max(1, Math.round(T * 0.5)));
+      limit = Math.min(limit, T);
+    } else {
+      // Unknown tier → fallback to full set
+      limit = T;
+    }
+    return entries.slice(0, limit);
+  }
+  if (mode === 'equal_split') {
+    const T = entries.length;
+    if (!T) return [];
+    // Use selected plan tiers from visibility rules; fall back to [100,200,250]
+    const selectedTiers = Array.isArray(context.selectedTiers) && context.selectedTiers.length
+      ? context.selectedTiers.map(String)
+      : ['100', '200', '250'];
+    const m = Math.max(1, selectedTiers.length);
+    const base = Math.floor(T / m);
+    let remainder = T - base * m;
+    // Distribute remainder (+1) to the first `remainder` tiers deterministically by sorted tier
+    const ordered = selectedTiers.slice().sort((a, b) => Number(a) - Number(b));
+    const allocMap = new Map(ordered.map((t) => [t, base]));
+    for (let i = 0; i < remainder; i++) {
+      const t = ordered[i % ordered.length];
+      allocMap.set(t, (allocMap.get(t) || 0) + 1);
+    }
+    const tier = (context.planTier || '').toString();
+    const limit = Math.max(1, Math.min(T, allocMap.get(tier) || base));
+    return entries.slice(0, limit);
+  }
   return entries.slice();
 }
 
-function applyAssignmentRules(entries, rules, planId) {
+function applyAssignmentRules(entries, rules, planId, context = {}) {
   const normalized = normalizeAssignmentRules(rules);
   const effectiveRule = getEffectiveAssignmentRule(normalized, planId);
-  const selected = selectEntriesByRule(entries, effectiveRule);
+  const selected = selectEntriesByRule(entries, effectiveRule, context);
   return { selected, effectiveRule, normalizedRules: normalized };
 }
 
@@ -1436,6 +1487,7 @@ async function loadQuizData() {
   const url = new URL(window.location.href);
   const freeQuizSlug = url.searchParams.get('free_quiz');
   state.extraPlanId = url.searchParams.get('plan_id');
+  state.extraPlanTier = null;
   state.extraAttempt = null;
 
   if (freeQuizSlug) {
@@ -1486,7 +1538,7 @@ async function loadQuizData() {
     ({ data: setRow, error: setError } = await state.supabase
       .from('extra_question_sets')
       .select(
-        'id, title, description, time_limit_seconds, question_count, starts_at, ends_at, is_active, max_attempts_per_user, assignment_rules'
+        'id, title, description, time_limit_seconds, question_count, starts_at, ends_at, is_active, max_attempts_per_user, assignment_rules, visibility_rules'
       )
       .eq('id', extraSetId)
       .maybeSingle());
@@ -1494,7 +1546,7 @@ async function loadQuizData() {
       const fallback = await state.supabase
         .from('extra_question_sets')
         .select(
-          'id, title, description, question_count, starts_at, ends_at, is_active'
+          'id, title, description, question_count, starts_at, ends_at, is_active, visibility_rules'
         )
         .eq('id', extraSetId)
         .maybeSingle();
@@ -1537,6 +1589,26 @@ async function loadQuizData() {
 
     setRow.assignment_rules = normalizeAssignmentRules(setRow.assignment_rules);
     state.extraSet = setRow;
+
+    // Resolve the plan tier for tier-aware distribution modes
+    async function ensureExtraPlanTier() {
+      if (!state.supabase || !state.extraPlanId) return null;
+      try {
+        const { data, error } = await state.supabase
+          .from('subscription_plans')
+          .select('id, plan_tier')
+          .eq('id', state.extraPlanId)
+          .maybeSingle();
+        if (error) throw error;
+        state.extraPlanTier = (data?.plan_tier ?? '').toString();
+        return state.extraPlanTier;
+      } catch (err) {
+        console.warn('[Exam Face] Failed to resolve plan tier for extra set', err);
+        state.extraPlanTier = null;
+        return null;
+      }
+    }
+    await ensureExtraPlanTier();
     state.dailyQuiz = {
       id: setRow.id,
       title: setRow.title,
@@ -1758,11 +1830,13 @@ async function loadQuestions() {
         raw_correct_option: correctOption?.label ?? null,
       };
     });
-    const { selected } = applyAssignmentRules(
-      mappedEntries,
-      state.extraSet?.assignment_rules,
-      state.extraPlanId
-    );
+    const selectedTiers = Array.isArray(state.extraSet?.visibility_rules?.planTiers)
+      ? state.extraSet.visibility_rules.planTiers.map((t) => t.toString())
+      : null;
+    const { selected } = applyAssignmentRules(mappedEntries, state.extraSet?.assignment_rules, state.extraPlanId, {
+      planTier: state.extraPlanTier,
+      selectedTiers,
+    });
     state.entries = selected;
     state.answers = {};
     state.dailyQuiz.total_questions = state.entries.length;
