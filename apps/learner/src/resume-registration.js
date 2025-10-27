@@ -997,6 +997,18 @@ async function initialise() {
     showBanner('Complete payment to activate your selected plan.', 'info');
 
     await ensurePendingPlanContext();
+
+    // Proactively trigger server-side reconciliation for this user
+    try {
+      await state.supabase.functions.invoke('reconcile-payments', {
+        body: { userId: state.user.id },
+      });
+      // Refresh local status after reconcile attempt
+      await refreshProfileStatus();
+      state.profile = (await fetchProfile()) || state.profile;
+    } catch (reconcileError) {
+      console.warn('[ResumeRegistration] reconcile-payments invocation failed', reconcileError);
+    }
   } catch (error) {
     console.error('[ResumeRegistration] Initialisation failed', error);
     showBanner(
@@ -1012,6 +1024,13 @@ async function initialise() {
     if (document.visibilityState !== 'visible') return;
     try {
       await refreshProfileStatus();
+      try {
+        await state.supabase.functions.invoke('reconcile-payments', {
+          body: { userId: state.user.id },
+        });
+      } catch (reconcileError) {
+        console.warn('[ResumeRegistration] reconcile on focus failed', reconcileError);
+      }
       const profile = await fetchProfile();
       state.profile = profile || state.profile;
       const status = (state.profile?.subscription_status || '').toLowerCase();

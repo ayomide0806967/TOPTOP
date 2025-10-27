@@ -824,6 +824,14 @@ async function refreshProfileStatus() {
     await supabase.rpc('refresh_profile_subscription_status', {
       p_user_id: state.user.id,
     });
+    // Also request a server-side reconciliation for this user to avoid client dependency
+    try {
+      await supabase.functions.invoke('reconcile-payments', {
+        body: { userId: state.user.id },
+      });
+    } catch (reconcileError) {
+      console.warn('[Pricing] reconcile-payments invocation failed', reconcileError);
+    }
   } catch (error) {
     console.warn(
       '[Pricing] Unable to refresh profile subscription status',

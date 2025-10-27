@@ -1662,6 +1662,14 @@ async function refreshPaymentStatusNow() {
     await state.supabase.rpc('refresh_profile_subscription_status', {
       p_user_id: state.user.id,
     });
+    // Also trigger a targeted reconciliation for this user
+    try {
+      await state.supabase.functions.invoke('reconcile-payments', {
+        body: { userId: state.user.id },
+      });
+    } catch (reconcileError) {
+      console.warn('[Dashboard] reconcile-payments (manual refresh) failed', reconcileError);
+    }
   } catch (error) {
     console.warn('[Dashboard] refresh_profile_subscription_status failed', error);
   } finally {
@@ -1702,6 +1710,14 @@ async function refreshEntitlementsOnFocus() {
       await state.supabase.rpc('refresh_profile_subscription_status', {
         p_user_id: state.user.id,
       });
+      // Proactively ask the server to reconcile this user's latest pending checkout
+      try {
+        await state.supabase.functions.invoke('reconcile-payments', {
+          body: { userId: state.user.id },
+        });
+      } catch (reconcileError) {
+        console.warn('[Dashboard] reconcile-payments invocation failed', reconcileError);
+      }
     }
   } catch (error) {
     // Non-fatal; proceed to refetch
