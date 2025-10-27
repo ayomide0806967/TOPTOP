@@ -368,13 +368,22 @@ function formatCurrency(amount, currency = 'NGN') {
   if (amount === null || amount === undefined) {
     return 'Contact sales';
   }
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return '—';
   try {
-    return new Intl.NumberFormat(undefined, {
+    const locale = currency === 'NGN' ? 'en-NG' : undefined;
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency,
-    }).format(Number(amount));
-  } catch {
-    return `${currency} ${amount}`;
+      currencyDisplay: 'symbol',
+      maximumFractionDigits: value % 1 === 0 ? 0 : 2,
+    }).format(value);
+  } catch (_e) {
+    // Fallback: symbol mapping for NGN
+    if (currency === 'NGN') {
+      return `₦${value.toLocaleString('en-NG')}`;
+    }
+    return `${currency} ${value.toLocaleString()}`;
   }
 }
 

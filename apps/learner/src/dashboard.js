@@ -116,6 +116,7 @@ const elements = {
   gatedTitle: document.querySelector('[data-role="gated-title"]'),
   gatedBody: document.querySelector('[data-role="gated-body"]'),
   gatedAction: document.querySelector('[data-role="gated-action"]'),
+  refreshPaymentBtn: document.querySelector('[data-role="refresh-payment"]'),
   profileForm: document.querySelector('[data-role="profile-form"]'),
   profileNameInput: document.querySelector('[data-role="profile-name"]'),
   profilePhoneInput: document.querySelector('[data-role="profile-phone"]'),
@@ -143,6 +144,8 @@ const state = {
   isLoadingExtraSets: false,
   activeView: 'dashboard',
   globalAnnouncement: null,
+  profileChannel: null,
+  entitlementsRefreshing: false,
 };
 
 let navigationBound = false;
@@ -477,12 +480,17 @@ function formatCurrency(amount, currency = 'NGN') {
   const numeric = Number(amount);
   if (!Number.isFinite(numeric)) return '—';
   try {
-    return new Intl.NumberFormat(undefined, {
+    const locale = currency === 'NGN' ? 'en-NG' : undefined;
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency,
+      currencyDisplay: 'symbol',
       maximumFractionDigits: numeric % 1 === 0 ? 0 : 2,
     }).format(numeric);
   } catch {
+    if (currency === 'NGN') {
+      return `₦${numeric.toLocaleString('en-NG')}`;
+    }
     return `${currency} ${numeric.toLocaleString()}`;
   }
 }
@@ -1630,6 +1638,112 @@ function updatePaymentGate(profile) {
   setActiveView('dashboard');
 }
 
+function setRefreshPaymentLoading(loading) {
+  const btn = elements.refreshPaymentBtn;
+  if (!btn) return;
+  btn.disabled = loading;
+  if (loading) {
+    btn.dataset.originalText = btn.textContent || 'Refresh payment status';
+    btn.textContent = 'Checking…';
+    btn.classList.add('opacity-70', 'cursor-wait');
+  } else {
+    const label = btn.dataset.originalText || 'Refresh payment status';
+    btn.textContent = label;
+    btn.classList.remove('opacity-70', 'cursor-wait');
+  }
+}
+
+async function refreshPaymentStatusNow() {
+  if (!state.supabase || !state.user) return;
+  if (state.entitlementsRefreshing) return;
+  try {
+    state.entitlementsRefreshing = true;
+    setRefreshPaymentLoading(true);
+    await state.supabase.rpc('refresh_profile_subscription_status', {
+      p_user_id: state.user.id,
+    });
+  } catch (error) {
+    console.warn('[Dashboard] refresh_profile_subscription_status failed', error);
+  } finally {
+    await ensureProfile();
+    await loadSubscriptions();
+    updateHeader();
+    const status = (state.profile?.subscription_status || '').toLowerCase();
+    if (ACTIVE_PLAN_STATUSES.has(status)) {
+      showToast('Payment confirmed. Your plan is active.', 'success');
+    } else {
+      showToast('Payment status refreshed. Still processing…', 'info');
+    }
+    setRefreshPaymentLoading(false);
+    state.entitlementsRefreshing = false;
+  }
+}
+
+async function refreshEntitlementsOnFocus() {
+  if (!state.supabase || !state.user) return;
+  if (state.entitlementsRefreshing) return;
+  const status = (state.profile?.subscription_status || '').toLowerCase();
+  try {
+    state.entitlementsRefreshing = true;
+    // If we were pending, ask the server to recompute status first
+    if (status === 'pending_payment' || status === 'awaiting_setup') {
+      await state.supabase.rpc('refresh_profile_subscription_status', {
+        p_user_id: state.user.id,
+      });
+    }
+  } catch (error) {
+    // Non-fatal; proceed to refetch
+    console.warn('[Dashboard] refresh on focus RPC failed', error);
+  } finally {
+    await ensureProfile();
+    await loadSubscriptions();
+    updateHeader();
+    state.entitlementsRefreshing = false;
+  }
+}
+
+function subscribeToProfileRealtime() {
+  if (!state.supabase || !state.user || state.profileChannel) return;
+  try {
+    const channel = state.supabase
+      .channel(`profile-updates-${state.user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${state.user.id}` },
+        async (payload) => {
+          try {
+            const next = payload?.new || null;
+            if (next) {
+              state.profile = next;
+              updatePaymentGate(state.profile);
+              updateHeader();
+              const status = (next.subscription_status || '').toLowerCase();
+              if (ACTIVE_PLAN_STATUSES.has(status)) {
+                await loadSubscriptions();
+                showToast('Your subscription is now active.', 'success');
+              }
+            }
+          } catch (err) {
+            console.warn('[Dashboard] Realtime profile handler failed', err);
+          }
+        }
+      )
+      .subscribe();
+    state.profileChannel = channel;
+  } catch (error) {
+    console.warn('[Dashboard] Failed to subscribe to profile updates', error);
+  }
+}
+
+function unsubscribeProfileRealtime() {
+  try {
+    if (state.profileChannel && typeof state.profileChannel.unsubscribe === 'function') {
+      state.profileChannel.unsubscribe();
+    }
+  } catch (_e) {}
+  state.profileChannel = null;
+}
+
 function populateProfileForm() {
   if (!elements.profileForm) return;
   if (elements.profileNameInput && state.profile?.full_name) {
@@ -2226,6 +2340,8 @@ function updateBonusNavNotification() {
 
 function handleVisibilityChange() {
   if (document.visibilityState === 'visible') {
+    // Refresh entitlements and UI when the app regains focus
+    refreshEntitlementsOnFocus();
     loadExtraQuestionSets();
     loadGlobalAnnouncement();
   }
@@ -2965,6 +3081,9 @@ async function initialise() {
     updatePaymentGate(state.profile);
     updateHeader();
 
+    // Realtime: listen for profile updates to flip UI immediately on webhook
+    subscribeToProfileRealtime();
+
     // Bind event listeners
     elements.resumeBtn?.addEventListener('click', startOrResumeQuiz);
     elements.regenerateBtn?.addEventListener('click', regenerateQuiz);
@@ -2980,6 +3099,9 @@ async function initialise() {
     elements.profileForm?.addEventListener('submit', handleProfileSubmit);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     elements.globalNoticeDismiss?.addEventListener('click', handleGlobalNoticeDismiss);
+    elements.refreshPaymentBtn?.addEventListener('click', refreshPaymentStatusNow);
+    window.addEventListener('focus', refreshEntitlementsOnFocus);
+    window.addEventListener('online', refreshEntitlementsOnFocus);
 
     // Load data without auto-generating quiz
     await loadScheduleHealth();
@@ -3002,6 +3124,10 @@ function cleanup() {
   elements.profileForm?.removeEventListener('submit', handleProfileSubmit);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
   elements.globalNoticeDismiss?.removeEventListener('click', handleGlobalNoticeDismiss);
+  elements.refreshPaymentBtn?.removeEventListener('click', refreshPaymentStatusNow);
+  window.removeEventListener('focus', refreshEntitlementsOnFocus);
+  window.removeEventListener('online', refreshEntitlementsOnFocus);
+  unsubscribeProfileRealtime();
 }
 
 window.addEventListener('beforeunload', cleanup);

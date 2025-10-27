@@ -1000,6 +1000,25 @@ async function initialise() {
     );
     updatePayButtonState();
   }
+
+  // If the tab/app regains focus, re-check profile status to catch webhook updates
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible') return;
+    try {
+      await refreshProfileStatus();
+      const profile = await fetchProfile();
+      state.profile = profile || state.profile;
+      const status = (state.profile?.subscription_status || '').toLowerCase();
+      if (status === 'active' || status === 'trialing') {
+        showBanner('Payment confirmed! Redirecting to your dashboard…', 'success');
+        setTimeout(() => {
+          window.location.href = 'admin-board.html';
+        }, 800);
+      }
+    } catch (e) {
+      // Non-fatal; user can still use manual refresh or try payment again
+    }
+  });
 }
 
 initialise().catch((error) => {
