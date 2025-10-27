@@ -256,9 +256,12 @@ function populateContactCard(profile) {
 }
 
 async function ensurePendingPlanContext() {
+  const params = new URLSearchParams(window.location.search);
+  const urlPlanId = params.get('planId') || params.get('plan');
   const profileSnapshot = state.profile?.pending_plan_snapshot || null;
   const pendingPlanId =
     state.profile?.pending_plan_id ||
+    urlPlanId ||
     window.localStorage.getItem(STORAGE_PENDING_PLAN_ID);
 
   let plan = null;
@@ -304,7 +307,10 @@ async function ensurePendingPlanContext() {
     plan.id = pendingPlanId || plan.planId;
   }
 
+  // Persist for resilience during redirects and tab restores
   window.localStorage.setItem(STORAGE_PENDING_PLAN_ID, plan.id);
+  // Also persist the latest plan snapshot for offline/poor network scenarios
+  persistPlanSnapshot(plan);
   const product = plan.product || plan.subscription_product || {};
   state.selectedPlan = {
     ...plan,
@@ -1010,12 +1016,15 @@ async function initialise() {
       state.profile = profile || state.profile;
       const status = (state.profile?.subscription_status || '').toLowerCase();
       if (status === 'active' || status === 'trialing') {
-        showBanner('Payment confirmed! Redirecting to your dashboard…', 'success');
+        showBanner(
+          'Payment confirmed! Redirecting to your dashboard…',
+          'success'
+        );
         setTimeout(() => {
           window.location.href = 'admin-board.html';
         }, 800);
       }
-    } catch (e) {
+    } catch {
       // Non-fatal; user can still use manual refresh or try payment again
     }
   });
