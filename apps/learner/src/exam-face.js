@@ -1713,6 +1713,18 @@ async function loadQuizData() {
     if (!state.dailyQuiz.started_at) {
       state.dailyQuiz.started_at = new Date().toISOString();
     }
+    // Ensure we persist start time early so refresh respects timer
+    try {
+      const existing = loadExtraQuizProgress();
+      if (!existing?.startedAt) {
+        saveExtraQuizProgress({
+          startedAt: state.dailyQuiz.started_at,
+          attemptId: state.extraAttempt?.id,
+        });
+      }
+    } catch (_) {
+      // non-fatal; persistence is best-effort
+    }
     return;
   }
 
@@ -2073,7 +2085,8 @@ async function initialise() {
     let storedExtraProgress = null;
     if (state.mode === 'extra') {
       storedExtraProgress = loadExtraQuizProgress();
-      if (storedExtraProgress?.startedAt && !state.dailyQuiz.started_at) {
+      if (storedExtraProgress?.startedAt) {
+        // Prefer persisted startedAt to avoid timer reset on refresh
         state.dailyQuiz.started_at = storedExtraProgress.startedAt;
         state.dailyQuiz.status = 'in_progress';
       }
