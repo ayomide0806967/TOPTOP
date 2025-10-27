@@ -199,6 +199,7 @@ const STORAGE_KEYS = {
   PENDING_SUBMISSION: 'pending_submission_',
   OFFLINE_ANSWERS: 'offline_answers_',
   FREE_PROGRESS: 'free_quiz_progress_',
+  EXTRA_PROGRESS: 'extra_quiz_progress_',
 };
 
 function readExtraSetLaunchDebug() {
@@ -756,6 +757,51 @@ function clearFreeQuizProgress() {
   }
 }
 
+function getExtraProgressKey() {
+  if (!state.dailyQuiz) return null;
+  return STORAGE_KEYS.EXTRA_PROGRESS + state.dailyQuiz.id;
+}
+
+function loadExtraQuizProgress() {
+  if (state.mode !== 'extra') return null;
+  const key = getExtraProgressKey();
+  if (!key) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    console.warn('[Exam Face] Unable to read stored extra quiz progress', err);
+    return null;
+  }
+}
+
+function saveExtraQuizProgress(update = {}) {
+  if (state.mode !== 'extra') return;
+  const key = getExtraProgressKey();
+  if (!key) return;
+  const existing = loadExtraQuizProgress() || {};
+  const merged = { ...existing, ...update };
+  if (update.answers) {
+    merged.answers = { ...(existing.answers || {}), ...update.answers };
+  }
+  if (update.startedAt) merged.startedAt = update.startedAt;
+  if (update.attemptId) merged.attemptId = update.attemptId;
+  merged.lastUpdatedAt = new Date().toISOString();
+  try {
+    localStorage.setItem(key, JSON.stringify(merged));
+  } catch (err) {
+    console.warn('[Exam Face] Unable to persist extra quiz progress', err);
+  }
+}
+
+function clearExtraQuizProgress() {
+  if (state.mode !== 'extra') return;
+  const key = getExtraProgressKey();
+  if (key) {
+    localStorage.removeItem(key);
+  }
+}
+
 // Store an answer that couldn't be saved online
 function storeOfflineAnswer(entryId, optionId) {
   if (!state.dailyQuiz || ['free', 'extra'].includes(state.mode)) return;
@@ -997,6 +1043,10 @@ async function ensureStarted() {
       state.dailyQuiz.started_at = new Date().toISOString();
     }
     state.dailyQuiz.status = 'in_progress';
+    saveExtraQuizProgress({
+      startedAt: state.dailyQuiz.started_at,
+      attemptId: state.extraAttempt?.id,
+    });
     storeExamDeadline();
     if (!state.timerId) startTimerTicking();
     return;
@@ -1046,6 +1096,19 @@ function applyStoredFreeAnswers(answersMap) {
   });
 }
 
+function applyStoredExtraAnswers(answersMap) {
+  if (state.mode !== 'extra' || !answersMap) return;
+  Object.entries(answersMap).forEach(([entryId, storedValue]) => {
+    const optionId =
+      typeof storedValue === 'object' && storedValue !== null
+        ? (storedValue.optionId ?? storedValue.value ?? storedValue.answer ?? storedValue)
+        : storedValue;
+    const entry = state.entries.find((item) => item.id === entryId);
+    if (!entry) return;
+    updateEntrySelection(entry, optionId);
+  });
+}
+
 async function recordAnswer(entryId, optionId, isSyncing = false) {
   const entry = state.entries.find((e) => e.id === entryId);
   if (!entry) return;
@@ -1064,14 +1127,27 @@ async function recordAnswer(entryId, optionId, isSyncing = false) {
     updateProgress();
     renderPalette();
 
-    if (state.mode === 'free') {
-      persistFreeQuizAnswer(entry);
-      return;
-    }
+  if (state.mode === 'free') {
+    persistFreeQuizAnswer(entry);
+    return;
+  }
 
-    if (state.mode === 'extra') {
-      return;
+  if (state.mode === 'extra') {
+    // Persist locally so answers survive refresh
+    if (entry) {
+      saveExtraQuizProgress({
+        startedAt: state.dailyQuiz?.started_at,
+        attemptId: state.extraAttempt?.id,
+        answers: {
+          [entry.id]: {
+            optionId: entry.selected_option_id,
+            recordedAt: entry.answered_at,
+          },
+        },
+      });
     }
+    return;
+  }
 
     const { error } = await state.supabase
       .from('daily_quiz_questions')
@@ -1263,42 +1339,43 @@ async function submitQuiz(forceSubmit = false) {
       }
 
       if (state.extraAttempt?.id && state.supabase) {
-        try {
-          await state.supabase
-            .from('extra_question_attempts')
-            .update({
-              status: 'completed',
-              completed_at: completedAt,
-              duration_seconds: durationSeconds ?? null,
-              total_questions: total,
-              correct_answers: correct,
-              score_percent: scorePercent,
-              response_snapshot: practicePayload,
-            })
-            .eq('id', state.extraAttempt.id);
-          state.extraAttempt = {
-            ...state.extraAttempt,
+      try {
+        await state.supabase
+          .from('extra_question_attempts')
+          .update({
             status: 'completed',
             completed_at: completedAt,
             duration_seconds: durationSeconds ?? null,
             total_questions: total,
             correct_answers: correct,
             score_percent: scorePercent,
-          };
-        } catch (attemptError) {
-          console.error(
-            '[Exam Face] Unable to persist extra attempt summary',
-            attemptError
-          );
-        }
+            response_snapshot: practicePayload,
+          })
+          .eq('id', state.extraAttempt.id);
+        state.extraAttempt = {
+          ...state.extraAttempt,
+          status: 'completed',
+          completed_at: completedAt,
+          duration_seconds: durationSeconds ?? null,
+          total_questions: total,
+          correct_answers: correct,
+          score_percent: scorePercent,
+        };
+      } catch (attemptError) {
+        console.error(
+          '[Exam Face] Unable to persist extra attempt summary',
+          attemptError
+        );
       }
+    }
 
-      clearExamDeadline();
+    clearExamDeadline();
+    clearExtraQuizProgress();
 
-      const extraResultsUrl = new URL(window.location.href);
-      extraResultsUrl.pathname = extraResultsUrl.pathname.replace(
-        /[^/]+$/,
-        'result-face.html'
+    const extraResultsUrl = new URL(window.location.href);
+    extraResultsUrl.pathname = extraResultsUrl.pathname.replace(
+      /[^/]+$/,
+      'result-face.html'
       );
       extraResultsUrl.searchParams.set(
         'extra_question_set_id',
@@ -1992,6 +2069,18 @@ async function initialise() {
       return;
     }
     await loadQuestions();
+    // Restore persisted progress for extra sets before we mark as started
+    let storedExtraProgress = null;
+    if (state.mode === 'extra') {
+      storedExtraProgress = loadExtraQuizProgress();
+      if (storedExtraProgress?.startedAt && !state.dailyQuiz.started_at) {
+        state.dailyQuiz.started_at = storedExtraProgress.startedAt;
+        state.dailyQuiz.status = 'in_progress';
+      }
+      if (storedExtraProgress?.answers) {
+        applyStoredExtraAnswers(storedExtraProgress.answers);
+      }
+    }
     if (state.mode === 'extra') {
       mergeExtraSetLaunchDebug({
         questionsLoadedAt: new Date().toISOString(),
