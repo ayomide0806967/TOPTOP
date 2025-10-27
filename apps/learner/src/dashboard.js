@@ -1668,7 +1668,19 @@ async function refreshPaymentStatusNow() {
     await ensureProfile();
     await loadSubscriptions();
     updateHeader();
-    const status = (state.profile?.subscription_status || '').toLowerCase();
+    let status = (state.profile?.subscription_status || '').toLowerCase();
+
+    // If still pending, attempt to locate the last successful reference and verify server-side
+    if (!ACTIVE_PLAN_STATUSES.has(status)) {
+      const verified = await attemptVerificationByLookup();
+      if (verified) {
+        await ensureProfile();
+        await loadSubscriptions();
+        updateHeader();
+        status = (state.profile?.subscription_status || '').toLowerCase();
+      }
+    }
+
     if (ACTIVE_PLAN_STATUSES.has(status)) {
       showToast('Payment confirmed. Your plan is active.', 'success');
     } else {
@@ -1742,6 +1754,43 @@ function unsubscribeProfileRealtime() {
     }
   } catch (_e) {}
   state.profileChannel = null;
+}
+
+async function attemptVerificationByLookup() {
+  if (!state.supabase || !state.user) return false;
+  try {
+    const email = state.user?.email || state.profile?.email || '';
+    const full = state.profile?.full_name || state.user?.user_metadata?.full_name || '';
+    const [firstName, ...rest] = String(full).trim().split(/\s+/);
+    const lastName = rest.join(' ');
+    const phone = state.profile?.phone || state.user?.user_metadata?.phone || '';
+
+    if (!email) return false;
+
+    const { data: lookup, error: lookupError } = await state.supabase.functions.invoke(
+      'find-pending-registration',
+      { body: { email, firstName, lastName, phone } }
+    );
+    if (lookupError || !lookup?.reference) {
+      return false;
+    }
+
+    const { error: verifyError } = await state.supabase.functions.invoke('paystack-verify', {
+      body: { reference: lookup.reference },
+    });
+    if (verifyError) {
+      console.warn('[Dashboard] Server-side verify failed', verifyError);
+      return false;
+    }
+
+    await state.supabase.rpc('refresh_profile_subscription_status', {
+      p_user_id: state.user.id,
+    });
+    return true;
+  } catch (error) {
+    console.warn('[Dashboard] attemptVerificationByLookup failed', error);
+    return false;
+  }
 }
 
 function populateProfileForm() {
