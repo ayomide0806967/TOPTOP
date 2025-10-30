@@ -6,8 +6,61 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Instructor Dashboard | Quiz Builder</title>
     <link rel="stylesheet" href="./assets/tailwind.css" />
+    <link rel="stylesheet" href="../shared/openai-design-system.css" />
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+        background-color: #f8fafc;
+        color: #1a202c;
+      }
+
+      .hero-gradient {
+        background-color: #f5f1e9;
+      }
+
+      .academic-header {
+        background-color: #f5f1e9;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .nav-item-active {
+        background-color: #1a202c;
+        color: white;
+      }
+
+      .stat-card {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        border-color: #d1c9bc;
+      }
+
+      .floating-badge {
+        animation: float 3s ease-in-out infinite;
+      }
+
+      @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+      }
+
+      .fade-in {
+        animation: fadeIn 0.6s ease-out;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    </style>
   </head>
-  <body class="min-h-screen bg-slate-50 text-slate-900">
+  <body class="app-container">
     <script>
       window.__SUPABASE_CONFIG__ = window.__SUPABASE_CONFIG__ || {
         url: 'https://ghnhfagydcynhkgbazbj.supabase.co',
@@ -25,105 +78,171 @@
 
     <div id="app" class="min-h-screen flex flex-col">
       <!-- Navigation Header -->
-      <header class="border-b border-slate-200 bg-white shadow-sm">
-        <div class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-          <div class="flex items-center gap-4">
-            <div class="flex items-center gap-3">
-              <img src="./assets/academicnightingale-logo.jpg" alt="Academic Nightingale" class="h-10 w-10 rounded-lg object-cover shadow-sm" />
+      <!-- Modern Academic Header -->
+    <header class="academic-header sticky top-0 z-50 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-20">
+          <!-- Logo and Brand -->
+          <div class="flex items-center gap-6">
+            <div class="flex items-center gap-4">
+              <div class="relative">
+                <img src="./assets/academicnightingale-logo.jpg" alt="Academic Nightingale" class="h-12 w-12 rounded-2xl object-cover shadow-lg" />
+                <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+              </div>
               <div>
-                <h1 class="text-xl font-bold text-slate-900">Quiz Builder</h1>
-                <p class="text-xs text-cyan-600 font-medium">Academic Nightingale</p>
+                <h1 class="text-2xl font-bold" style="color: #1a202c;">Quiz Builder</h1>
+                <p class="text-sm font-medium" style="color: #4a5568;">Instructor Dashboard</p>
               </div>
             </div>
           </div>
 
-          <div class="flex items-center gap-4">
-            <!-- Subscription Status -->
-            <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg">
-              <svg class="h-4 w-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+          <div class="flex items-center gap-6">
+            <!-- Search Bar -->
+            <div class="hidden md:block relative">
+              <input type="text" placeholder="Search quizzes, classrooms..." class="w-80 pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" style="background-color: white;">
+              <svg class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
               </svg>
-              <span class="text-sm font-medium text-emerald-700" id="subscription-plan">Pro Plan</span>
+            </div>
+
+            <!-- Subscription Status -->
+            <div class="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg shadow-md" style="background-color: #f5f1e9; border: 1px solid #d1c9bc;">
+              <svg class="w-5 h-5" style="color: #1a202c;" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span class="text-sm font-medium" style="color: #1a202c;" id="subscription-plan">Pro Plan</span>
             </div>
 
             <!-- User Menu -->
-            <div class="flex items-center gap-2 text-sm text-slate-600">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              <span id="user-name">Loading...</span>
-              <div class="relative">
-                <button id="user-menu-btn" class="flex items-center gap-1 text-slate-600 hover:text-slate-900">
-                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                <div id="user-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-10">
-                  <a href="#profile" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Profile</a>
-                  <a href="#settings" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Settings</a>
-                  <hr class="my-1 border-slate-200">
-                  <button id="logout-btn" class="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Logout</button>
+            <div class="flex items-center gap-3">
+              <button class="relative p-2 text-openai-secondary hover:text-openai-primary transition-colors">
+                <svg class="icon-openai" viewBox="0 0 24 24">
+                  <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                </svg>
+                <span class="absolute top-1 right-1 w-2 h-2 bg-openai-green rounded-full"></span>
+              </button>
+
+              <div class="flex items-center gap-2 text-sm text-openai-secondary">
+                <svg class="icon-openai-sm" viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+                <span id="user-name" class="font-medium">Loading...</span>
+                <div class="relative">
+                  <button id="user-menu-btn" class="flex items-center gap-1 text-openai-secondary hover:text-openai-primary transition-colors">
+                    <svg class="icon-openai-sm" viewBox="0 0 24 24">
+                      <path d="M7 10l5 5 5-5z"/>
+                    </svg>
+                  </button>
+                  <div id="user-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-openai-white rounded-lg shadow-lg border border-openai-border py-1 z-50">
+                    <div class="px-4 py-3 border-b border-openai-border">
+                      <p class="text-sm font-medium text-openai-primary">John Doe</p>
+                      <p class="text-xs text-openai-secondary">john.doe@school.edu</p>
+                    </div>
+                    <a href="#profile" class="flex items-center gap-3 px-4 py-2 text-sm text-openai-primary hover:bg-openai-offwhite">
+                      <svg class="icon-openai-sm" viewBox="0 0 24 24">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                      </svg>
+                      Profile
+                    </a>
+                    <a href="#settings" class="flex items-center gap-3 px-4 py-2 text-sm text-openai-primary hover:bg-openai-offwhite">
+                      <svg class="icon-openai-sm" viewBox="0 0 24 24">
+                        <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                      </svg>
+                      Settings
+                    </a>
+                    <hr class="my-1 border-openai-border">
+                    <button id="logout-btn" class="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                      <svg class="icon-openai-sm" viewBox="0 0 24 24">
+                        <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+                      </svg>
+                      Logout
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </header>
+      </div>
+    </header>
 
       <div class="flex flex-1">
         <!-- Sidebar Navigation -->
-        <aside class="hidden lg:block w-64 border-r border-slate-200 bg-white">
-          <nav class="p-4 space-y-1">
-            <a href="#dashboard" class="nav-item flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700" data-page="dashboard">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              Dashboard
-            </a>
+        <div class="flex flex-1">
+        <!-- Modern Sidebar Navigation -->
+        <aside class="app-sidebar hidden lg:block w-80">
+          <nav class="p-6 space-y-1">
+            <div class="mb-8">
+              <h3 class="text-xs font-semibold text-openai-secondary uppercase tracking-wider mb-4">Main Navigation</h3>
 
-            <a href="#quizzes" class="nav-item flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100" data-page="quizzes">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-              </svg>
-              My Quizzes
-            </a>
-
-            <a href="#classrooms" class="nav-item flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100" data-page="classrooms">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m0 0h-1m1 0h3M10 3v4M9 7h1m1 0v3h3m-3 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Classrooms
-            </a>
-
-            <a href="#students" class="nav-item flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100" data-page="students">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-              Students
-            </a>
-
-            <a href="#analytics" class="nav-item flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100" data-page="analytics">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              Analytics
-            </a>
-
-            <div class="pt-4 border-t border-slate-200">
-              <h3 class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Quick Actions</h3>
-              <a href="#new-quiz" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-cyan-600 hover:bg-cyan-50">
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4" />
+              <a href="#dashboard" class="nav-item-openai active flex items-center gap-3 w-full" data-page="dashboard">
+                <svg class="icon-openai-sm" viewBox="0 0 24 24">
+                  <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
                 </svg>
-                New Quiz
+                Dashboard
+                <span class="ml-auto bg-openai-green text-white text-xs px-2 py-1 rounded-full">Home</span>
               </a>
 
-              <a href="#new-classroom" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-cyan-600 hover:bg-cyan-50">
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0h6" />
+              <a href="#quizzes" class="nav-item-openai flex items-center gap-3 w-full" data-page="quizzes">
+                <svg class="icon-openai-sm" viewBox="0 0 24 24">
+                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
                 </svg>
-                New Classroom
+                My Quizzes
+                <span class="ml-auto text-xs text-openai-muted">24</span>
               </a>
+
+              <a href="#classrooms" class="nav-item-openai flex items-center gap-3 w-full" data-page="classrooms">
+                <svg class="icon-openai-sm" viewBox="0 0 24 24">
+                  <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                </svg>
+                Classrooms
+                <span class="ml-auto text-xs text-openai-muted">6</span>
+              </a>
+
+              <a href="#students" class="nav-item-openai flex items-center gap-3 w-full" data-page="students">
+                <svg class="icon-openai-sm" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                Students
+                <span class="ml-auto text-xs text-openai-muted">142</span>
+              </a>
+
+              <a href="#analytics" class="nav-item-openai flex items-center gap-3 w-full" data-page="analytics">
+                <svg class="icon-openai-sm" viewBox="0 0 24 24">
+                  <path d="M3 13h2v8H3zm4-8h2v16H7zm4-2h2v18h-2zm4 4h2v14h-2zm4-2h2v16h-2z"/>
+                </svg>
+                Analytics
+              </a>
+            </div>
+
+            <div class="pt-6 border-t border-openai-border">
+              <h3 class="text-xs font-semibold text-openai-secondary uppercase tracking-wider mb-4">Quick Actions</h3>
+
+              <a href="#new-quiz" class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium bg-openai-black text-openai-inverse hover:bg-openai-dark-gray transition-colors">
+                <svg class="icon-openai-sm" viewBox="0 0 24 24">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                Create New Quiz
+              </a>
+
+              <a href="#new-classroom" class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium border border-openai-border text-openai-primary hover:bg-openai-offwhite transition-colors mt-2">
+                <svg class="icon-openai-sm" viewBox="0 0 24 24">
+                  <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                </svg>
+                Add Classroom
+              </a>
+            </div>
+
+            <!-- Help Section -->
+            <div class="mt-8 p-4 bg-openai-green-light rounded-lg border border-openai-green">
+              <div class="flex items-center gap-3 mb-2">
+                <svg class="icon-openai-sm text-openai-green" viewBox="0 0 24 24">
+                  <path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/>
+                </svg>
+                <h4 class="font-semibold text-openai-primary">Need Help?</h4>
+              </div>
+              <p class="text-sm text-openai-secondary mb-3">Get help with Quiz Builder features and troubleshooting</p>
+              <button class="w-full btn-openai-green text-sm">View Documentation</button>
             </div>
           </nav>
         </aside>
@@ -135,11 +254,11 @@
             <div class="mb-8">
               <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 id="page-title" class="text-2xl font-bold text-slate-900">Dashboard</h2>
-                  <p id="page-subtitle" class="text-slate-600 mt-1">Manage your quizzes and classrooms</p>
+                  <h2 id="page-title" class="text-2xl font-bold text-openai-primary">Dashboard</h2>
+                  <p id="page-subtitle" class="text-openai-secondary mt-1">Manage your quizzes and classrooms</p>
                 </div>
                 <div class="flex items-center gap-2">
-                  <button id="refresh-btn" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  <button id="refresh-btn" class="btn-openai-secondary inline-flex items-center gap-2">
                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 2m-15.356 2H15a8 8 0 018-8V8a8 8 0 00-8-8z" />
                     </svg>
@@ -165,60 +284,76 @@
               <!-- Dashboard Content -->
               <div id="dashboard-content" class="space-y-8">
                 <!-- Usage Metrics -->
-                <section class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                  <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-                    <div class="flex items-center justify-between">
-                      <div>
-                        <p class="text-sm font-medium text-slate-600">Total Quizzes</p>
-                        <p class="text-2xl font-bold text-slate-900 mt-2" id="total-quizzes">0</p>
-                      </div>
-                      <div class="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                        <svg class="h-6 w-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                <section class="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+                  <div class="stat-card card-openai p-8">
+                    <div class="flex items-center justify-between mb-4">
+                      <div class="w-14 h-14 rounded-xl flex items-center justify-center" style="background-color: #1a202c;">
+                        <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                         </svg>
                       </div>
                     </div>
-                  </div>
-
-                  <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-                    <div class="flex items-center justify-between">
-                      <div>
-                        <p class="text-sm font-medium text-slate-600">Active Classrooms</p>
-                        <p class="text-2xl font-bold text-slate-900 mt-2" id="active-classrooms">0</p>
-                      </div>
-                      <div class="h-12 w-12 rounded-lg bg-emerald-100 flex items-center justify-center">
-                        <svg class="h-6 w-6 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m0 0h-1m1 0h3M10 3v4M9 7h1m1 0v3h3m-3 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
+                    <p class="text-sm font-medium text-openai-secondary mb-2">Total Quizzes</p>
+                    <p class="text-3xl font-bold" style="color: #1a202c;" id="total-quizzes">0</p>
+                    <div class="mt-4 flex items-center text-sm text-openai-muted">
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                      </svg>
+                      <span>+12% this month</span>
                     </div>
                   </div>
 
-                  <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-                    <div class="flex items-center justify-between">
-                      <div>
-                        <p class="text-sm font-medium text-slate-600">Total Students</p>
-                        <p class="text-2xl font-bold text-slate-900 mt-2" id="total-students">0</p>
-                      </div>
-                      <div class="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
-                        <svg class="h-6 w-6 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  <div class="stat-card card-openai p-8">
+                    <div class="flex items-center justify-between mb-4">
+                      <div class="w-14 h-14 rounded-xl flex items-center justify-center" style="background-color: #d1c9bc;">
+                        <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m0 0h-1m1 0h3"/>
                         </svg>
                       </div>
                     </div>
+                    <p class="text-sm font-medium text-openai-secondary mb-2">Active Classrooms</p>
+                    <p class="text-3xl font-bold" style="color: #1a202c;" id="active-classrooms">0</p>
+                    <div class="mt-4 flex items-center text-sm text-openai-muted">
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                      </svg>
+                      <span>+3 new this week</span>
+                    </div>
                   </div>
 
-                  <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-                    <div class="flex items-center justify-between">
-                      <div>
-                        <p class="text-sm font-medium text-slate-600">Quiz Attempts</p>
-                        <p class="text-2xl font-bold text-slate-900 mt-2" id="total-attempts">0</p>
-                      </div>
-                      <div class="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center">
-                        <svg class="h-6 w-6 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2m-2-2l-2 2m2 2l2-2m-2 2l-2-2m2 2l2-2m-2 2l-2-2m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <div class="stat-card card-openai p-8">
+                    <div class="flex items-center justify-between mb-4">
+                      <div class="w-14 h-14 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, #f5f1e9 0%, #d1c9bc 100%);">
+                        <svg class="w-7 h-7" style="color: #1a202c;" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
                         </svg>
                       </div>
+                    </div>
+                    <p class="text-sm font-medium text-openai-secondary mb-2">Total Students</p>
+                    <p class="text-3xl font-bold" style="color: #1a202c;" id="total-students">0</p>
+                    <div class="mt-4 flex items-center text-sm text-openai-muted">
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                      </svg>
+                      <span>+28 this month</span>
+                    </div>
+                  </div>
+
+                  <div class="stat-card card-openai p-8">
+                    <div class="flex items-center justify-between mb-4">
+                      <div class="w-14 h-14 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, #1a202c 0%, #4a5568 100%);">
+                        <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                        </svg>
+                      </div>
+                    </div>
+                    <p class="text-sm font-medium text-openai-secondary mb-2">Quiz Attempts</p>
+                    <p class="text-3xl font-bold" style="color: #1a202c;" id="total-attempts">0</p>
+                    <div class="mt-4 flex items-center text-sm text-openai-muted">
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                      </svg>
+                      <span>+156 today</span>
                     </div>
                   </div>
                 </section>

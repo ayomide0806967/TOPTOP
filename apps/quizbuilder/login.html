@@ -3,25 +3,232 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Redirecting…</title>
+    <title>Sign In - Quiz Builder</title>
     <link rel="icon" type="image/x-icon" href="./assets/favicon.ico" />
     <link rel="stylesheet" href="./assets/tailwind.css" />
+    <link rel="stylesheet" href="../shared/openai-design-system.css" />
     <style>
-      body { display: grid; place-items: center; min-height: 100vh; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-      .card { padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; }
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+      body {
+        font-family:
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+        background-color: #f8fafc;
+        color: #1a202c;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+      }
+
+      .login-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        max-width: 400px;
+        width: 100%;
+        margin: 20px;
+      }
+
+      .hero-gradient {
+        background-color: #f5f1e9;
+      }
+
+      .loading-spinner {
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .fade-in {
+        animation: fadeIn 0.6s ease-out;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .shimmer {
+        background: linear-gradient(
+          90deg,
+          #f0f0f0 25%,
+          #e0e0e0 50%,
+          #f0f0f0 75%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+      }
+
+      @keyframes shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
     </style>
   </head>
   <body>
-    <div class="card">
-      <h1 class="text-lg font-semibold text-slate-900">Redirecting to Learner Login…</h1>
-      <p class="text-sm text-slate-600 mt-2">Use your existing Academic Nightingale account.</p>
-      <p class="text-xs text-slate-500 mt-2">If you are not redirected automatically, <a class="text-cyan-700" id="manual-link" href="#">click here</a>.</p>
+    <div class="login-card fade-in">
+      <!-- Logo -->
+      <div class="flex items-center justify-center mb-8">
+        <div class="relative">
+          <img
+            src="./assets/academicnightingale-logo.jpg"
+            alt="Academic Nightingale"
+            class="h-16 w-16 rounded-2xl object-cover shadow-lg"
+          />
+          <div
+            class="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"
+          ></div>
+        </div>
+      </div>
+
+      <!-- Header -->
+      <div class="text-center mb-8">
+        <h1 class="text-2xl font-bold mb-2" style="color: #1a202c">
+          Quiz Builder Sign In
+        </h1>
+        <p class="text-sm" style="color: #4a5568">
+          Use your existing Academic Nightingale account
+        </p>
+      </div>
+
+      <!-- Loading Animation -->
+      <div class="flex justify-center mb-8">
+        <div
+          class="w-12 h-12 rounded-full flex items-center justify-center"
+          style="background-color: #f5f1e9"
+        >
+          <svg
+            class="w-6 h-6 loading-spinner"
+            style="color: #1a202c"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Message -->
+      <div class="text-center mb-8">
+        <p class="text-lg font-medium mb-2" style="color: #1a202c">
+          Redirecting to sign in...
+        </p>
+        <p class="text-sm" style="color: #4a5568">
+          You'll be automatically redirected to the login page
+        </p>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="w-full bg-gray-200 rounded-full h-2 mb-8">
+        <div
+          class="h-2 rounded-full transition-all duration-1000 ease-out shimmer"
+          style="
+            background: linear-gradient(90deg, #1a202c, #d1c9bc);
+            width: 0%;
+          "
+        ></div>
+      </div>
+
+      <!-- Manual Link -->
+      <div class="text-center">
+        <p class="text-sm mb-4" style="color: #6b7280">
+          If you're not redirected automatically,
+        </p>
+        <a
+          id="manual-link"
+          href="#"
+          class="btn-openai inline-flex items-center"
+        >
+          <span>Continue to Login</span>
+          <svg
+            class="w-4 h-4 ml-2"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M13 7l5 5m0 0l-5 5m5-5H6"
+            />
+          </svg>
+        </a>
+      </div>
+
+      <!-- Security Notice -->
+      <div class="mt-8 pt-6 border-t border-gray-200">
+        <div
+          class="flex items-center justify-center text-xs"
+          style="color: #6b7280"
+        >
+          <svg
+            class="w-4 h-4 mr-2"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+            />
+          </svg>
+          <span>Secure connection with Academic Nightingale</span>
+        </div>
+      </div>
     </div>
+
     <script>
+      // Set up redirect
       const returnTo = '/apps/quizbuilder/quiz-builder-start.html';
       const target = `../learner/login.html?returnTo=${encodeURIComponent(returnTo)}`;
       document.getElementById('manual-link').setAttribute('href', target);
-      window.location.replace(target);
+
+      // Animate progress bar
+      setTimeout(() => {
+        const progressBar = document.querySelector(
+          '.h-2.rounded-full.transition-all'
+        );
+        if (progressBar) {
+          progressBar.style.width = '100%';
+        }
+      }, 100);
+
+      // Redirect after a short delay
+      setTimeout(() => {
+        window.location.replace(target);
+      }, 2000);
     </script>
   </body>
 </html>
