@@ -1,6 +1,6 @@
-const STATIC_CACHE = 'learner-static-v1';
-const RUNTIME_CACHE = 'learner-runtime-v1';
-const FONT_CACHE = 'learner-font-v1';
+const STATIC_CACHE = 'learner-static-v2';
+const RUNTIME_CACHE = 'learner-runtime-v2';
+const FONT_CACHE = 'learner-font-v2';
 
 const APP_SHELL = [
   './',
