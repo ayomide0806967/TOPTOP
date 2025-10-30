@@ -34,7 +34,7 @@ serve(async (req) => {
   }
 
   const url = new URL(req.url);
-  const path = url.pathname.replace('/api/users', '');
+  const path = url.pathname.replace(/^\/(api\/)?users/, '');
 
   const authHeader = req.headers.get('Authorization');
   const token = decodeToken(authHeader);
@@ -93,4 +93,3 @@ serve(async (req) => {
     });
   }
 });
-

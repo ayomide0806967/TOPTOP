@@ -12,8 +12,8 @@ serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url)
-    const path = url.pathname.replace('/api/quizzes', '')
+  const url = new URL(req.url)
+  const path = url.pathname.replace(/^\/(api\/)?quizzes/, '')
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',

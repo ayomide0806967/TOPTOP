@@ -159,21 +159,48 @@ export class AppInitializer {
       return true;
     });
 
-    // Add tenant context middleware
+    // Add tenant context + GitHub Pages API rewrite middleware
     router.addMiddleware(async (path, state) => {
-      // Add tenant headers to all future API requests
-      if (this.currentTenant) {
-        const originalFetch = window.fetch;
-        window.fetch = function(input, init = {}) {
-          init.headers = {
-            ...init.headers,
-            'X-Tenant-ID': appInitializer.currentTenant?.id,
-            'X-User-ID': appInitializer.currentUser?.id,
-            'X-User-Role': appInitializer.currentUser?.role
-          };
-          return originalFetch.call(this, input, init);
-        };
+      const originalFetch = window.fetch;
+
+      function resolveFunctionsBase() {
+        if (window.__API_BASE__) return window.__API_BASE__;
+        const supa = window.__SUPABASE_CONFIG__?.url || '';
+        // Transform https://<ref>.supabase.co -> https://<ref>.functions.supabase.co
+        const m = supa.match(/^https:\/\/([a-z0-9]+)\.supabase\.co$/i);
+        if (m && m[1]) return `https://${m[1]}.functions.supabase.co`;
+        return null;
       }
+
+      window.fetch = function(input, init = {}) {
+        let url = input;
+        const headers = {
+          ...init.headers,
+        };
+
+        // Inject tenant/user headers if available
+        if (appInitializer.currentTenant) {
+          headers['X-Tenant-ID'] = appInitializer.currentTenant?.id;
+        }
+        if (appInitializer.currentUser) {
+          headers['X-User-ID'] = appInitializer.currentUser?.id;
+          headers['X-User-Role'] = appInitializer.currentUser?.role;
+        }
+
+        // Rewrite /api/* to Supabase Functions when hosted on GitHub Pages (no server rewrites)
+        if (typeof url === 'string' && url.startsWith('/api/')) {
+          const base = resolveFunctionsBase();
+          if (base) {
+            // Map /api/<fn>/<rest> -> <base>/<fn>/<rest>
+            const parts = url.split('/'); // ['', 'api', '<fn>', ...rest]
+            const fn = parts[2] || '';
+            const rest = parts.slice(3).join('/');
+            url = `${base}/${fn}${rest ? '/' + rest : ''}`;
+          }
+        }
+
+        return originalFetch.call(this, url, { ...init, headers });
+      };
     });
 
     console.log('✅ Router initialized');

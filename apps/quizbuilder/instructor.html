@@ -14,6 +14,13 @@
         anonKey:
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobmhmYWd5ZGN5bmhrZ2JhemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwMDM2MjQsImV4cCI6MjA3NDU3OTYyNH0.KHgZ_ESTneR0CqWBGfu-JOmI3eBBLCZr1XG-g2vpclw',
       };
+      (function(){
+        if (!window.__API_BASE__ && window.__SUPABASE_CONFIG__?.url) {
+          try {
+            window.__API_BASE__ = window.__SUPABASE_CONFIG__.url.replace('.supabase.co', '.functions.supabase.co');
+          } catch(_) {}
+        }
+      })();
     </script>
 
     <div id="app" class="min-h-screen flex flex-col">

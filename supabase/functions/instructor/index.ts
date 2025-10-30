@@ -65,7 +65,7 @@ serve(async (req) => {
   }
 
   const url = new URL(req.url);
-  const path = url.pathname.replace('/api/instructor', '');
+  const path = url.pathname.replace(/^\/(api\/)?instructor/, '');
 
   const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: false },
