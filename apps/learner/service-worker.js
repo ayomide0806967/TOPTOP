@@ -10,6 +10,7 @@ const APP_SHELL = [
   './blog.html',
   './careers.html',
   './contact.html',
+  './press-release.html',
   './exam-builder.html',
   './exam-face.html',
   './forgot-password.html',
