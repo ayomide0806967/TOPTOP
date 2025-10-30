@@ -63,6 +63,31 @@ serve(async (req) => {
     }
 
     switch (path) {
+      case '/status': {
+        if (req.method !== 'GET') {
+          return new Response('Method not allowed', { status: 405, headers: corsHeaders })
+        }
+
+        const { data: subscription, error } = await supabaseClient
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (error) {
+          return new Response(
+            JSON.stringify({ message: error.message, code: 'STATUS_ERROR' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        return new Response(
+          JSON.stringify({ subscription }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
       case '/usage': {
         if (req.method !== 'GET') {
           return new Response('Method not allowed', { status: 405, headers: corsHeaders })
