@@ -2,6 +2,7 @@ import {
   getSupabaseClient,
   SupabaseConfigurationError,
 } from '../../../shared/supabaseClient.js';
+import { authService } from '../../../shared/auth.js';
 import { recordError } from '../../../shared/instrumentation.js';
 
 export class QuizBuilderServiceError extends Error {
@@ -258,6 +259,8 @@ export class QuizBuilderService {
     const client = await this._client();
     const { data, error } = await client.functions.invoke('quiz-seat-upgrade', {
       body: { additionalSeats },
+      // Ensure Edge Function receives our app token expected by decodeToken()
+      headers: authService.getAuthHeaders(),
     });
     if (error) throw mapSupabaseError(error, { operation: 'initiateSeatIncrease' });
     if (data?.error) {

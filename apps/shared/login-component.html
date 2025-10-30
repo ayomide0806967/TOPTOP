@@ -1,0 +1,285 @@
+<!-- =============================================
+   STANDARDIZED LOGIN COMPONENT
+   ============================================= -->
+<div id="login-container" class="min-h-screen bg-brand-light flex items-center justify-center p-4">
+  <div class="w-full max-w-md">
+    <!-- Login Card -->
+    <div class="card shadow-brand">
+      <div class="card-body p-8">
+        <!-- Logo Section -->
+        <div class="text-center mb-8">
+          <div class="w-16 h-16 bg-brand rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 19 7.5 19s3.332-.523 4.5-1.747V6.253z" />
+            </svg>
+          </div>
+          <h1 class="text-2xl font-bold text-gray-900 mb-2">Welcome Back</h1>
+          <p class="text-gray-600">Sign in to your account</p>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="space-y-6" aria-disabled="true">
+          <!-- Email Field -->
+          <div>
+            <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+            <div class="relative">
+              <input
+                type="email"
+                id="email"
+                name="email"
+                required
+                class="input pl-11"
+                placeholder="john@example.com"
+                disabled
+              >
+              <svg class="absolute left-3 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- Password Field -->
+          <div>
+            <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+            <div class="relative">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                required
+                class="input pl-11 pr-11"
+                placeholder="Enter your password"
+                disabled
+              >
+              <svg class="absolute left-3 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <button
+                type="button"
+                id="togglePassword"
+                class="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Toggle password visibility"
+              >
+                <svg id="eyeOpen" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <svg id="eyeClosed" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Remember Me & Forgot Password -->
+          <div class="flex items-center justify-between">
+            <label class="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                name="remember"
+                class="w-4 h-4 text-brand border-gray-300 rounded focus:ring-brand focus:ring-2"
+              >
+              <span class="ml-2 text-sm text-gray-600">Remember me</span>
+            </label>
+            <a href="/forgot-password" class="text-sm text-brand hover:text-brand-dark font-medium transition-colors">
+              Forgot password?
+            </a>
+          </div>
+
+          <!-- Submit Button -->
+          <button
+            type="button"
+            id="loginButton"
+            class="btn btn-primary w-full"
+            disabled
+          >
+            <span id="loginButtonText">Sign In</span>
+            <div id="loginSpinner" class="spinner hidden"></div>
+          </button>
+        </form>
+
+        <!-- Divider -->
+        <div class="relative my-8">
+          <div class="absolute inset-0 flex items-center">
+            <div class="w-full border-t border-gray-300"></div>
+          </div>
+          <div class="relative flex justify-center text-sm">
+            <span class="px-2 bg-white text-gray-500">New to Academic Nightingale?</span>
+          </div>
+        </div>
+
+        <!-- Register Link -->
+        <div class="text-center">
+          <a
+            href="/signup"
+            class="btn btn-secondary w-full"
+          >
+            Create Account
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center mt-8 text-sm text-gray-600">
+      <p>&copy; 2025 Academic Nightingale. All rights reserved.</p>
+      <div class="mt-2 space-x-4">
+        <a href="/privacy-policy" class="hover:text-brand transition-colors">Privacy Policy</a>
+        <a href="/terms-of-service" class="hover:text-brand transition-colors">Terms of Service</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Toast -->
+  <div id="errorToast" class="toast toast-error hidden">
+    <div class="flex-shrink-0">
+      <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+      </svg>
+    </div>
+    <div class="flex-1">
+      <p id="errorMessage" class="text-sm font-medium"></p>
+    </div>
+    <button onclick="hideErrorToast()" class="ml-auto flex-shrink-0 text-gray-400 hover:text-gray-600">
+      <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+      </svg>
+    </button>
+  </div>
+</div>
+
+<script>
+  // Login component JavaScript
+  (function() {
+    // Configuration
+    const AUTH_DISABLED = true; // Set to false when authentication is ready
+
+    // DOM elements
+    const loginForm = document.getElementById('loginForm');
+    const loginButton = document.getElementById('loginButton');
+    const loginButtonText = document.getElementById('loginButtonText');
+    const loginSpinner = document.getElementById('loginSpinner');
+    const togglePassword = document.getElementById('togglePassword');
+    const eyeOpen = document.getElementById('eyeOpen');
+    const eyeClosed = document.getElementById('eyeClosed');
+    const passwordInput = document.getElementById('password');
+
+    // Toggle password visibility
+    togglePassword.addEventListener('click', (e) => {
+      e.preventDefault();
+      const isPassword = passwordInput.type === 'password';
+      passwordInput.type = isPassword ? 'text' : 'password';
+      eyeOpen.classList.toggle('hidden', !isPassword);
+      eyeClosed.classList.toggle('hidden', isPassword);
+    });
+
+    // Handle login form submission
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (AUTH_DISABLED) {
+        showError('Sign-in is temporarily disabled. Please try again later.');
+        return;
+      }
+
+      const formData = new FormData(loginForm);
+      const email = formData.get('email');
+      const password = formData.get('password');
+
+      // Show loading state
+      setLoading(true);
+      hideErrorToast();
+
+      try {
+        // TODO: Implement actual authentication logic
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+
+        // Redirect based on user role
+        const userRole = 'instructor'; // This should come from the API response
+        const dashboardRoutes = {
+          super_admin: '/super-admin/dashboard',
+          instructor: '/instructor/dashboard',
+          student: '/student/dashboard'
+        };
+
+        const redirectRoute = dashboardRoutes[userRole] || '/instructor/dashboard';
+        window.location.href = redirectRoute;
+
+      } catch (error) {
+        showError(error.message || 'An error occurred during sign-in.');
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    // Set loading state
+    function setLoading(loading) {
+      if (loading) {
+        loginButton.disabled = true;
+        loginButtonText.classList.add('hidden');
+        loginSpinner.classList.remove('hidden');
+      } else {
+        loginButton.disabled = false;
+        loginButtonText.classList.remove('hidden');
+        loginSpinner.classList.add('hidden');
+      }
+    }
+
+    // Show error message
+    function showError(message) {
+      const errorMessage = document.getElementById('errorMessage');
+      const errorToast = document.getElementById('errorToast');
+
+      errorMessage.textContent = message;
+      errorToast.classList.remove('hidden');
+
+      // Auto-hide after 5 seconds
+      setTimeout(hideErrorToast, 5000);
+    }
+
+    // Hide error toast
+    function hideErrorToast() {
+      const errorToast = document.getElementById('errorToast');
+      errorToast.classList.add('hidden');
+    }
+
+    // Show success message
+    function showToast(message, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+
+      const icon = type === 'success'
+        ? '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />'
+        : '<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />';
+
+      toast.innerHTML = `
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            ${icon}
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-sm font-medium">${message}</p>
+        </div>
+        <button onclick="this.parentElement.remove()" class="ml-auto flex-shrink-0">
+          <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      `;
+
+      document.body.appendChild(toast);
+
+      // Auto-remove after 3 seconds
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.remove();
+        }
+      }, 3000);
+    }
+
+    // Make functions globally accessible
+    window.hideErrorToast = hideErrorToast;
+    window.showToast = showToast;
+  })();
+</script>

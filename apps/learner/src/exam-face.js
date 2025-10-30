@@ -1290,6 +1290,8 @@ async function submitQuiz(forceSubmit = false) {
         ? Number(((correct / total) * 100).toFixed(2))
         : 0;
 
+      // Store a lightweight snapshot to avoid bloating the DB.
+      // Only keep ids + small metadata needed for result rendering.
       const practicePayload = {
         attempt: {
           id: state.extraAttempt?.id || null,
@@ -1312,13 +1314,14 @@ async function submitQuiz(forceSubmit = false) {
           total_questions: total,
         },
         entries: state.entries.map((entry) => ({
+          // Question id from the extra set
           id: entry.id,
-          question: entry.question,
-          selected_option_id: entry.selected_option_id,
-          is_correct: entry.is_correct,
-          correct_option_id: entry.correct_option_id,
-          correct_option_key: entry.correct_option_key,
-          raw_correct_option: entry.raw_correct_option,
+          // Only store the chosen answer and correctness signals
+          selected_option_id: entry.selected_option_id ?? null,
+          is_correct: typeof entry.is_correct === 'boolean' ? entry.is_correct : null,
+          // Keep the resolved correct option id/key if available (tiny)
+          correct_option_id: entry.correct_option_id ?? null,
+          correct_option_key: entry.correct_option_key ?? null,
         })),
         correct,
         total,

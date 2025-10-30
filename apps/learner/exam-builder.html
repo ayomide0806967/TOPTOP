@@ -6,8 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Quiz Builder | Academic Nightingale</title>
     <link rel="stylesheet" href="../assets/tailwind.css" />
+    <link rel="stylesheet" href="../shared/design-system.css" />
+    <link rel="stylesheet" href="../shared/quiz-components.html" />
   </head>
-  <body class="min-h-screen bg-slate-50 text-slate-900">
+  <body class="min-h-screen bg-brand-light text-slate-900">
     <script>
       window.__SUPABASE_CONFIG__ = window.__SUPABASE_CONFIG__ || {
         url: 'https://ghnhfagydcynhkgbazbj.supabase.co',
@@ -16,83 +18,60 @@
       };
     </script>
     <div class="flex min-h-screen flex-col">
-      <header class="border-b border-slate-200 bg-white">
-        <div
-          class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between"
-        >
-          <div>
-            <a
-              href="../admin/dashboard.html"
-              class="inline-flex items-center gap-2 text-sm font-semibold text-cyan-600 hover:text-cyan-700"
-            >
-              <svg
-                class="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.5"
-                  d="M15 18l-6-6 6-6"
-                />
-              </svg>
-              Back to dashboard
-            </a>
-            <h1 id="page-title" class="mt-2 text-2xl font-semibold tracking-tight">
-              Quiz Builder
-            </h1>
-            <p class="mt-1 text-sm text-slate-500">
-              Create and manage questions for your quiz blueprint.
-            </p>
-          </div>
-          <div class="flex flex-wrap items-center gap-3">
-            <button
-              id="preview-quiz-btn"
-              class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-            >
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-              Preview quiz
-            </button>
-            <button
-              id="export-quiz-btn"
-              class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-            >
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Export quiz
-            </button>
-            <button
-              id="save-quiz-btn"
-              class="inline-flex items-center gap-2 rounded-full bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-            >
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V2" />
-              </svg>
-              Save blueprint
-            </button>
-            <button
-              id="publish-quiz-btn"
-              class="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-            >
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-              Publish quiz
-            </button>
+      <header class="border-b border-medium bg-card sticky top-0 z-sticky backdrop-blur-lg bg-opacity-90">
+        <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <img src="../assets/academicnightingale-logo.jpg" alt="Academic Nightingale" class="h-10 w-10 rounded-lg object-cover shadow-sm" />
+              <div>
+                <a href="../quizbuilder/instructor.html" class="btn btn-ghost btn-sm">
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 18l-6-6 6-6" />
+                  </svg>
+                  Back to Dashboard
+                </a>
+                <h1 id="page-title" class="mt-2 text-2xl font-bold text-primary">Quiz Builder</h1>
+                <p class="mt-1 text-sm text-secondary">Create and manage questions for your quiz blueprint.</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="preview-quiz-btn" class="btn btn-secondary">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Preview Quiz
+              </button>
+              <button id="export-quiz-btn" class="btn btn-secondary">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export Quiz
+              </button>
+              <button id="save-quiz-btn" class="btn btn-primary">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V2" />
+                </svg>
+                Save Blueprint
+              </button>
+              <button id="publish-quiz-btn" class="btn btn-success">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+                Publish Quiz
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       <main class="flex-1 pb-16">
-        <div class="mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6">
-          <!-- Blueprint Info Section -->
-          <section id="blueprint-info" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="mx-auto w-full max-w-7xl">
+          <div class="flex gap-8">
+            <!-- Main Content Area -->
+            <div class="flex-1 space-y-8 py-6 px-4 sm:px-6">
+              <!-- Blueprint Info Section -->
+              <section id="blueprint-info" class="card">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div class="flex-1">
                 <div class="flex items-center gap-2">
@@ -181,6 +160,17 @@
                   <span class="text-sm font-medium text-slate-700">Allow review</span>
                 </label>
                 <p class="mt-1 text-xs text-slate-500">Let participants review their answers</p>
+              </div>
+              <div>
+                <label for="show-leaderboard" class="flex items-center gap-2">
+                  <input
+                    id="show-leaderboard"
+                    type="checkbox"
+                    class="rounded border-slate-300 text-cyan-600 focus:border-cyan-500 focus:ring-cyan-400"
+                  />
+                  <span class="text-sm font-medium text-slate-700">Show leaderboard</span>
+                </label>
+                <p class="mt-1 text-xs text-slate-500">Display live rankings to participants during the quiz</p>
               </div>
               <div>
                 <label for="max-attempts" class="block text-sm font-medium text-slate-700">Maximum Attempts</label>

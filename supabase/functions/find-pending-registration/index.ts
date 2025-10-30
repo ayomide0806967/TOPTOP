@@ -38,12 +38,17 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabaseUrl =
+      Deno.env.get('APP_SUPABASE_URL') ?? Deno.env.get('SUPABASE_URL') ?? '';
+    const serviceRoleKey =
+      Deno.env.get('APP_SUPABASE_SERVICE_ROLE_KEY') ??
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ??
+      '';
 
     if (!supabaseUrl || !serviceRoleKey) {
       console.error(
-        '[find-pending-registration] Missing Supabase environment configuration'
+        '[find-pending-registration] Missing Supabase environment configuration',
+        { supabaseUrlPresent: !!supabaseUrl, hasServiceRoleKey: !!serviceRoleKey }
       );
       return new Response(
         JSON.stringify({

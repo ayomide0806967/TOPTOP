@@ -686,7 +686,84 @@ async function renderExtraPracticeResults(supabase, setId, userId, attemptId) {
     setMeta = response.data;
   }
 
-  const entries = Array.isArray(snapshot.entries) ? snapshot.entries : [];
+  let entries = Array.isArray(snapshot.entries) ? snapshot.entries : [];
+
+  // If the snapshot is lightweight (no question text/options), hydrate from DB
+  const needsHydration = entries.some(
+    (e) => !e || !e.question || !Array.isArray(e.question?.question_options)
+  );
+  if (entries.length && needsHydration) {
+    try {
+      const ids = entries
+        .map((e) => e?.id || e?.question?.id)
+        .filter(Boolean);
+      if (ids.length) {
+        let resp = await supabase
+          .from('extra_questions')
+          .select(
+            'id, stem, explanation, metadata, extra_question_options(id, label, content, is_correct, order_index)'
+          )
+          .in('id', ids);
+        if (
+          resp.error &&
+          resp.error.message?.includes('metadata') // fallback if column list mismatches
+        ) {
+          resp = await supabase
+            .from('extra_questions')
+            .select(
+              'id, stem, explanation, extra_question_options(id, label, content, is_correct, order_index)'
+            )
+            .in('id', ids);
+        }
+        if (!resp.error) {
+          const rows = Array.isArray(resp.data) ? resp.data : [];
+          const byId = new Map(rows.map((r) => [r.id, r]));
+          entries = entries.map((e, idx) => {
+            const q = byId.get(e?.id || e?.question?.id);
+            if (!q) return e; // keep as-is if missing
+            // Sort options by order_index/label for stable display
+            const options = (q.extra_question_options || [])
+              .slice()
+              .sort(
+                (a, b) =>
+                  (a.order_index ?? a.label?.charCodeAt(0) ?? 0) -
+                  (b.order_index ?? b.label?.charCodeAt(0) ?? 0)
+              );
+            const correctOption =
+              options.find((opt) => Boolean(opt.is_correct)) || null;
+            const correctKey =
+              normalizeOptionKey(correctOption?.id) ||
+              normalizeOptionKey(correctOption?.label);
+            const selectedKey = normalizeOptionKey(
+              e.selected_option_id ?? e.selected_option ?? e.answer
+            );
+            const computedIsCorrect = selectedKey
+              ? selectedKey ===
+                (normalizeOptionKey(e.correct_option_key) ||
+                  normalizeOptionKey(e.correct_option_id) ||
+                  correctKey)
+              : false;
+            return {
+              ...e,
+              question: {
+                id: q.id,
+                stem: q.stem,
+                explanation: q.explanation,
+                metadata: q.metadata || {},
+                question_options: options,
+              },
+              is_correct:
+                typeof e.is_correct === 'boolean' ? e.is_correct : computedIsCorrect,
+              correct_option_id: e.correct_option_id ?? correctOption?.id ?? null,
+              correct_option_key: e.correct_option_key ?? correctKey ?? null,
+            };
+          });
+        }
+      }
+    } catch (hydrateErr) {
+      console.warn('[Result Face] Unable to hydrate lightweight snapshot', hydrateErr);
+    }
+  }
   const derivedStats = entries.length
     ? deriveFreeStats(entries)
     : { correct: 0, total: entries.length };

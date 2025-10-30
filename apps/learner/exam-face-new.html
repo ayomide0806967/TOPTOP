@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+    <meta charset="UTF-8" />
+    <title>Take Exam | Academic Nightingale</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="stylesheet" href="../assets/tailwind.css" />
+    <link rel="stylesheet" href="../shared/design-system.css" />
+    <link rel="stylesheet" href="../shared/quiz-components.html" />
+    <script>
+      window.__SUPABASE_CONFIG__ = window.__SUPABASE_CONFIG__ || {
+        url: 'https://ghnhfagydcynhkgbazbj.supabase.co',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobmhmYWd5ZGN5bmhrZ2JhemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwMDM2MjQsImV4cCI6MjA3NDU3OTYyNH0.KHgZ_ESTneR0CqWBGfu-JOmI3eBBLCZr1XG-g2vpclw',
+      };
+    </script>
+    <style>
+      /* Exam-specific styles */
+      .exam-container {
+        background: var(--bg-subtle);
+        min-height: 100vh;
+      }
+
+      .question-palette-item {
+        transition: all var(--transition-fast);
+      }
+
+      .question-palette-item:hover {
+        background: var(--color-primary-50);
+        border-color: var(--color-primary-200);
+      }
+
+      .question-palette-item.answered {
+        background: var(--color-success-light);
+        border-color: var(--color-success);
+      }
+
+      .question-palette-item.current {
+        background: var(--color-primary-100);
+        border-color: var(--color-primary-500);
+        box-shadow: 0 0 0 2px var(--color-primary-200);
+      }
+
+      .option-label {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: var(--radius-md);
+        background: var(--bg-secondary);
+        border: 2px solid var(--border-medium);
+        font-weight: var(--font-semibold);
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        transition: all var(--transition-fast);
+      }
+
+      .option-item:hover .option-label {
+        background: var(--color-primary-50);
+        border-color: var(--color-primary-300);
+        color: var(--color-primary-600);
+      }
+
+      .option-item input:checked ~ .option-label {
+        background: var(--bg-accent);
+        border-color: var(--color-primary-500);
+        color: var(--text-inverse);
+      }
+
+      .timer-critical {
+        animation: pulse 1s infinite;
+        color: var(--color-error);
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+
+      /* Calculator styles */
+      .calculator {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        z-index: var(--z-fixed);
+      }
+
+      .calculator-btn {
+        width: 3rem;
+        height: 3rem;
+        border-radius: var(--radius-full);
+        background: var(--bg-card);
+        border: 2px solid var(--border-medium);
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+      }
+
+      .calculator-btn:hover {
+        background: var(--bg-accent);
+        border-color: var(--color-primary-500);
+        color: var(--text-inverse);
+        transform: translateY(-2px);
+      }
+
+      /* Progress bar */
+      .progress-bar {
+        height: 0.5rem;
+        background: var(--border-light);
+        border-radius: var(--radius-full);
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: var(--bg-accent);
+        transition: width var(--transition-normal);
+      }
+    </style>
+</head>
+<body class="exam-container">
+    <!-- Quiz Container -->
+    <div id="quiz-container">
+        <!-- Loading state -->
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="text-center">
+                <div class="spinner mx-auto mb-4"></div>
+                <p class="text-secondary">Loading quiz...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calculator Widget -->
+    <div class="calculator">
+        <button class="calculator-btn" onclick="toggleCalculator()" aria-label="Toggle calculator">
+            <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2H6zm1 2a1 1 0 000 2h6a1 1 0 100-2H7zm6 7a1 1 0 011 1v3a1 1 0 11-2 0v-3a1 1 0 011-1zm-3 3a1 1 0 100 2h.01a1 1 0 100-2H10zm-4 1a1 1 0 011-1h.01a1 1 0 110 2H7a1 1 0 01-1-1zm1-4a1 1 0 100 2h.01a1 1 0 100-2H7zm2 1a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm4-2a1 1 0 100 2h.01a1 1 0 100-2H13z" clip-rule="evenodd" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- Calculator Modal (Hidden by default) -->
+    <div id="calculator-modal" class="modal-overlay hidden">
+        <div class="modal" style="width: 320px;">
+            <div class="card-header flex items-center justify-between">
+                <h3 class="font-semibold text-primary">Calculator</h3>
+                <button onclick="toggleCalculator()" class="text-muted hover:text-secondary">
+                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <div class="card-body">
+                <input type="text" id="calc-display" class="input w-full text-center text-xl font-mono mb-4" readonly value="0">
+                <div class="grid grid-cols-4 gap-2">
+                    <!-- Calculator buttons -->
+                    <button onclick="calcInput('7')" class="btn btn-secondary">7</button>
+                    <button onclick="calcInput('8')" class="btn btn-secondary">8</button>
+                    <button onclick="calcInput('9')" class="btn btn-secondary">9</button>
+                    <button onclick="calcInput('/')" class="btn btn-secondary">÷</button>
+
+                    <button onclick="calcInput('4')" class="btn btn-secondary">4</button>
+                    <button onclick="calcInput('5')" class="btn btn-secondary">5</button>
+                    <button onclick="calcInput('6')" class="btn btn-secondary">6</button>
+                    <button onclick="calcInput('*')" class="btn btn-secondary">×</button>
+
+                    <button onclick="calcInput('1')" class="btn btn-secondary">1</button>
+                    <button onclick="calcInput('2')" class="btn btn-secondary">2</button>
+                    <button onclick="calcInput('3')" class="btn btn-secondary">3</button>
+                    <button onclick="calcInput('-')" class="btn btn-secondary">-</button>
+
+                    <button onclick="calcInput('0')" class="btn btn-secondary">0</button>
+                    <button onclick="calcInput('.')" class="btn btn-secondary">.</button>
+                    <button onclick="calcEquals()" class="btn btn-primary">=</button>
+                    <button onclick="calcInput('+')" class="btn btn-secondary">+</button>
+
+                    <button onclick="calcClear()" class="btn btn-ghost col-span-2">Clear</button>
+                    <button onclick="calcBackspace()" class="btn btn-ghost">⌫</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Quiz Engine -->
+    <script src="../shared/quiz-engine.js"></script>
+    <script>
+        // Sample quiz data (this would normally come from your API)
+        const sampleQuizData = {
+            title: "Nursing Fundamentals Mock Exam",
+            description: "Test your knowledge of basic nursing concepts and procedures.",
+            timeLimit: 30,
+            attempts: 1,
+            settings: {
+                randomizeQuestions: false,
+                randomizeOptions: false,
+                showCorrectAnswers: true,
+                passingScore: 70
+            },
+            questions: [
+                {
+                    id: "q1",
+                    type: "multiple-choice",
+                    text: "Which of the following is the most important step in preventing the spread of infection?",
+                    points: 1,
+                    options: [
+                        "Wearing gloves when providing care",
+                        "Hand washing before and after patient contact",
+                        "Using disposable equipment",
+                        "Isolating patients with infections"
+                    ],
+                    correctAnswer: 1,
+                    required: true
+                },
+                {
+                    id: "q2",
+                    type: "multiple-choice",
+                    text: "The normal range for adult body temperature is:",
+                    points: 1,
+                    options: [
+                        "35.5-36.5°C (95.9-97.7°F)",
+                        "36.1-37.2°C (97.0-99.0°F)",
+                        "37.3-38.4°C (99.1-101.1°F)",
+                        "38.5-39.6°C (101.3-103.3°F)"
+                    ],
+                    correctAnswer: 1,
+                    required: true
+                },
+                {
+                    id: "q3",
+                    type: "true-false",
+                    text: "The 'Five Rights' of medication administration include: right patient, right medication, right dose, right route, and right time.",
+                    points: 1,
+                    correctAnswer: "True",
+                    required: true
+                },
+                {
+                    id: "q4",
+                    type: "multiple-choice",
+                    text: "Which position is best for a patient who has difficulty breathing?",
+                    points: 1,
+                    options: [
+                        "Supine position",
+                        "Trendelenburg position",
+                        "High Fowler's position",
+                        "Lateral position"
+                    ],
+                    correctAnswer: 2,
+                    required: true
+                },
+                {
+                    id: "q5",
+                    type: "short-answer",
+                    text: "What is the normal range for adult blood pressure? (Example: 120/80 mmHg)",
+                    points: 2,
+                    correctAnswer: "120/80 mmHg",
+                    required: true
+                }
+            ]
+        };
+
+        // Initialize quiz when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                if (window.quizEngine) {
+                    // Initialize with sample data
+                    window.quizEngine.options.container = '#quiz-container';
+                    window.quizEngine.startQuiz(sampleQuizData);
+                }
+            }, 500);
+        });
+
+        // Calculator functionality
+        let calcDisplay = '0';
+        let calcPrevious = '';
+        let calcOperation = null;
+        let calcShouldResetDisplay = false;
+
+        function toggleCalculator() {
+            const modal = document.getElementById('calculator-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        function updateCalcDisplay() {
+            document.getElementById('calc-display').value = calcDisplay;
+        }
+
+        function calcInput(value) {
+            if (calcShouldResetDisplay) {
+                calcDisplay = '0';
+                calcShouldResetDisplay = false;
+            }
+
+            if (['+', '-', '*', '/'].includes(value)) {
+                calcPrevious = calcDisplay;
+                calcOperation = value;
+                calcShouldResetDisplay = true;
+            } else {
+                if (calcDisplay === '0' && value !== '.') {
+                    calcDisplay = value;
+                } else {
+                    calcDisplay += value;
+                }
+            }
+            updateCalcDisplay();
+        }
+
+        function calcEquals() {
+            if (calcOperation && calcPrevious) {
+                const prev = parseFloat(calcPrevious);
+                const current = parseFloat(calcDisplay);
+                let result = 0;
+
+                switch (calcOperation) {
+                    case '+': result = prev + current; break;
+                    case '-': result = prev - current; break;
+                    case '*': result = prev * current; break;
+                    case '/': result = prev / current; break;
+                }
+
+                calcDisplay = result.toString();
+                calcOperation = null;
+                calcPrevious = '';
+                calcShouldResetDisplay = true;
+                updateCalcDisplay();
+            }
+        }
+
+        function calcClear() {
+            calcDisplay = '0';
+            calcPrevious = '';
+            calcOperation = null;
+            calcShouldResetDisplay = false;
+            updateCalcDisplay();
+        }
+
+        function calcBackspace() {
+            if (calcDisplay.length > 1) {
+                calcDisplay = calcDisplay.slice(0, -1);
+            } else {
+                calcDisplay = '0';
+            }
+            updateCalcDisplay();
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Calculator shortcuts
+            if (e.key >= '0' && e.key <= '9') calcInput(e.key);
+            if (e.key === '.') calcInput('.');
+            if (e.key === '+') calcInput('+');
+            if (e.key === '-') calcInput('-');
+            if (e.key === '*') calcInput('*');
+            if (e.key === '/') calcInput('/');
+            if (e.key === 'Enter' || e.key === '=') calcEquals();
+            if (e.key === 'Escape') calcClear();
+            if (e.key === 'Backspace') calcBackspace();
+
+            // Quiz shortcuts
+            if (e.key === 'ArrowRight' && !e.target.matches('input, textarea')) {
+                document.querySelector('.quiz-navigation button:last-child')?.click();
+            }
+            if (e.key === 'ArrowLeft' && !e.target.matches('input, textarea')) {
+                document.querySelector('.quiz-navigation button:first-child')?.click();
+            }
+        });
+    </script>
+</body>
+</html>

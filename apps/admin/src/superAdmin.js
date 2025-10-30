@@ -50,7 +50,8 @@ class SuperAdminDashboard {
   }
 
   redirectToLogin() {
-    window.location.href = '../learner/login.html?redirect=' + encodeURIComponent(window.location.href);
+    // Use Quiz Builder admin login for super admins
+    window.location.href = '../admin/login.html?redirect=' + encodeURIComponent(window.location.href);
   }
 
   bindEvents() {

@@ -185,6 +185,26 @@ serve(async (req) => {
       metadata: metadata,
     };
 
+    // Persist pending checkout details so server-side reconciliation can
+    // activate the plan even if the client never finishes the callback.
+    try {
+      const { error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          pending_checkout_reference: reference,
+          pending_plan_id: plan.id,
+          registration_stage: 'awaiting_payment',
+          subscription_status: 'pending_payment',
+          pending_plan_selected_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+      if (updateError) {
+        console.warn('[paystack-initiate] Failed to persist pending reference', updateError);
+      }
+    } catch (persistErr) {
+      console.warn('[paystack-initiate] Unexpected error persisting pending reference', persistErr);
+    }
+
     console.log(
       '[paystack-initiate] Returning data for client:',
       JSON.stringify(responseData, null, 2)

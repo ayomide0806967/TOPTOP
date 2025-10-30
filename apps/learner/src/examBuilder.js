@@ -148,6 +148,7 @@ class ExamBuilder {
     document.getElementById('shuffle-questions').checked = settings.shuffleQuestions || false;
     document.getElementById('show-results').checked = settings.showResults !== false;
     document.getElementById('allow-review').checked = settings.allowReview !== false;
+    document.getElementById('show-leaderboard').checked = settings.showLeaderboard || false;
     document.getElementById('max-attempts').value = settings.maxAttempts || '';
     document.getElementById('passing-score').value = settings.passingScore || '';
   }
@@ -503,6 +504,7 @@ class ExamBuilder {
       shuffleQuestions: document.getElementById('shuffle-questions').checked,
       showResults: document.getElementById('show-results').checked,
       allowReview: document.getElementById('allow-review').checked,
+      showLeaderboard: document.getElementById('show-leaderboard').checked,
       maxAttempts: parseInt(document.getElementById('max-attempts').value) || null,
       passingScore: parseInt(document.getElementById('passing-score').value) || null,
     };

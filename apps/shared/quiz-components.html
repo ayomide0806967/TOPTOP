@@ -1,0 +1,393 @@
+<!-- =============================================
+   QUIZ COMPONENT LIBRARY
+   ============================================= -->
+
+<!-- Quiz Header Component -->
+<template id="quiz-header-template">
+  <header class="quiz-header border-b border-medium bg-card sticky top-0 z-sticky backdrop-blur-lg bg-opacity-90">
+    <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6">
+      <div class="flex items-center justify-between">
+        <!-- Logo and Title -->
+        <div class="flex items-center gap-4">
+          <img src="../assets/academicnightingale-logo.jpg" alt="Academic Nightingale" class="h-10 w-10 rounded-lg object-cover shadow-sm" />
+          <div>
+            <h1 class="text-xl font-bold text-primary">Quiz Interface</h1>
+            <p class="text-sm text-secondary" id="quiz-subtitle">Create and manage your quiz content</p>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-2" id="header-actions">
+          <!-- Actions will be dynamically inserted -->
+        </div>
+      </div>
+    </div>
+  </header>
+</template>
+
+<!-- Quiz Question Card Component -->
+<template id="quiz-question-template">
+  <div class="quiz-question card mb-6 transition-all duration-200" data-question-id="">
+    <div class="card-header">
+      <div class="flex items-start justify-between">
+        <div class="flex-1">
+          <div class="flex items-center gap-3 mb-2">
+            <span class="question-number flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white text-sm font-semibold">1</span>
+            <select class="question-type input py-2 px-3 text-sm" id="question-type">
+              <option value="multiple-choice">Multiple Choice</option>
+              <option value="true-false">True/False</option>
+              <option value="short-answer">Short Answer</option>
+              <option value="essay">Essay</option>
+            </select>
+            <div class="flex items-center gap-1 text-sm text-muted">
+              <span class="points-label">Points:</span>
+              <input type="number" class="points-input input w-16 py-1 px-2 text-sm" value="1" min="1" max="100">
+            </div>
+          </div>
+          <textarea
+            class="question-text input w-full resize-none"
+            placeholder="Enter your question here..."
+            rows="2"
+          ></textarea>
+        </div>
+        <button class="remove-question-btn ml-4 text-muted hover:text-error transition-colors" aria-label="Remove question">
+          <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <div class="question-options">
+        <!-- Multiple Choice Options -->
+        <div class="multiple-choice-options space-y-3">
+          <div class="option-item flex items-center gap-3">
+            <input type="radio" name="correct-answer" class="correct-radio flex-shrink-0">
+            <input type="text" class="option-text input flex-1" placeholder="Option A">
+            <button class="remove-option-btn text-muted hover:text-error transition-colors" aria-label="Remove option">
+              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Add Option Button -->
+        <button class="add-option-btn btn btn-ghost btn-sm mt-3">
+          <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+          </svg>
+          Add Option
+        </button>
+      </div>
+
+      <!-- Question Settings -->
+      <div class="question-settings mt-4 flex items-center gap-4 text-sm">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" class="required-checkbox w-4 h-4 text-brand border-medium rounded focus:ring-brand">
+          <span class="text-secondary">Required</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" class="randomize-checkbox w-4 h-4 text-brand border-medium rounded focus:ring-brand">
+          <span class="text-secondary">Randomize options</span>
+        </label>
+      </div>
+    </div>
+  </div>
+</template>
+
+<!-- Quiz Sidebar Component -->
+<template id="quiz-sidebar-template">
+  <aside class="quiz-sidebar w-80 bg-card border-l border-medium p-6 overflow-y-auto">
+    <div class="space-y-6">
+      <!-- Quiz Settings -->
+      <div class="quiz-settings card">
+        <div class="card-header pb-3">
+          <h3 class="font-semibold text-primary">Quiz Settings</h3>
+        </div>
+        <div class="card-body space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-secondary mb-2">Quiz Title</label>
+            <input type="text" class="quiz-title input" placeholder="Enter quiz title">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-secondary mb-2">Description</label>
+            <textarea class="quiz-description input resize-none" rows="3" placeholder="Brief description of the quiz"></textarea>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-secondary mb-2">Time Limit</label>
+              <div class="flex items-center gap-2">
+                <input type="number" class="time-limit input w-20" value="30" min="1" max="180">
+                <span class="text-sm text-secondary">min</span>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-secondary mb-2">Attempts</label>
+              <select class="attempts input">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="unlimited">Unlimited</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Question Palette -->
+      <div class="question-palette card">
+        <div class="card-header pb-3">
+          <h3 class="font-semibold text-primary">Questions</h3>
+          <span class="text-sm text-muted" id="question-count">0 questions</span>
+        </div>
+        <div class="card-body">
+          <div class="question-list space-y-2" id="question-list">
+            <!-- Question items will be dynamically inserted -->
+          </div>
+          <button class="add-question-btn btn btn-primary w-full mt-4">
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+            </svg>
+            Add Question
+          </button>
+        </div>
+      </div>
+
+      <!-- Preview Section -->
+      <div class="preview-section card">
+        <div class="card-header pb-3">
+          <h3 class="font-semibold text-primary">Preview</h3>
+        </div>
+        <div class="card-body">
+          <div class="space-y-3">
+            <div class="flex justify-between text-sm">
+              <span class="text-secondary">Total Points:</span>
+              <span class="font-semibold" id="total-points">0</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-secondary">Time Limit:</span>
+              <span class="font-semibold" id="preview-time">30 min</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-secondary">Passing Score:</span>
+              <span class="font-semibold" id="passing-score">70%</span>
+            </div>
+          </div>
+          <button class="preview-quiz-btn btn btn-secondary w-full mt-4">
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+              <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+            </svg>
+            Preview Quiz
+          </button>
+        </div>
+      </div>
+    </div>
+  </aside>
+</template>
+
+<!-- Quiz Navigation Component -->
+<template id="quiz-navigation-template">
+  <nav class="quiz-navigation border-t border-medium bg-card p-4">
+    <div class="mx-auto max-w-7xl flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <button class="prev-btn btn btn-secondary" disabled>
+          <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+          </svg>
+          Previous
+        </button>
+        <button class="next-btn btn btn-primary">
+          Next
+          <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-6">
+        <!-- Question Progress -->
+        <div class="flex items-center gap-3">
+          <span class="text-sm text-secondary">Question</span>
+          <span class="text-sm font-semibold" id="current-question">1</span>
+          <span class="text-sm text-secondary">of</span>
+          <span class="text-sm font-semibold" id="total-questions">10</span>
+        </div>
+
+        <!-- Timer -->
+        <div class="flex items-center gap-2 text-sm">
+          <svg class="h-4 w-4 text-muted" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+          </svg>
+          <span class="font-mono font-semibold" id="timer">30:00</span>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-2">
+          <button class="save-progress-btn btn btn-ghost btn-sm">
+            Save Progress
+          </button>
+          <button class="submit-quiz-btn btn btn-success">
+            Submit Quiz
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+</template>
+
+<!-- Quiz Results Component -->
+<template id="quiz-results-template">
+  <div class="quiz-results max-w-4xl mx-auto">
+    <div class="card shadow-brand">
+      <div class="card-header text-center pb-6">
+        <div class="mb-4">
+          <div class="score-circle inline-flex items-center justify-center w-24 h-24 rounded-full bg-success-light text-success">
+            <span class="text-3xl font-bold" id="score-percentage">85%</span>
+          </div>
+        </div>
+        <h1 class="text-3xl font-bold text-primary mb-2">Quiz Completed!</h1>
+        <p class="text-secondary" id="result-message">Great job! You've successfully completed the quiz.</p>
+      </div>
+
+      <div class="card-body">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div class="text-center">
+            <div class="text-2xl font-bold text-brand" id="correct-answers">8</div>
+            <div class="text-sm text-secondary">Correct Answers</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-muted" id="incorrect-answers">2</div>
+            <div class="text-sm text-secondary">Incorrect Answers</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-primary" id="time-taken">22:45</div>
+            <div class="text-sm text-secondary">Time Taken</div>
+          </div>
+        </div>
+
+        <!-- Review Answers -->
+        <div class="review-section">
+          <h3 class="text-lg font-semibold text-primary mb-4">Review Your Answers</h3>
+          <div class="space-y-4" id="review-answers">
+            <!-- Review items will be dynamically inserted -->
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex justify-center gap-4 mt-8">
+          <button class="retake-quiz-btn btn btn-secondary">
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+            </svg>
+            Retake Quiz
+          </button>
+          <button class="view-results-btn btn btn-primary">
+            View Detailed Results
+          </button>
+          <button class="back-dashboard-btn btn btn-ghost">
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style>
+/* Quiz-specific styles */
+.quiz-question {
+  transition: all var(--transition-normal);
+}
+
+.quiz-question:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+.question-number {
+  background: var(--bg-accent);
+  color: var(--text-inverse);
+  font-weight: var(--font-semibold);
+}
+
+.option-item {
+  animation: slideIn var(--transition-normal) ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.score-circle {
+  background: var(--color-success-light);
+  color: var(--color-success);
+  font-weight: var(--font-bold);
+}
+
+/* Timer styles */
+.timer {
+  font-family: var(--font-mono);
+  font-weight: var(--font-semibold);
+}
+
+.timer.warning {
+  color: var(--color-warning);
+}
+
+.timer.danger {
+  color: var(--color-error);
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Success button variant */
+.btn-success {
+  background: var(--color-success);
+  color: var(--text-inverse);
+}
+
+.btn-success:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Responsive quiz navigation */
+@media (max-width: 768px) {
+  .quiz-navigation .flex {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .quiz-sidebar {
+    width: 100%;
+    position: static;
+    order: -1;
+  }
+}
+
+/* Accessibility improvements */
+.quiz-question:focus-within {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+.correct-radio:focus,
+.option-text:focus {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+</style>
