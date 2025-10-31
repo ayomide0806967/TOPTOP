@@ -12,7 +12,7 @@ function resolveConfig() {
     return { url: null, anonKey: null, options: {} };
   }
 
-  const config = window.__SUPABASE_CONFIG__;
+  const config = window.__QB_SUPABASE_CONFIG__ || window.__SUPABASE_CONFIG__;
   if (!config) {
     return { url: null, anonKey: null, options: {} };
   }
@@ -51,7 +51,7 @@ export async function getSupabaseClient() {
 
   if (!url || !anonKey) {
     const error = new SupabaseConfigurationError(
-      'Supabase configuration missing. Set window.__SUPABASE_CONFIG__ with url and anonKey before loading the admin app.'
+      'Supabase configuration missing. Set window.__QB_SUPABASE_CONFIG__ (or __SUPABASE_CONFIG__) with url and anonKey before loading Quiz Builder.'
     );
     console.error('[SupabaseClient] Configuration error:', error.message);
     clientPromise = Promise.reject(error);

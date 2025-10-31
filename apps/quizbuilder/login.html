@@ -138,49 +138,21 @@
       </div>
 
       <!-- Message -->
-      <div class="text-center mb-8">
-        <p class="text-lg font-medium mb-2" style="color: #1a202c">
-          Redirecting to sign in...
+      <div class="text-center mb-6">
+        <p class="text-base font-medium mb-2" style="color: #1a202c">
+          Quiz Builder uses a separate login from the Learner/CBT system.
         </p>
         <p class="text-sm" style="color: #4a5568">
-          You'll be automatically redirected to the login page
+          Configure <code>window.__QB_SUPABASE_CONFIG__</code> with your Quiz Builder
+          Supabase project URL and anon key, then implement the local sign‑in form here.
         </p>
       </div>
 
-      <!-- Progress Bar -->
-      <div class="w-full bg-gray-200 rounded-full h-2 mb-8">
-        <div
-          class="h-2 rounded-full transition-all duration-1000 ease-out shimmer"
-          style="
-            background: linear-gradient(90deg, #1a202c, #d1c9bc);
-            width: 0%;
-          "
-        ></div>
-      </div>
-
-      <!-- Manual Link -->
       <div class="text-center">
-        <p class="text-sm mb-4" style="color: #6b7280">
-          If you're not redirected automatically,
-        </p>
-        <a
-          id="manual-link"
-          href="#"
-          class="btn-openai inline-flex items-center"
-        >
-          <span>Continue to Login</span>
-          <svg
-            class="w-4 h-4 ml-2"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M13 7l5 5m0 0l-5 5m5-5H6"
-            />
+        <a href="quiz-builder-start.html" class="btn-openai inline-flex items-center">
+          <span>Back to Start</span>
+          <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 7l-5 5m0 0l5 5m-5-5h12" />
           </svg>
         </a>
       </div>
@@ -210,25 +182,7 @@
     </div>
 
     <script>
-      // Set up redirect
-      const returnTo = '/apps/quizbuilder/quiz-builder-start.html';
-      const target = `../learner/login.html?returnTo=${encodeURIComponent(returnTo)}`;
-      document.getElementById('manual-link').setAttribute('href', target);
-
-      // Animate progress bar
-      setTimeout(() => {
-        const progressBar = document.querySelector(
-          '.h-2.rounded-full.transition-all'
-        );
-        if (progressBar) {
-          progressBar.style.width = '100%';
-        }
-      }, 100);
-
-      // Redirect after a short delay
-      setTimeout(() => {
-        window.location.replace(target);
-      }, 2000);
+      // Placeholder: implement local sign-in with QB Supabase project here later.
     </script>
   </body>
 </html>
