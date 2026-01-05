@@ -185,6 +185,39 @@ serve(async (req) => {
       metadata: metadata,
     };
 
+    // Record a pending transaction so the webhook/reconciler can resolve the user/plan
+    // even if the client fails to return or metadata is missing in the gateway callback.
+    try {
+      const { error: pendingTxnError } = await supabaseAdmin
+        .from('payment_transactions')
+        .upsert(
+          {
+            user_id: userId,
+            plan_id: plan.id,
+            provider: 'paystack',
+            reference,
+            status: 'pending',
+            amount: Number(amountKobo / 100),
+            currency: plan.currency || 'NGN',
+            metadata,
+            paid_at: null,
+            raw_response: null,
+          },
+          { onConflict: 'provider,reference' }
+        );
+      if (pendingTxnError) {
+        console.warn(
+          '[paystack-initiate] Failed to record pending transaction',
+          pendingTxnError
+        );
+      }
+    } catch (error) {
+      console.warn(
+        '[paystack-initiate] Unexpected error recording pending transaction',
+        error
+      );
+    }
+
     // Persist pending checkout details so server-side reconciliation can
     // activate the plan even if the client never finishes the callback.
     try {
@@ -199,10 +232,16 @@ serve(async (req) => {
         })
         .eq('id', userId);
       if (updateError) {
-        console.warn('[paystack-initiate] Failed to persist pending reference', updateError);
+        console.warn(
+          '[paystack-initiate] Failed to persist pending reference',
+          updateError
+        );
       }
     } catch (persistErr) {
-      console.warn('[paystack-initiate] Unexpected error persisting pending reference', persistErr);
+      console.warn(
+        '[paystack-initiate] Unexpected error persisting pending reference',
+        persistErr
+      );
     }
 
     console.log(

@@ -105,7 +105,9 @@ const elements = {
   bonusNotification: document.querySelector('[data-role="bonus-notification"]'),
   globalNotice: document.querySelector('[data-role="global-notice"]'),
   globalNoticeText: document.querySelector('[data-role="global-notice-text"]'),
-  globalNoticeDismiss: document.querySelector('[data-role="global-notice-dismiss"]'),
+  globalNoticeDismiss: document.querySelector(
+    '[data-role="global-notice-dismiss"]'
+  ),
   navButtons: Array.from(
     document.querySelectorAll('[data-role="nav-buttons"] [data-nav-target]')
   ),
@@ -362,7 +364,10 @@ function getDismissedAnnouncementIds() {
 function saveDismissedAnnouncementIds(ids) {
   try {
     const payload = Array.from(ids);
-    localStorage.setItem(ANNOUNCEMENT_DISMISS_STORAGE_KEY, JSON.stringify(payload));
+    localStorage.setItem(
+      ANNOUNCEMENT_DISMISS_STORAGE_KEY,
+      JSON.stringify(payload)
+    );
   } catch (error) {
     console.debug('[Announcement] Failed to persist dismissed ids', error);
   }
@@ -1668,10 +1673,16 @@ async function refreshPaymentStatusNow() {
         body: { userId: state.user.id },
       });
     } catch (reconcileError) {
-      console.warn('[Dashboard] reconcile-payments (manual refresh) failed', reconcileError);
+      console.warn(
+        '[Dashboard] reconcile-payments (manual refresh) failed',
+        reconcileError
+      );
     }
   } catch (error) {
-    console.warn('[Dashboard] refresh_profile_subscription_status failed', error);
+    console.warn(
+      '[Dashboard] refresh_profile_subscription_status failed',
+      error
+    );
   } finally {
     await ensureProfile();
     await loadSubscriptions();
@@ -1716,7 +1727,10 @@ async function refreshEntitlementsOnFocus() {
           body: { userId: state.user.id },
         });
       } catch (reconcileError) {
-        console.warn('[Dashboard] reconcile-payments invocation failed', reconcileError);
+        console.warn(
+          '[Dashboard] reconcile-payments invocation failed',
+          reconcileError
+        );
       }
     }
   } catch (error) {
@@ -1737,7 +1751,12 @@ function subscribeToProfileRealtime() {
       .channel(`profile-updates-${state.user.id}`)
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${state.user.id}` },
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${state.user.id}`,
+        },
         async (payload) => {
           try {
             const next = payload?.new || null;
@@ -1765,35 +1784,46 @@ function subscribeToProfileRealtime() {
 
 function unsubscribeProfileRealtime() {
   try {
-    if (state.profileChannel && typeof state.profileChannel.unsubscribe === 'function') {
+    if (
+      state.profileChannel &&
+      typeof state.profileChannel.unsubscribe === 'function'
+    ) {
       state.profileChannel.unsubscribe();
     }
-  } catch (_e) {}
-  state.profileChannel = null;
+  } catch (error) {
+    console.warn('[Dashboard] Failed to unsubscribe profile updates', error);
+  } finally {
+    state.profileChannel = null;
+  }
 }
 
 async function attemptVerificationByLookup() {
   if (!state.supabase || !state.user) return false;
   try {
     const email = state.user?.email || state.profile?.email || '';
-    const full = state.profile?.full_name || state.user?.user_metadata?.full_name || '';
+    const full =
+      state.profile?.full_name || state.user?.user_metadata?.full_name || '';
     const [firstName, ...rest] = String(full).trim().split(/\s+/);
     const lastName = rest.join(' ');
-    const phone = state.profile?.phone || state.user?.user_metadata?.phone || '';
+    const phone =
+      state.profile?.phone || state.user?.user_metadata?.phone || '';
 
     if (!email) return false;
 
-    const { data: lookup, error: lookupError } = await state.supabase.functions.invoke(
-      'find-pending-registration',
-      { body: { email, firstName, lastName, phone } }
-    );
+    const { data: lookup, error: lookupError } =
+      await state.supabase.functions.invoke('find-pending-registration', {
+        body: { email, firstName, lastName, phone },
+      });
     if (lookupError || !lookup?.reference) {
       return false;
     }
 
-    const { error: verifyError } = await state.supabase.functions.invoke('paystack-verify', {
-      body: { reference: lookup.reference },
-    });
+    const { error: verifyError } = await state.supabase.functions.invoke(
+      'paystack-verify',
+      {
+        body: { reference: lookup.reference },
+      }
+    );
     if (verifyError) {
       console.warn('[Dashboard] Server-side verify failed', verifyError);
       return false;
@@ -3146,6 +3176,10 @@ async function initialise() {
     updatePaymentGate(state.profile);
     updateHeader();
 
+    // If the user paid while offline (or never returned to the callback),
+    // try to reconcile immediately on first load (not only on focus/online).
+    await refreshEntitlementsOnFocus();
+
     // Realtime: listen for profile updates to flip UI immediately on webhook
     subscribeToProfileRealtime();
 
@@ -3163,8 +3197,14 @@ async function initialise() {
     elements.extraSetsList?.addEventListener('click', handleExtraSetsClick);
     elements.profileForm?.addEventListener('submit', handleProfileSubmit);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    elements.globalNoticeDismiss?.addEventListener('click', handleGlobalNoticeDismiss);
-    elements.refreshPaymentBtn?.addEventListener('click', refreshPaymentStatusNow);
+    elements.globalNoticeDismiss?.addEventListener(
+      'click',
+      handleGlobalNoticeDismiss
+    );
+    elements.refreshPaymentBtn?.addEventListener(
+      'click',
+      refreshPaymentStatusNow
+    );
     window.addEventListener('focus', refreshEntitlementsOnFocus);
     window.addEventListener('online', refreshEntitlementsOnFocus);
 
@@ -3188,8 +3228,14 @@ function cleanup() {
   elements.extraSetsList?.removeEventListener('click', handleExtraSetsClick);
   elements.profileForm?.removeEventListener('submit', handleProfileSubmit);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
-  elements.globalNoticeDismiss?.removeEventListener('click', handleGlobalNoticeDismiss);
-  elements.refreshPaymentBtn?.removeEventListener('click', refreshPaymentStatusNow);
+  elements.globalNoticeDismiss?.removeEventListener(
+    'click',
+    handleGlobalNoticeDismiss
+  );
+  elements.refreshPaymentBtn?.removeEventListener(
+    'click',
+    refreshPaymentStatusNow
+  );
   window.removeEventListener('focus', refreshEntitlementsOnFocus);
   window.removeEventListener('online', refreshEntitlementsOnFocus);
   unsubscribeProfileRealtime();

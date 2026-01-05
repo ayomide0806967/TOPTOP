@@ -95,6 +95,21 @@ export async function upsertPaymentAndSubscription(options: {
 
   const admin = getServiceClient();
 
+  const { data: existingTransaction, error: existingTransactionError } =
+    await admin
+      .from('payment_transactions')
+      .select('id, amount, currency, user_id, plan_id, status')
+      .eq('provider', 'paystack')
+      .eq('reference', reference)
+      .maybeSingle();
+
+  if (
+    existingTransactionError &&
+    existingTransactionError.code !== 'PGRST116'
+  ) {
+    throw existingTransactionError;
+  }
+
   const { data: plan, error: planError } = await admin
     .from('subscription_plans')
     .select('id, duration_days, price, currency')
@@ -122,7 +137,17 @@ export async function upsertPaymentAndSubscription(options: {
   if (planPrice != null) {
     const expectedAmountKobo = Math.round(planPrice * 100 * requestedQuantity);
     if (expectedAmountKobo !== amountKobo) {
-      throw new Error('Payment amount does not match the plan price.');
+      const existingAmount = existingTransaction?.amount;
+      const existingAmountNumber =
+        existingAmount == null ? null : Number(existingAmount);
+      const existingExpectedKobo =
+        existingAmountNumber == null || !Number.isFinite(existingAmountNumber)
+          ? null
+          : Math.round(existingAmountNumber * 100);
+
+      if (existingExpectedKobo !== amountKobo) {
+        throw new Error('Payment amount does not match the plan price.');
+      }
     }
   }
 

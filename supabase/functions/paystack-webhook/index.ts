@@ -33,8 +33,8 @@ serve(async (req) => {
 
   if (event === 'charge.success') {
     const metadata = data.metadata ?? {};
-    const userId = metadata.user_id as string | undefined;
-    const planId = metadata.plan_id as string | undefined;
+    let userId = metadata.user_id as string | undefined;
+    let planId = metadata.plan_id as string | undefined;
     const seatUpgradeId = metadata.seat_upgrade_id as string | undefined;
     const reference =
       (data.reference as string) ||
@@ -43,6 +43,47 @@ serve(async (req) => {
     const amountKobo = Number(data.amount ?? 0);
     const currency = (data.currency as string) || 'NGN';
     const paidAt = (data.paid_at as string) || new Date().toISOString();
+
+    const admin = getServiceClient();
+
+    // Fallback resolution: sometimes metadata can be missing in the gateway callback
+    // (e.g. older cached frontend). Resolve via the pending transaction/profile.
+    if (reference && (!userId || !planId)) {
+      try {
+        const { data: pendingTxn, error: pendingTxnError } = await admin
+          .from('payment_transactions')
+          .select('user_id, plan_id')
+          .eq('provider', 'paystack')
+          .eq('reference', reference)
+          .maybeSingle();
+        if (!pendingTxnError && pendingTxn) {
+          userId = userId ?? (pendingTxn.user_id as string | null) ?? undefined;
+          planId = planId ?? (pendingTxn.plan_id as string | null) ?? undefined;
+        }
+      } catch (error) {
+        console.warn(
+          '[Paystack webhook] Pending transaction lookup failed',
+          error
+        );
+      }
+    }
+
+    if (reference && (!userId || !planId)) {
+      try {
+        const { data: profile, error: profileError } = await admin
+          .from('profiles')
+          .select('id, pending_plan_id')
+          .eq('pending_checkout_reference', reference)
+          .maybeSingle();
+        if (!profileError && profile) {
+          userId = userId ?? (profile.id as string | null) ?? undefined;
+          planId =
+            planId ?? (profile.pending_plan_id as string | null) ?? undefined;
+        }
+      } catch (error) {
+        console.warn('[Paystack webhook] Profile lookup failed', error);
+      }
+    }
 
     if (userId && planId && reference) {
       try {
@@ -67,7 +108,6 @@ serve(async (req) => {
     }
 
     if (seatUpgradeId && reference) {
-      const admin = getServiceClient();
       try {
         const { data: existing, error: existingError } = await admin
           .from('quiz_seat_transactions')
@@ -76,7 +116,10 @@ serve(async (req) => {
           .single();
 
         if (existingError || !existing) {
-          console.error('[Paystack webhook] Seat transaction not found', existingError);
+          console.error(
+            '[Paystack webhook] Seat transaction not found',
+            existingError
+          );
         }
 
         const { data: transaction, error: txnError } = await admin
@@ -96,7 +139,10 @@ serve(async (req) => {
           .single();
 
         if (txnError || !transaction) {
-          console.error('[Paystack webhook] Failed to update seat transaction', txnError);
+          console.error(
+            '[Paystack webhook] Failed to update seat transaction',
+            txnError
+          );
         } else {
           const additionalSeats = Number(
             transaction.additional_seats ??
@@ -105,12 +151,18 @@ serve(async (req) => {
               0
           );
           if (additionalSeats > 0) {
-            const { error: creditError } = await admin.rpc('apply_quiz_seat_credit', {
-              p_subscription_id: transaction.seat_subscription_id,
-              p_additional: additionalSeats,
-            });
+            const { error: creditError } = await admin.rpc(
+              'apply_quiz_seat_credit',
+              {
+                p_subscription_id: transaction.seat_subscription_id,
+                p_additional: additionalSeats,
+              }
+            );
             if (creditError) {
-              console.error('[Paystack webhook] Failed to credit seats', creditError);
+              console.error(
+                '[Paystack webhook] Failed to credit seats',
+                creditError
+              );
             }
           }
         }

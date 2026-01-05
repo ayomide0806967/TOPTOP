@@ -1,5 +1,8 @@
 import { serve } from 'https://deno.land/std@0.223.0/http/server.ts';
-import { upsertPaymentAndSubscription } from '../_shared/paystack.ts';
+import {
+  getServiceClient,
+  upsertPaymentAndSubscription,
+} from '../_shared/paystack.ts';
 import { getPaystackSecretKey } from '../_shared/paystackConfig.ts';
 
 interface VerifyRequestBody {
@@ -93,8 +96,46 @@ serve(async (req) => {
   }
 
   const metadata = (data.metadata ?? {}) as Record<string, unknown>;
-  const userId = metadata.user_id as string | undefined;
-  const planId = metadata.plan_id as string | undefined;
+  let userId = metadata.user_id as string | undefined;
+  let planId = metadata.plan_id as string | undefined;
+
+  // Fallback resolution (helps when older clients didn't send metadata).
+  if (!userId || !planId) {
+    const admin = getServiceClient();
+    try {
+      const { data: pendingTxn, error: pendingTxnError } = await admin
+        .from('payment_transactions')
+        .select('user_id, plan_id')
+        .eq('provider', 'paystack')
+        .eq('reference', reference)
+        .maybeSingle();
+      if (!pendingTxnError && pendingTxn) {
+        userId = userId ?? (pendingTxn.user_id as string | null) ?? undefined;
+        planId = planId ?? (pendingTxn.plan_id as string | null) ?? undefined;
+      }
+    } catch (error) {
+      console.warn(
+        '[paystack-verify] Pending transaction lookup failed',
+        error
+      );
+    }
+    try {
+      if (!userId || !planId) {
+        const { data: profile, error: profileError } = await admin
+          .from('profiles')
+          .select('id, pending_plan_id')
+          .eq('pending_checkout_reference', reference)
+          .maybeSingle();
+        if (!profileError && profile) {
+          userId = userId ?? (profile.id as string | null) ?? undefined;
+          planId =
+            planId ?? (profile.pending_plan_id as string | null) ?? undefined;
+        }
+      }
+    } catch (error) {
+      console.warn('[paystack-verify] Profile lookup failed', error);
+    }
+  }
 
   if (!userId) {
     return respondError(
