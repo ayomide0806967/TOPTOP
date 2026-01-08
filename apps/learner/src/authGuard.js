@@ -206,6 +206,15 @@ class AuthGuard {
         console.warn(
           '[AuthGuard] Session fingerprint mismatch detected, signing out.'
         );
+        // Store a message to display on the login page
+        try {
+          window.sessionStorage.setItem(
+            'an.auth.logout_reason',
+            'session_replaced'
+          );
+        } catch (e) {
+          console.warn('[AuthGuard] Unable to store logout reason', e);
+        }
         try {
           await this.supabase.auth.signOut();
         } catch (error) {

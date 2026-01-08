@@ -178,59 +178,113 @@ function validatePassword(password) {
 // ============================================================================
 
 /**
+ * Sleep for a specified duration
+ * @param {number} ms - Milliseconds to sleep
+ * @returns {Promise<void>}
+ */
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
  * Get user email from username by querying profiles table
+ * Includes retry logic with exponential backoff for network resilience
  * @param {Object} supabase - Supabase client
  * @param {string} username - Username to lookup
+ * @param {number} maxRetries - Maximum number of retry attempts (default: 3)
  * @returns {Promise<{email: string | null, error?: string}>}
  */
-async function getEmailFromUsername(supabase, username) {
-  try {
-    const normalizedUsername = username.toLowerCase().trim();
+async function getEmailFromUsername(supabase, username, maxRetries = 3) {
+  const normalizedUsername = username.toLowerCase().trim();
 
-    const { data, error } = await supabase.functions.invoke('lookup-username', {
-      body: { username: normalizedUsername },
-    });
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      if (attempt > 0) {
+        // Exponential backoff: 1s, 2s, 4s...
+        const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 4000);
+        console.log(
+          `[Auth] Retry attempt ${attempt + 1}/${maxRetries} after ${backoffMs}ms`
+        );
+        await sleep(backoffMs);
+      }
 
-    if (error) {
-      console.error('[Auth] lookup-username error:', error);
-      const message = await extractFunctionError(
-        error,
-        'Username not found. Please check your username and try again.'
+      const { data, error } = await supabase.functions.invoke(
+        'lookup-username',
+        {
+          body: { username: normalizedUsername },
+        }
       );
-      return { email: null, error: message };
-    }
 
-    if (data?.error) {
-      console.warn('[Auth] lookup-username response error:', data.error);
+      if (error) {
+        console.error(
+          `[Auth] lookup-username error (attempt ${attempt + 1}):`,
+          error
+        );
+
+        // Check if this is a rate limit or network error worth retrying
+        const isRetryable =
+          error.message?.includes('fetch') ||
+          error.message?.includes('network') ||
+          error.message?.includes('timeout') ||
+          error.message?.includes('429') ||
+          error.context?.status === 429 ||
+          error.context?.status >= 500;
+
+        if (isRetryable && attempt < maxRetries - 1) {
+          continue;
+        }
+
+        const message = await extractFunctionError(
+          error,
+          'Username not found. Please check your username and try again.'
+        );
+        return { email: null, error: message };
+      }
+
+      if (data?.error) {
+        console.warn('[Auth] lookup-username response error:', data.error);
+        return {
+          email: null,
+          error: data.error,
+          status: data.subscriptionStatus,
+        };
+      }
+
+      if (!data?.email) {
+        return {
+          email: null,
+          error:
+            'Username not found. Please check your username and try again.',
+        };
+      }
+
       return {
-        email: null,
-        error: data.error,
+        email: data.email,
         status: data.subscriptionStatus,
+        userId: data.userId,
+        latestReference: data.latestReference || null,
+        pendingRegistration: Boolean(data.pendingRegistration),
+        needsSupport: Boolean(data.needsSupport),
       };
+    } catch (error) {
+      console.error(
+        `[Auth] Unexpected error in getEmailFromUsername (attempt ${attempt + 1}):`,
+        error
+      );
+      // Retry on network errors
+      if (attempt < maxRetries - 1) {
+        continue;
+      }
     }
-
-    if (!data?.email) {
-      return {
-        email: null,
-        error: 'Username not found. Please check your username and try again.',
-      };
-    }
-
-    return {
-      email: data.email,
-      status: data.subscriptionStatus,
-      userId: data.userId,
-      latestReference: data.latestReference || null,
-      pendingRegistration: Boolean(data.pendingRegistration),
-      needsSupport: Boolean(data.needsSupport),
-    };
-  } catch (error) {
-    console.error('[Auth] Unexpected error in getEmailFromUsername:', error);
-    return {
-      email: null,
-      error: 'An unexpected error occurred. Please try again.',
-    };
   }
+
+  // All retries exhausted
+  console.error('[Auth] All retry attempts exhausted for getEmailFromUsername');
+  return {
+    email: null,
+    error:
+      'Unable to connect. Please check your internet connection and try again.',
+  };
 }
 
 /**
@@ -508,6 +562,24 @@ async function init() {
     if (hasSession) {
       window.location.replace(DASHBOARD_URL);
       return;
+    }
+
+    // Check if user was logged out for a specific reason
+    try {
+      const logoutReason = window.sessionStorage.getItem(
+        'an.auth.logout_reason'
+      );
+      if (logoutReason) {
+        window.sessionStorage.removeItem('an.auth.logout_reason');
+        if (logoutReason === 'session_replaced') {
+          showFeedback(
+            'You were signed out because you signed in on another device. Please sign in again.',
+            'info'
+          );
+        }
+      }
+    } catch (e) {
+      console.warn('[Auth] Unable to check logout reason', e);
     }
 
     // Set up auth state listener
