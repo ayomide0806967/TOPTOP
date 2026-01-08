@@ -90,33 +90,9 @@ class AuthGuard {
   }
 
   async validateActiveSession() {
-    const fingerprint = await this.ensureSessionFingerprint();
-    if (!fingerprint || !this.supabase) {
-      return true;
-    }
-
-    try {
-      const { data, error } = await this.supabase.rpc(
-        'validate_profile_session',
-        {
-          p_session_fingerprint: fingerprint,
-        }
-      );
-      if (error) {
-        console.warn('[AuthGuard] validate_profile_session error', error);
-        return true;
-      }
-
-      if (data?.valid === false) {
-        clearSessionFingerprint();
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.warn('[AuthGuard] Failed to validate session fingerprint', error);
-      return true;
-    }
+    // Multi-session mode: Allow unlimited concurrent sessions
+    // Session fingerprint validation is disabled to let users stay logged in on multiple devices
+    return true;
   }
 
   async init() {
