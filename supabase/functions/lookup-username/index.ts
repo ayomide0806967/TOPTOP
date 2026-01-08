@@ -46,7 +46,7 @@ serve(async (req) => {
     const { data, error } = await supabaseAdmin
       .from('profiles')
       .select('id, email, subscription_status')
-      .eq('username', normalized)
+      .ilike('username', normalized)
       .maybeSingle();
 
     if (error) {
@@ -97,10 +97,7 @@ serve(async (req) => {
       pendingRegistration: subscriptionStatus
         ? RESUMABLE_STATUSES.has(subscriptionStatus)
         : false,
-      needsSupport:
-        subscriptionStatus !== null &&
-        !ACTIVE_STATUSES.has(subscriptionStatus) &&
-        !RESUMABLE_STATUSES.has(subscriptionStatus),
+      needsSupport: subscriptionStatus === 'suspended',
       latestReference: latestPaymentReference,
     };
 
