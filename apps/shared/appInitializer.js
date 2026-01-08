@@ -57,10 +57,11 @@ export class AppInitializer {
       console.log('✅ Application initialized successfully');
 
       // Emit initialization complete event
-      window.dispatchEvent(new CustomEvent('app:initialized', {
-        detail: { user: this.currentUser, tenant: this.currentTenant }
-      }));
-
+      window.dispatchEvent(
+        new CustomEvent('app:initialized', {
+          detail: { user: this.currentUser, tenant: this.currentTenant },
+        })
+      );
     } catch (error) {
       console.error('❌ Application initialization failed:', error);
       this.handleInitializationError(error);
@@ -94,7 +95,10 @@ export class AppInitializer {
         await this.loadTenantData();
       }
 
-      console.log(`✅ Authenticated as ${this.currentUser.role}:`, this.currentUser.email);
+      console.log(
+        `✅ Authenticated as ${this.currentUser.role}:`,
+        this.currentUser.email
+      );
     } else {
       console.log('ℹ️ No active session found');
     }
@@ -104,7 +108,7 @@ export class AppInitializer {
   async loadTenantData() {
     try {
       const response = await fetch('/api/users/tenant', {
-        headers: authService.getAuthHeaders()
+        headers: authService.getAuthHeaders(),
       });
 
       if (response.ok) {
@@ -124,7 +128,7 @@ export class AppInitializer {
     router.initialize(this.currentUser, this.currentTenant);
 
     // Add authentication guard
-    router.addGuard('*', async (route, state) => {
+    router.addGuard('*', async (route, _state) => {
       if (route.requiresAuth && !authService.isAuthenticated()) {
         console.log('🔒 Authentication required, redirecting to login');
         await router.navigate('/login', { replace: true });
@@ -134,7 +138,7 @@ export class AppInitializer {
     });
 
     // Add role-based guard
-    router.addGuard('*', async (route, state) => {
+    router.addGuard('*', async (route, _state) => {
       if (route.roles.length > 0 && !router.hasRole(route.roles)) {
         console.log('🚫 Insufficient permissions for route:', route.path);
         await router.navigate('/403', { replace: true });
@@ -144,7 +148,7 @@ export class AppInitializer {
     });
 
     // Add feature-based guard
-    router.addGuard('*', async (route, state) => {
+    router.addGuard('*', async (route, _state) => {
       if (route.features.length > 0 && !router.hasFeatures(route.features)) {
         console.log('🔒 Feature access denied for route:', route.path);
 
@@ -160,16 +164,16 @@ export class AppInitializer {
     });
 
     // Add tenant context middleware
-    router.addMiddleware(async (path, state) => {
+    router.addMiddleware(async (_path, _state) => {
       // Add tenant headers to all future API requests
       if (this.currentTenant) {
         const originalFetch = window.fetch;
-        window.fetch = function(input, init = {}) {
+        window.fetch = function (input, init = {}) {
           init.headers = {
             ...init.headers,
             'X-Tenant-ID': appInitializer.currentTenant?.id,
             'X-User-ID': appInitializer.currentUser?.id,
-            'X-User-Role': appInitializer.currentUser?.role
+            'X-User-Role': appInitializer.currentUser?.role,
           };
           return originalFetch.call(this, input, init);
         };
@@ -186,7 +190,7 @@ export class AppInitializer {
     dataIsolation.initialize(this.currentUser, this.currentTenant);
 
     // Add audit logging middleware
-    router.addMiddleware(async (path, state) => {
+    router.addMiddleware(async (path, _state) => {
       if (this.currentUser && path !== '/') {
         dataIsolation.auditAccess('route_access', path, 'navigate', true);
       }
@@ -212,32 +216,40 @@ export class AppInitializer {
   // Monitor subscription status
   monitorSubscriptionStatus() {
     // Check subscription status every 5 minutes
-    setInterval(async () => {
-      if (authService.isAuthenticated()) {
-        try {
-          const response = await fetch('/api/subscription/status', {
-            headers: authService.getAuthHeaders()
-          });
+    setInterval(
+      async () => {
+        if (authService.isAuthenticated()) {
+          try {
+            const response = await fetch('/api/subscription/status', {
+              headers: authService.getAuthHeaders(),
+            });
 
-          if (response.ok) {
-            const data = await response.json();
+            if (response.ok) {
+              const data = await response.json();
 
-            // Update subscription data if changed
-            if (JSON.stringify(data.subscription) !== JSON.stringify(this.currentUser.subscription)) {
-              this.currentUser.subscription = data.subscription;
-              subscriptionGating.initialize(this.currentUser);
+              // Update subscription data if changed
+              if (
+                JSON.stringify(data.subscription) !==
+                JSON.stringify(this.currentUser.subscription)
+              ) {
+                this.currentUser.subscription = data.subscription;
+                subscriptionGating.initialize(this.currentUser);
 
-              // Emit subscription update event
-              window.dispatchEvent(new CustomEvent('subscription:updated', {
-                detail: { subscription: data.subscription }
-              }));
+                // Emit subscription update event
+                window.dispatchEvent(
+                  new CustomEvent('subscription:updated', {
+                    detail: { subscription: data.subscription },
+                  })
+                );
+              }
             }
+          } catch (error) {
+            console.warn('Failed to check subscription status:', error);
           }
-        } catch (error) {
-          console.warn('Failed to check subscription status:', error);
         }
-      }
-    }, 5 * 60 * 1000); // 5 minutes
+      },
+      5 * 60 * 1000
+    ); // 5 minutes
   }
 
   // Set up global event listeners
@@ -306,15 +318,17 @@ export class AppInitializer {
     const dashboardRoutes = {
       super_admin: '/super-admin/dashboard',
       instructor: '/instructor/dashboard',
-      student: '/student/dashboard'
+      student: '/student/dashboard',
     };
 
     await router.navigate(dashboardRoutes[user.role] || '/');
 
     // Emit login event
-    window.dispatchEvent(new CustomEvent('user:login', {
-      detail: { user, tenant: this.currentTenant }
-    }));
+    window.dispatchEvent(
+      new CustomEvent('user:login', {
+        detail: { user, tenant: this.currentTenant },
+      })
+    );
   }
 
   // Handle user logout
@@ -334,9 +348,11 @@ export class AppInitializer {
     router.navigate('/login', { replace: true });
 
     // Emit logout event
-    window.dispatchEvent(new CustomEvent('user:logout', {
-      detail: { previousRole }
-    }));
+    window.dispatchEvent(
+      new CustomEvent('user:logout', {
+        detail: { previousRole },
+      })
+    );
   }
 
   // Handle user update
@@ -348,9 +364,11 @@ export class AppInitializer {
     subscriptionGating.initialize(user);
 
     // Emit update event
-    window.dispatchEvent(new CustomEvent('user:updated', {
-      detail: { user }
-    }));
+    window.dispatchEvent(
+      new CustomEvent('user:updated', {
+        detail: { user },
+      })
+    );
   }
 
   // Refresh user data
@@ -363,7 +381,6 @@ export class AppInitializer {
 
       // Re-initialize services with refreshed data
       subscriptionGating.initialize(this.currentUser);
-
     } catch (error) {
       console.warn('Failed to refresh user data:', error);
     }
@@ -390,7 +407,7 @@ export class AppInitializer {
             <button onclick="window.location.reload()" class="w-full px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors">
               Refresh Page
             </button>
-            <button onclick="window.location.href='mailto:support@quizbuilder.com'" class="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">
+            <button onclick="window.location.href='mailto:support@academicnightingale.com'" class="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">
               Contact Support
             </button>
           </div>
@@ -409,7 +426,7 @@ export class AppInitializer {
       userAgent: navigator.userAgent,
       url: window.location.href,
       user: this.currentUser?.id,
-      tenant: this.currentTenant?.id
+      tenant: this.currentTenant?.id,
     };
 
     // Send error to logging service (in production)
@@ -418,9 +435,9 @@ export class AppInitializer {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...authService.getAuthHeaders()
+          ...authService.getAuthHeaders(),
         },
-        body: JSON.stringify(errorData)
+        body: JSON.stringify(errorData),
       }).catch(() => {
         // Ignore logging errors
       });

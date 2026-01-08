@@ -9,9 +9,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "build:css": "npx tailwindcss -i styles/tailwind.css -o apps/assets/tailwind.css --minify",
-    "watch:css": "npx tailwindcss -i styles/tailwind.css -o apps/assets/tailwind.css --watch",
-    "dev:quizbuilder": "vite --config apps/quizbuilder/vite.config.ts",
-    "build:quizbuilder": "vite build --config apps/quizbuilder/vite.config.ts"
+    "watch:css": "npx tailwindcss -i styles/tailwind.css -o apps/assets/tailwind.css --watch"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",

@@ -48,6 +48,7 @@
       html {
         scroll-behavior: smooth;
       }
+
       body {
         font-family: 'Segoe UI', 'Tahoma', 'Geneva', 'Verdana', sans-serif;
         background-color: #f8fafc;
@@ -62,6 +63,7 @@
           opacity 0.6s ease-out,
           transform 0.6s ease-out;
       }
+
       .fade-in-section.is-visible {
         opacity: 1;
         transform: translateY(0);
@@ -76,12 +78,14 @@
       .hero-bg {
         background-color: #f5f1e9;
       }
+
       .hero-headline {
         font-size: clamp(2.5rem, 6vw, 4.5rem);
         line-height: 1.1;
         font-weight: 800;
         color: #1a202c;
       }
+
       .hero-headline span {
         text-decoration: underline;
         text-decoration-thickness: 3px;
@@ -94,16 +98,19 @@
         position: relative;
         width: 100%;
       }
+
       .marquee-track {
         display: flex;
         animation: marquee 30s linear infinite;
         white-space: nowrap;
       }
+
       @media (max-width: 768px) {
         .marquee-track {
           animation: marquee-mobile 15s linear infinite;
         }
       }
+
       .marquee-item {
         flex-shrink: 0;
         padding: 0 2rem;
@@ -112,18 +119,22 @@
         gap: 0.75rem;
         color: #4a5568;
       }
+
       @keyframes marquee {
         0% {
           transform: translateX(0);
         }
+
         100% {
           transform: translateX(-50%);
         }
       }
+
       @keyframes marquee-mobile {
         0% {
           transform: translateX(0);
         }
+
         100% {
           transform: translateX(-50%);
         }
@@ -135,18 +146,22 @@
         transition: all 0.3s ease;
         text-align: center;
       }
+
       .feature-card:hover {
         transform: translateY(-8px);
         box-shadow:
           0 20px 25px -5px rgba(0, 0, 0, 0.05),
           0 10px 10px -5px rgba(0, 0, 0, 0.04);
       }
+
       .feature-card-beige {
         background-color: #f5f1e9;
       }
+
       .feature-card-green {
         background-color: #e9f5f1;
       }
+
       .feature-card-purple {
         background-color: #f1e9f5;
       }
@@ -156,6 +171,7 @@
         position: relative;
         text-align: center;
       }
+
       .testimonial {
         position: absolute;
         top: 0;
@@ -164,6 +180,7 @@
         opacity: 0;
         transition: opacity 1s ease-in-out;
       }
+
       .testimonial.active {
         opacity: 1;
         position: relative;
@@ -176,10 +193,12 @@
         transition: all 0.2s ease;
         box-shadow: 0 1px 3px rgba(14, 116, 144, 0.3);
       }
+
       .btn-primary:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(14, 116, 144, 0.4);
       }
+
       .btn-secondary {
         background-color: #fff;
         color: #0e7490;
@@ -187,6 +206,7 @@
       }
     </style>
   </head>
+
   <body class="antialiased">
     <!-- Sticky Header -->
     <header
@@ -404,7 +424,6 @@
                 >
                   Try the Free Quiz
                 </button>
-                
               </div>
             </div>
             <div class="hidden md:block">
@@ -804,12 +823,12 @@
                 </svg>
               </span>
             </a>
-          <div
-            class="feature-card feature-card-green p-8 fade-in-section"
-            style="transition-delay: 150ms"
-          >
-            <svg
-              class="h-20 w-20 mx-auto text-gray-700"
+            <div
+              class="feature-card feature-card-green p-8 fade-in-section"
+              style="transition-delay: 150ms"
+            >
+              <svg
+                class="h-20 w-20 mx-auto text-gray-700"
                 fill="none"
                 viewBox="0 0 80 80"
                 stroke-width="1.5"
@@ -823,36 +842,16 @@
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                d="M12.5 22.5h55v45h-55z"
-              />
-            </svg>
-            <h3 class="mt-6 text-xl font-bold">Quiz Builder &amp; Classrooms</h3>
-            <p class="mt-2 text-gray-600">
-              Build exams in minutes, manage classroom seat limits, and monitor
-              live progress for every learner on your roster.
-            </p>
-            <a
-              href="../quizbuilder/quiz-builder-start.html"
-              class="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700"
-              title="Build quizzes and manage classrooms"
-            >
-              <span>Open Quiz Builder</span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M17.25 8.25l-6 6-2.25-2.25"
+                  d="M12.5 22.5h55v45h-55z"
                 />
               </svg>
-            </a>
-          </div>
+              <h3 class="mt-6 text-xl font-bold">Progress Tracking</h3>
+              <p class="mt-2 text-gray-600">
+                Monitor your improvement with detailed analytics. See your
+                strengths, identify weak areas, and track your journey to
+                success.
+              </p>
+            </div>
             <div
               class="feature-card feature-card-purple p-8 fade-in-section"
               style="transition-delay: 300ms"
@@ -1158,7 +1157,9 @@
                 <a href="about-us.html" class="hover:text-white">About Us</a>
               </li>
               <li>
-                <a href="press-release.html" class="hover:text-white">Press Release</a>
+                <a href="press-release.html" class="hover:text-white"
+                  >Press Release</a
+                >
               </li>
               <li>
                 <a href="careers.html" class="hover:text-white">Careers</a>

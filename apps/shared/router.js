@@ -32,7 +32,7 @@ export class Router {
       roles: options.roles || [],
       features: options.features || [],
       meta: options.meta || {},
-      layout: options.layout || 'default'
+      layout: options.layout || 'default',
     });
   }
 
@@ -42,228 +42,221 @@ export class Router {
     this.defineRoute('/login', 'LoginPage', {
       title: 'Login',
       requiresAuth: false,
-      meta: { public: true }
+      meta: { public: true },
     });
 
     this.defineRoute('/register', 'RegisterPage', {
       title: 'Register',
       requiresAuth: false,
-      meta: { public: true }
+      meta: { public: true },
     });
 
     this.defineRoute('/forgot-password', 'ForgotPasswordPage', {
       title: 'Forgot Password',
       requiresAuth: false,
-      meta: { public: true }
+      meta: { public: true },
     });
 
     this.defineRoute('/reset-password', 'ResetPasswordPage', {
       title: 'Reset Password',
       requiresAuth: false,
-      meta: { public: true }
+      meta: { public: true },
     });
 
     this.defineRoute('/pricing', 'PricingPage', {
       title: 'Pricing',
       requiresAuth: false,
-      meta: { public: true }
+      meta: { public: true },
     });
 
     // Super Admin routes
     this.defineRoute('/super-admin', 'SuperAdminDashboard', {
       title: 'Super Admin Dashboard',
       roles: ['super_admin'],
-      layout: 'admin'
+      layout: 'admin',
     });
 
     this.defineRoute('/super-admin/dashboard', 'SuperAdminDashboard', {
       title: 'Dashboard',
       roles: ['super_admin'],
-      layout: 'admin'
+      layout: 'admin',
     });
 
     this.defineRoute('/super-admin/tenants', 'TenantsManagement', {
       title: 'Tenants',
       roles: ['super_admin'],
-      layout: 'admin'
+      layout: 'admin',
     });
 
     this.defineRoute('/super-admin/users', 'UsersManagement', {
       title: 'Users',
       roles: ['super_admin'],
-      layout: 'admin'
+      layout: 'admin',
     });
 
     this.defineRoute('/super-admin/subscriptions', 'SubscriptionsManagement', {
       title: 'Subscriptions',
       roles: ['super_admin'],
-      layout: 'admin'
+      layout: 'admin',
     });
 
     this.defineRoute('/super-admin/analytics', 'SystemAnalytics', {
       title: 'Analytics',
       roles: ['super_admin'],
-      layout: 'admin'
+      layout: 'admin',
     });
 
     this.defineRoute('/super-admin/settings', 'SystemSettings', {
       title: 'Settings',
       roles: ['super_admin'],
-      layout: 'admin'
+      layout: 'admin',
     });
 
     // Instructor routes
     this.defineRoute('/instructor', 'InstructorDashboard', {
       title: 'Instructor Dashboard',
       roles: ['instructor'],
-      layout: 'instructor'
+      layout: 'instructor',
     });
 
     this.defineRoute('/instructor/dashboard', 'InstructorDashboard', {
       title: 'Dashboard',
       roles: ['instructor'],
-      layout: 'instructor'
+      layout: 'instructor',
     });
 
     this.defineRoute('/instructor/quizzes', 'QuizzesManagement', {
       title: 'My Quizzes',
       roles: ['instructor'],
       features: ['create_quizzes'],
-      layout: 'instructor'
-    });
-
-    this.defineRoute('/instructor/quizzes/new', 'QuizBuilder', {
-      title: 'Create Quiz',
-      roles: ['instructor'],
-      features: ['create_quizzes'],
-      layout: 'instructor'
+      layout: 'instructor',
     });
 
     this.defineRoute('/instructor/quizzes/:id', 'QuizEditor', {
       title: 'Edit Quiz',
       roles: ['instructor'],
       features: ['create_quizzes'],
-      layout: 'instructor'
+      layout: 'instructor',
     });
 
     this.defineRoute('/instructor/quizzes/:id/analytics', 'QuizAnalytics', {
       title: 'Quiz Analytics',
       roles: ['instructor'],
       features: ['basic_analytics'],
-      layout: 'instructor'
+      layout: 'instructor',
     });
 
     this.defineRoute('/instructor/classrooms', 'ClassroomsManagement', {
       title: 'Classrooms',
       roles: ['instructor'],
       features: ['manage_classrooms'],
-      layout: 'instructor'
+      layout: 'instructor',
     });
 
     this.defineRoute('/instructor/classrooms/new', 'ClassroomBuilder', {
       title: 'Create Classroom',
       roles: ['instructor'],
       features: ['manage_classrooms'],
-      layout: 'instructor'
+      layout: 'instructor',
     });
 
     this.defineRoute('/instructor/classrooms/:id', 'ClassroomDetail', {
       title: 'Classroom Detail',
       roles: ['instructor'],
       features: ['manage_classrooms'],
-      layout: 'instructor'
+      layout: 'instructor',
     });
 
     this.defineRoute('/instructor/students', 'StudentsManagement', {
       title: 'Students',
       roles: ['instructor'],
       features: ['invite_students'],
-      layout: 'instructor'
+      layout: 'instructor',
     });
 
     this.defineRoute('/instructor/analytics', 'InstructorAnalytics', {
       title: 'Analytics',
       roles: ['instructor'],
       features: ['basic_analytics'],
-      layout: 'instructor'
+      layout: 'instructor',
     });
 
     this.defineRoute('/instructor/settings', 'InstructorSettings', {
       title: 'Settings',
       roles: ['instructor'],
-      layout: 'instructor'
+      layout: 'instructor',
     });
 
     this.defineRoute('/instructor/subscription', 'SubscriptionManagement', {
       title: 'Subscription',
       roles: ['instructor'],
-      layout: 'instructor'
+      layout: 'instructor',
     });
 
     // Student routes
     this.defineRoute('/student', 'StudentDashboard', {
       title: 'Student Dashboard',
       roles: ['student'],
-      layout: 'student'
+      layout: 'student',
     });
 
     this.defineRoute('/student/dashboard', 'StudentDashboard', {
       title: 'Dashboard',
       roles: ['student'],
-      layout: 'student'
+      layout: 'student',
     });
 
     this.defineRoute('/student/quizzes', 'StudentQuizzes', {
       title: 'Available Quizzes',
       roles: ['student'],
       features: ['take_quizzes'],
-      layout: 'student'
+      layout: 'student',
     });
 
     this.defineRoute('/student/quiz/:id', 'TakeQuiz', {
       title: 'Take Quiz',
       roles: ['student'],
       features: ['take_quizzes'],
-      layout: 'student'
+      layout: 'student',
     });
 
     this.defineRoute('/student/results', 'StudentResults', {
       title: 'My Results',
       roles: ['student'],
       features: ['view_own_results'],
-      layout: 'student'
+      layout: 'student',
     });
 
     this.defineRoute('/student/result/:id', 'ResultDetail', {
       title: 'Result Detail',
       roles: ['student'],
       features: ['view_own_results'],
-      layout: 'student'
+      layout: 'student',
     });
 
     this.defineRoute('/student/profile', 'StudentProfile', {
       title: 'Profile',
       roles: ['student'],
-      layout: 'student'
+      layout: 'student',
     });
 
     // Error pages
     this.defineRoute('/404', 'NotFoundPage', {
       title: 'Page Not Found',
       requiresAuth: false,
-      meta: { error: true }
+      meta: { error: true },
     });
 
     this.defineRoute('/403', 'ForbiddenPage', {
       title: 'Access Denied',
       requiresAuth: false,
-      meta: { error: true }
+      meta: { error: true },
     });
 
     this.defineRoute('/500', 'ServerErrorPage', {
       title: 'Server Error',
       requiresAuth: false,
-      meta: { error: true }
+      meta: { error: true },
     });
   }
 
@@ -289,7 +282,7 @@ export class Router {
       this.history.push({
         path,
         state,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
     }
 
@@ -356,7 +349,6 @@ export class Router {
 
       // Load and render component
       await this.loadComponent(route.component, route, state);
-
     } catch (error) {
       console.error('Route rendering error:', error);
       await this.navigate('/500', { replace: true });
@@ -424,46 +416,46 @@ export class Router {
       // Map component names to actual modules
       const componentMap = {
         // Auth components
-        'LoginPage': () => import('../learner/login.html'),
-        'RegisterPage': () => import('../learner/registration-before-payment.html'),
-        'ForgotPasswordPage': () => import('../learner/forgot-password.html'),
-        'ResetPasswordPage': () => import('../learner/reset-password.html'),
-        'PricingPage': () => import('../learner/subscription-plans.html'),
+        LoginPage: () => import('../learner/login.html'),
+        RegisterPage: () =>
+          import('../learner/registration-before-payment.html'),
+        ForgotPasswordPage: () => import('../learner/forgot-password.html'),
+        ResetPasswordPage: () => import('../learner/reset-password.html'),
+        PricingPage: () => import('../learner/subscription-plans.html'),
 
         // Super Admin components
-        'SuperAdminDashboard': () => import('../admin/super-admin.html'),
-        'TenantsManagement': () => import('../admin/tenants.html'),
-        'UsersManagement': () => import('../admin/users.html'),
-        'SubscriptionsManagement': () => import('../admin/subscriptions.html'),
-        'SystemAnalytics': () => import('../admin/analytics.html'),
-        'SystemSettings': () => import('../admin/settings.html'),
+        SuperAdminDashboard: () => import('../admin/super-admin.html'),
+        TenantsManagement: () => import('../admin/tenants.html'),
+        UsersManagement: () => import('../admin/users.html'),
+        SubscriptionsManagement: () => import('../admin/subscriptions.html'),
+        SystemAnalytics: () => import('../admin/analytics.html'),
+        SystemSettings: () => import('../admin/settings.html'),
 
         // Instructor components
-        'InstructorDashboard': () => import('../admin/instructor.html'),
-        'QuizzesManagement': () => import('../admin/quizzes.html'),
-        'QuizBuilder': () => import('../learner/exam-builder.html'),
-        'QuizEditor': () => import('../learner/exam-builder.html'),
-        'QuizAnalytics': () => import('../admin/quiz-analytics.html'),
-        'ClassroomsManagement': () => import('../admin/classroom.html'),
-        'ClassroomBuilder': () => import('../admin/classroom-builder.html'),
-        'ClassroomDetail': () => import('../admin/classroom-detail.html'),
-        'StudentsManagement': () => import('../admin/students.html'),
-        'InstructorAnalytics': () => import('../admin/analytics.html'),
-        'InstructorSettings': () => import('../admin/settings.html'),
-        'SubscriptionManagement': () => import('../admin/subscription.html'),
+        InstructorDashboard: () => import('../admin/instructor.html'),
+        QuizzesManagement: () => import('../admin/quizzes.html'),
+        QuizEditor: () => import('../admin/quiz-editor.html'),
+        QuizAnalytics: () => import('../admin/quiz-analytics.html'),
+        ClassroomsManagement: () => import('../admin/classroom.html'),
+        ClassroomBuilder: () => import('../admin/classroom-builder.html'),
+        ClassroomDetail: () => import('../admin/classroom-detail.html'),
+        StudentsManagement: () => import('../admin/students.html'),
+        InstructorAnalytics: () => import('../admin/analytics.html'),
+        InstructorSettings: () => import('../admin/settings.html'),
+        SubscriptionManagement: () => import('../admin/subscription.html'),
 
         // Student components
-        'StudentDashboard': () => import('../learner/index.html'),
-        'StudentQuizzes': () => import('../learner/quizzes.html'),
-        'TakeQuiz': () => import('../learner/exam-face.html'),
-        'StudentResults': () => import('../learner/results.html'),
-        'ResultDetail': () => import('../learner/result-detail.html'),
-        'StudentProfile': () => import('../learner/profile.html'),
+        StudentDashboard: () => import('../learner/index.html'),
+        StudentQuizzes: () => import('../learner/quizzes.html'),
+        TakeQuiz: () => import('../learner/exam-face.html'),
+        StudentResults: () => import('../learner/results.html'),
+        ResultDetail: () => import('../learner/result-detail.html'),
+        StudentProfile: () => import('../learner/profile.html'),
 
         // Error pages
-        'NotFoundPage': () => this.renderErrorPage('404', 'Page Not Found'),
-        'ForbiddenPage': () => this.renderErrorPage('403', 'Access Denied'),
-        'ServerErrorPage': () => this.renderErrorPage('500', 'Server Error')
+        NotFoundPage: () => this.renderErrorPage('404', 'Page Not Found'),
+        ForbiddenPage: () => this.renderErrorPage('403', 'Access Denied'),
+        ServerErrorPage: () => this.renderErrorPage('500', 'Server Error'),
       };
 
       const componentLoader = componentMap[componentName];
@@ -478,7 +470,6 @@ export class Router {
 
       // Render component
       await this.renderComponent(component, route, state, appContainer);
-
     } catch (error) {
       console.error('Component loading error:', error);
       this.renderErrorPage('500', 'Failed to load page');
@@ -515,10 +506,9 @@ export class Router {
   async initializeComponentScripts(componentName, params, state) {
     // Map components to their initialization functions
     const scriptMap = {
-      'SuperAdminDashboard': () => import('../admin/src/superAdmin.js'),
-      'InstructorDashboard': () => import('../admin/src/instructorDashboard.js'),
-      'QuizBuilder': () => import('../learner/src/examBuilder.js'),
-      'TakeQuiz': () => import('../learner/src/examFace.js')
+      SuperAdminDashboard: () => import('../admin/src/superAdmin.js'),
+      InstructorDashboard: () => import('../admin/src/instructorDashboard.js'),
+      TakeQuiz: () => import('../learner/src/examFace.js'),
     };
 
     const scriptLoader = scriptMap[componentName];
@@ -573,17 +563,24 @@ export class Router {
     if (!this.user) return false;
 
     // Import subscription gating if available
-    if (typeof subscriptionGating !== 'undefined') {
-      return requiredFeatures.every(feature => subscriptionGating.hasFeatureAccess(feature));
+    if (typeof window.subscriptionGating !== 'undefined') {
+      return requiredFeatures.every((feature) =>
+        window.subscriptionGating.hasFeatureAccess(feature)
+      );
     }
 
     // Basic feature check without subscription gating
     const userPlan = this.user.subscription?.plan_type || 'basic';
-    const basicFeatures = ['create_quizzes', 'manage_classrooms', 'basic_analytics'];
+    const basicFeatures = [
+      'create_quizzes',
+      'manage_classrooms',
+      'basic_analytics',
+    ];
 
-    return requiredFeatures.every(feature => {
+    return requiredFeatures.every((feature) => {
       if (userPlan === 'enterprise') return true;
-      if (userPlan === 'pro') return !['unlimited_students', 'custom_branding'].includes(feature);
+      if (userPlan === 'pro')
+        return !['unlimited_students', 'custom_branding'].includes(feature);
       return basicFeatures.includes(feature);
     });
   }
@@ -594,27 +591,63 @@ export class Router {
 
     const navigationMap = {
       super_admin: [
-        { path: '/super-admin/dashboard', label: 'Dashboard', icon: 'dashboard' },
+        {
+          path: '/super-admin/dashboard',
+          label: 'Dashboard',
+          icon: 'dashboard',
+        },
         { path: '/super-admin/tenants', label: 'Tenants', icon: 'building' },
         { path: '/super-admin/users', label: 'Users', icon: 'users' },
-        { path: '/super-admin/subscriptions', label: 'Subscriptions', icon: 'credit-card' },
-        { path: '/super-admin/analytics', label: 'Analytics', icon: 'chart-bar' },
-        { path: '/super-admin/settings', label: 'Settings', icon: 'cog' }
+        {
+          path: '/super-admin/subscriptions',
+          label: 'Subscriptions',
+          icon: 'credit-card',
+        },
+        {
+          path: '/super-admin/analytics',
+          label: 'Analytics',
+          icon: 'chart-bar',
+        },
+        { path: '/super-admin/settings', label: 'Settings', icon: 'cog' },
       ],
       instructor: [
-        { path: '/instructor/dashboard', label: 'Dashboard', icon: 'dashboard' },
-        { path: '/instructor/quizzes', label: 'My Quizzes', icon: 'document-text' },
-        { path: '/instructor/classrooms', label: 'Classrooms', icon: 'academic-cap' },
+        {
+          path: '/instructor/dashboard',
+          label: 'Dashboard',
+          icon: 'dashboard',
+        },
+        {
+          path: '/instructor/quizzes',
+          label: 'My Quizzes',
+          icon: 'document-text',
+        },
+        {
+          path: '/instructor/classrooms',
+          label: 'Classrooms',
+          icon: 'academic-cap',
+        },
         { path: '/instructor/students', label: 'Students', icon: 'users' },
-        { path: '/instructor/analytics', label: 'Analytics', icon: 'chart-bar' },
-        { path: '/instructor/subscription', label: 'Subscription', icon: 'credit-card' }
+        {
+          path: '/instructor/analytics',
+          label: 'Analytics',
+          icon: 'chart-bar',
+        },
+        {
+          path: '/instructor/subscription',
+          label: 'Subscription',
+          icon: 'credit-card',
+        },
       ],
       student: [
         { path: '/student/dashboard', label: 'Dashboard', icon: 'dashboard' },
-        { path: '/student/quizzes', label: 'Available Quizzes', icon: 'document-text' },
+        {
+          path: '/student/quizzes',
+          label: 'Available Quizzes',
+          icon: 'document-text',
+        },
         { path: '/student/results', label: 'My Results', icon: 'chart-bar' },
-        { path: '/student/profile', label: 'Profile', icon: 'user' }
-      ]
+        { path: '/student/profile', label: 'Profile', icon: 'user' },
+      ],
     };
 
     return navigationMap[this.user.role] || [];
@@ -630,7 +663,7 @@ export class Router {
     window.addEventListener('popstate', (event) => {
       this.navigate(window.location.pathname, {
         state: event.state || {},
-        replace: true
+        replace: true,
       });
     });
 
@@ -639,7 +672,8 @@ export class Router {
       const link = event.target.closest('a[data-route]');
       if (link) {
         event.preventDefault();
-        const path = link.getAttribute('href') || link.getAttribute('data-route');
+        const path =
+          link.getAttribute('href') || link.getAttribute('data-route');
         this.navigate(path);
       }
     });
@@ -650,7 +684,10 @@ export class Router {
     if (this.history.length > 1) {
       this.history.pop();
       const previousRoute = this.history[this.history.length - 1];
-      this.navigate(previousRoute.path, { replace: true, state: previousRoute.state });
+      this.navigate(previousRoute.path, {
+        replace: true,
+        state: previousRoute.state,
+      });
     } else {
       this.navigate('/', { replace: true });
     }
