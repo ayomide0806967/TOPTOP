@@ -803,6 +803,43 @@ async function checkEmailAvailability(email) {
   }
 }
 
+function getEmailHeuristicError(email) {
+  const atIndex = email.indexOf('@');
+  if (atIndex === -1) return 'Enter a valid email address before continuing.';
+
+  const domainRaw = email
+    .slice(atIndex + 1)
+    .trim()
+    .toLowerCase();
+  if (!domainRaw) return 'Enter a valid email address before continuing.';
+
+  const suspiciousCommonTypos = new Set([
+    'gmai.com',
+    'gmial.com',
+    'gnail.com',
+    'gmaill.com',
+  ]);
+
+  if (suspiciousCommonTypos.has(domainRaw)) {
+    return 'This email domain looks mistyped. Please double-check it (e.g. "gmail.com").';
+  }
+
+  if (domainRaw.startsWith('gmail.') && domainRaw !== 'gmail.com') {
+    return 'Gmail addresses should end with "@gmail.com". Please correct this before continuing.';
+  }
+
+  const parts = domainRaw.split('.');
+  if (parts.length < 2) {
+    return 'Enter a valid email address before continuing.';
+  }
+  const tld = parts[parts.length - 1];
+  if (!/^[a-z]{2,}$/i.test(tld)) {
+    return 'Enter a valid email address before continuing.';
+  }
+
+  return null;
+}
+
 async function validateEmailField({ forceCheck = false } = {}) {
   if (!emailInput) {
     return { valid: true, result: null };
@@ -830,6 +867,14 @@ async function validateEmailField({ forceCheck = false } = {}) {
     state.emailValid = false;
     updateSectionVisibility();
     return { valid: false, reason: 'invalid_format' };
+  }
+
+  const heuristicError = getEmailHeuristicError(rawEmail);
+  if (heuristicError) {
+    renderFieldStatus(emailAvailabilityEl, heuristicError, 'error');
+    state.emailValid = false;
+    updateSectionVisibility();
+    return { valid: false, reason: 'suspicious_domain' };
   }
 
   const email = rawEmail.toLowerCase();
