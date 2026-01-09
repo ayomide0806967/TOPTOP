@@ -378,7 +378,7 @@ function formatCurrency(amount, currency = 'NGN') {
       currencyDisplay: 'symbol',
       maximumFractionDigits: value % 1 === 0 ? 0 : 2,
     }).format(value);
-  } catch (_e) {
+  } catch {
     // Fallback: symbol mapping for NGN
     if (currency === 'NGN') {
       return `₦${value.toLocaleString('en-NG')}`;
@@ -439,7 +439,10 @@ function deriveDepartments(products) {
     if (!lookup.has(product.department_id)) {
       lookup.set(product.department_id, {
         id: product.department_id,
-        name: product.department_name,
+        name:
+          product.department_name ||
+          product.department_slug ||
+          product.department_id,
         slug: product.department_slug || product.department_id,
         color: product.color_theme || product.department_slug || 'default',
       });
@@ -830,7 +833,10 @@ async function refreshProfileStatus() {
         body: { userId: state.user.id },
       });
     } catch (reconcileError) {
-      console.warn('[Pricing] reconcile-payments invocation failed', reconcileError);
+      console.warn(
+        '[Pricing] reconcile-payments invocation failed',
+        reconcileError
+      );
     }
   } catch (error) {
     console.warn(
@@ -1163,7 +1169,7 @@ async function loadPricing() {
       (product) => !product.department_id
     );
     state.departments = deriveDepartments(products).sort((a, b) =>
-      a.name.localeCompare(b.name)
+      String(a.name ?? '').localeCompare(String(b.name ?? ''))
     );
 
     if (
