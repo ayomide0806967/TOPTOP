@@ -819,7 +819,9 @@ async function validateEmailField({ forceCheck = false } = {}) {
     return { valid: false, reason: 'empty' };
   }
 
-  if (!emailInput.checkValidity()) {
+  const strictEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!strictEmailPattern.test(rawEmail) || !emailInput.checkValidity()) {
     renderFieldStatus(
       emailAvailabilityEl,
       'Enter a valid email address before continuing.',
@@ -1389,40 +1391,43 @@ async function processPaymentVerification(reference, contact, options = {}) {
       }
     );
 
-  if (pollResult.success) {
-    await transitionToActiveState(contact);
-    return;
-  }
-
-  console.warn(
-    '[Registration] Verification pending after retries',
-    lastVerificationError
-  );
-  // Try a final server-side reconciliation as a last resort
-  try {
-    const supabase = await ensureSupabaseClient();
-    await supabase.functions.invoke('reconcile-payments', {
-      body: { userId: contact?.userId || pendingUserId },
-    });
-    await supabase.rpc('refresh_profile_subscription_status', {
-      p_user_id: contact?.userId || pendingUserId,
-    });
-    const recheck = await supabase
-      .from('profiles')
-      .select('subscription_status')
-      .eq('id', contact?.userId || pendingUserId)
-      .maybeSingle();
-    const reStatus = (recheck?.data?.subscription_status || '').toLowerCase();
-    if (reStatus === 'active' || reStatus === 'trialing') {
+    if (pollResult.success) {
       await transitionToActiveState(contact);
       return;
     }
-  } catch (reconcileError) {
-    console.warn('[Registration] reconcile-payments final attempt failed', reconcileError);
-  }
-  showSuccessState({
-    title: 'Payment received — almost there',
-    body: 'We recorded your payment but have not confirmed it yet. Paystack may still be processing it. Try verification again in a moment or share your reference with support so we can finish it for you.',
+
+    console.warn(
+      '[Registration] Verification pending after retries',
+      lastVerificationError
+    );
+    // Try a final server-side reconciliation as a last resort
+    try {
+      const supabase = await ensureSupabaseClient();
+      await supabase.functions.invoke('reconcile-payments', {
+        body: { userId: contact?.userId || pendingUserId },
+      });
+      await supabase.rpc('refresh_profile_subscription_status', {
+        p_user_id: contact?.userId || pendingUserId,
+      });
+      const recheck = await supabase
+        .from('profiles')
+        .select('subscription_status')
+        .eq('id', contact?.userId || pendingUserId)
+        .maybeSingle();
+      const reStatus = (recheck?.data?.subscription_status || '').toLowerCase();
+      if (reStatus === 'active' || reStatus === 'trialing') {
+        await transitionToActiveState(contact);
+        return;
+      }
+    } catch (reconcileError) {
+      console.warn(
+        '[Registration] reconcile-payments final attempt failed',
+        reconcileError
+      );
+    }
+    showSuccessState({
+      title: 'Payment received — almost there',
+      body: 'We recorded your payment but have not confirmed it yet. Paystack may still be processing it. Try verification again in a moment or share your reference with support so we can finish it for you.',
       showCredentials: false,
       showDashboardCta: false,
       reference,
