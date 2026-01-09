@@ -28,6 +28,9 @@ const authChoiceManualBtn = document.querySelector(
 const authLoadingOverlay = document.querySelector(
   '[data-role="auth-loading-overlay"]'
 );
+const checkoutActivationOverlay = document.querySelector(
+  '[data-role="checkout-activation-overlay"]'
+);
 
 const THEME_MAP = {
   nursing: {
@@ -191,6 +194,10 @@ const state = {
 let pendingAuthChoicePlanId = null;
 let authChoiceBusy = false;
 
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 function buildLoginRedirectUrl(planId, { auth } = {}) {
   const url = new URL('login.html', window.location.href);
   url.searchParams.set('next', 'subscription-plans.html');
@@ -234,6 +241,20 @@ function hideAuthLoadingOverlay() {
   authLoadingOverlay.classList.add('hidden');
   authLoadingOverlay.classList.remove('flex');
   authLoadingOverlay.setAttribute('aria-hidden', 'true');
+}
+
+function showCheckoutActivationOverlay() {
+  if (!checkoutActivationOverlay) return;
+  checkoutActivationOverlay.classList.remove('hidden');
+  checkoutActivationOverlay.classList.add('flex');
+  checkoutActivationOverlay.setAttribute('aria-hidden', 'false');
+}
+
+function hideCheckoutActivationOverlay() {
+  if (!checkoutActivationOverlay) return;
+  checkoutActivationOverlay.classList.add('hidden');
+  checkoutActivationOverlay.classList.remove('flex');
+  checkoutActivationOverlay.setAttribute('aria-hidden', 'true');
 }
 
 async function startGoogleOAuth(planId) {
@@ -1102,9 +1123,74 @@ async function extractEdgeFunctionError(error, fallbackMessage) {
   return fallbackMessage;
 }
 
+async function verifyPaymentWithRetry(reference, options = {}) {
+  const { maxAttempts = 12, intervalMs = 2500 } = options;
+  const supabase = await getSupabaseClient();
+  let lastMessage = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const { data, error } = await supabase.functions.invoke('paystack-verify', {
+      body: { reference },
+    });
+
+    if (error) {
+      const message = await extractEdgeFunctionError(
+        error,
+        'Payment verification failed. Please contact support with your reference.'
+      );
+      throw new Error(message);
+    }
+
+    if (data?.status === 'success') {
+      return { success: true };
+    }
+
+    if (data?.error) {
+      const msg = String(data.error);
+      lastMessage = msg;
+      const isStillProcessing =
+        msg.toLowerCase().includes('not successful') ||
+        msg.toLowerCase().includes('processing') ||
+        msg.toLowerCase().includes('pending');
+      if (isStillProcessing && attempt < maxAttempts - 1) {
+        await sleep(intervalMs);
+        continue;
+      }
+      throw new Error(msg);
+    }
+
+    // Unknown response shape; retry briefly.
+    if (attempt < maxAttempts - 1) {
+      await sleep(intervalMs);
+      continue;
+    }
+  }
+
+  throw new Error(
+    lastMessage ||
+      'Payment is still processing. Please refresh in a moment or contact support with your payment reference.'
+  );
+}
+
+async function waitForActiveProfile(options = {}) {
+  const { attempts = 12, intervalMs = 1500 } = options;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    state.profileLoaded = false;
+    await ensureProfile();
+    const status = (state.profile?.subscription_status || '').toLowerCase();
+    if (status === 'active' || status === 'trialing') {
+      return true;
+    }
+    if (attempt < attempts - 1) {
+      await sleep(intervalMs);
+    }
+  }
+  return false;
+}
+
 async function verifyExistingPayment(reference) {
   const supabase = await getSupabaseClient();
-  const { error } = await supabase.functions.invoke('paystack-verify', {
+  const { data, error } = await supabase.functions.invoke('paystack-verify', {
     body: { reference },
   });
   if (error) {
@@ -1113,6 +1199,10 @@ async function verifyExistingPayment(reference) {
       'Payment verification failed. Please contact support with your reference.'
     );
     throw new Error(message);
+  }
+
+  if (data?.error) {
+    throw new Error(String(data.error));
   }
 }
 
@@ -1232,10 +1322,29 @@ function launchExistingUserCheckout(paystackData, contact) {
       ref: paystackData.reference,
       metadata: paystackData.metadata || {},
       callback: (response) => {
-        const reference = response.reference || paystackData.reference;
-        verifyExistingPayment(reference)
-          .then(() => refreshProfileStatus())
-          .then(() => {
+        (async () => {
+          const reference = response.reference || paystackData.reference;
+          try {
+            showCheckoutActivationOverlay();
+            showBanner('Confirming payment…', 'info');
+
+            await verifyPaymentWithRetry(reference, {
+              maxAttempts: 14,
+              intervalMs: 2500,
+            });
+            await refreshProfileStatus();
+
+            const active = await waitForActiveProfile({
+              attempts: 14,
+              intervalMs: 1500,
+            });
+
+            if (!active) {
+              throw new Error(
+                'Payment received, but activation is still processing. Please wait a moment and refresh, or contact support.'
+              );
+            }
+
             showBanner(
               'Payment confirmed! Redirecting to your dashboard…',
               'success'
@@ -1243,17 +1352,18 @@ function launchExistingUserCheckout(paystackData, contact) {
             resetCheckoutState();
             window.setTimeout(() => {
               window.location.href = 'admin-board.html';
-            }, 1500);
-          })
-          .catch((error) => {
+            }, 700);
+          } catch (error) {
             console.error('[Pricing] Post-payment verification failed', error);
+            hideCheckoutActivationOverlay();
             showBanner(
               error.message ||
                 'We received your payment but could not verify it automatically. Please contact support with your reference.',
               'error'
             );
             resetCheckoutState();
-          });
+          }
+        })();
       },
       onClose: () => {
         showBanner(

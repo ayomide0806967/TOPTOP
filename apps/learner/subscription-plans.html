@@ -550,6 +550,44 @@
         </p>
       </div>
     </div>
+
+    <!-- Full page checkout activation overlay (shown after successful payment) -->
+    <div
+      data-role="checkout-activation-overlay"
+      class="fixed inset-0 z-[60] hidden items-center justify-center bg-white/90 backdrop-blur-sm px-4"
+      aria-hidden="true"
+    >
+      <div class="w-full max-w-sm rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl">
+        <div class="flex items-center justify-center">
+          <svg
+            class="h-10 w-10 animate-spin text-cyan-600"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <circle
+              class="opacity-20"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="3"
+              fill="none"
+            />
+            <path
+              class="opacity-90"
+              fill="currentColor"
+              d="M12 2a10 10 0 00-7.07 2.93l1.41 1.41A8 8 0 0112 4V2z"
+            />
+          </svg>
+        </div>
+        <p class="mt-5 text-center text-lg font-semibold text-slate-900">
+          Activating your plan…
+        </p>
+        <p class="mt-2 text-center text-sm text-slate-600">
+          Payment received. We’re confirming it and unlocking your dashboard.
+        </p>
+      </div>
+    </div>
     <!-- Full Page Loading Spinner -->
     <div
       id="page-loader"
