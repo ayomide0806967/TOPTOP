@@ -69,6 +69,9 @@ const planDescriptionEl = document.querySelector(
   '[data-role="plan-description"]'
 );
 const planTimerEl = document.querySelector('[data-role="plan-timer"]');
+const existingAccountLink = document.querySelector(
+  '[data-role="existing-account-link"]'
+);
 
 let supabasePromise = null;
 let activeReference = null;
@@ -102,6 +105,20 @@ const FALLBACK_USERNAME_WORDS = [
   'track',
   'mentor',
 ];
+
+function configureExistingAccountLink(initialPlanId) {
+  if (!existingAccountLink) return;
+  try {
+    const baseUrl = new URL('login.html', window.location.href);
+    baseUrl.searchParams.set('next', 'subscription-plans.html');
+    if (initialPlanId) {
+      baseUrl.searchParams.set('planId', initialPlanId);
+    }
+    existingAccountLink.href = baseUrl.toString();
+  } catch (error) {
+    console.warn('[Registration] Failed to configure sign-in link', error);
+  }
+}
 
 async function copyToClipboard(value) {
   if (!value) return false;
@@ -1828,6 +1845,8 @@ async function initialise() {
       );
     }
   }
+
+  configureExistingAccountLink(initialPlanId);
 
   evaluateNamesComplete();
 
