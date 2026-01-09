@@ -13,6 +13,14 @@ const submitBtn = document.querySelector('[data-role="submit"]');
 const submitText = submitBtn?.querySelector('[data-role="submit-text"]');
 const usernameInput = document.getElementById('username');
 const passwordInput = document.getElementById('password');
+const googleSignInBtn = document.getElementById('googleSignInBtn');
+const otpRequestForm = document.getElementById('otpRequestForm');
+const otpVerifyForm = document.getElementById('otpVerifyForm');
+const otpEmailInput = document.getElementById('otpEmail');
+const otpCodeInput = document.getElementById('otpCode');
+const sendOtpBtn = document.getElementById('sendOtpBtn');
+const verifyOtpBtn = document.getElementById('verifyOtpBtn');
+const resendOtpBtn = document.getElementById('resendOtpBtn');
 
 // ============================================================================
 // CONSTANTS
@@ -21,6 +29,8 @@ const DASHBOARD_URL = 'admin-board.html';
 const MIN_USERNAME_LENGTH = 3;
 const MIN_PASSWORD_LENGTH = 6;
 const USERNAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
+const OTP_CODE_PATTERN = /^[0-9]{6}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ============================================================================
 // UI FEEDBACK FUNCTIONS
@@ -87,6 +97,27 @@ function setLoading(isLoading) {
   // Disable inputs during loading
   if (usernameInput) usernameInput.disabled = isLoading;
   if (passwordInput) passwordInput.disabled = isLoading;
+}
+
+function setOtpLoading(isLoading, { phase = 'request' } = {}) {
+  const buttons = [sendOtpBtn, verifyOtpBtn, resendOtpBtn].filter(Boolean);
+  buttons.forEach((btn) => {
+    btn.disabled = isLoading;
+    btn.classList.toggle('opacity-60', isLoading);
+  });
+
+  if (otpEmailInput) otpEmailInput.disabled = isLoading;
+  if (otpCodeInput) otpCodeInput.disabled = isLoading;
+
+  if (sendOtpBtn && phase === 'request') {
+    sendOtpBtn.textContent = isLoading ? 'Sending…' : 'Send code';
+  }
+  if (verifyOtpBtn && phase === 'verify') {
+    verifyOtpBtn.textContent = isLoading ? 'Verifying…' : 'Verify';
+  }
+  if (resendOtpBtn && phase === 'resend') {
+    resendOtpBtn.textContent = isLoading ? 'Resending…' : 'Resend code';
+  }
 }
 
 async function extractFunctionError(error, fallbackMessage) {
@@ -171,6 +202,72 @@ function validatePassword(password) {
   }
 
   return { valid: true };
+}
+
+function getRedirectTarget() {
+  const params = new URLSearchParams(window.location.search);
+  const next = params.get('next');
+  if (!next) return DASHBOARD_URL;
+  // Only allow relative redirects to avoid open redirect issues.
+  if (next.startsWith('http://') || next.startsWith('https://')) {
+    return DASHBOARD_URL;
+  }
+  if (next.startsWith('//')) {
+    return DASHBOARD_URL;
+  }
+  return next;
+}
+
+function maybePersistPendingPlanFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const planId = params.get('planId');
+  if (!planId) return;
+  try {
+    window.localStorage.setItem('pendingPlanId', planId);
+  } catch (error) {
+    console.warn('[Auth] Unable to persist planId for checkout', error);
+  }
+}
+
+function splitName(fullName) {
+  const parts = String(fullName || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return { firstName: null, lastName: null };
+  if (parts.length === 1) return { firstName: parts[0], lastName: null };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
+
+async function ensureLearnerProfile(supabase, user) {
+  if (!supabase || !user?.id) return;
+  const fallbackName = user.email?.split('@')[0] ?? 'Learner';
+  const metadata = user.user_metadata || {};
+  const fullName =
+    metadata.full_name || metadata.name || metadata.fullName || fallbackName;
+  const { firstName, lastName } = splitName(fullName);
+
+  const updates = {
+    id: user.id,
+    role: 'learner',
+    email: user.email ?? null,
+    full_name: fullName || null,
+    first_name: metadata.first_name || firstName || null,
+    last_name: metadata.last_name || lastName || null,
+    phone: metadata.phone || null,
+    last_seen_at: new Date().toISOString(),
+  };
+
+  try {
+    const { error } = await supabase.from('profiles').upsert(updates, {
+      onConflict: 'id',
+    });
+    if (error) {
+      console.warn('[Auth] Failed to upsert profile for user', error);
+    }
+  } catch (error) {
+    console.warn('[Auth] Unexpected error while ensuring profile', error);
+  }
 }
 
 // ============================================================================
@@ -463,6 +560,7 @@ async function handleLogin(event, supabase) {
     }
 
     await syncActiveSession(supabase, session);
+    await ensureLearnerProfile(supabase, session?.user || null);
 
     try {
       window.sessionStorage.setItem(
@@ -483,7 +581,7 @@ async function handleLogin(event, supabase) {
 
     // Auth state listener will handle redirect, but add fallback
     setTimeout(() => {
-      window.location.replace(DASHBOARD_URL);
+      window.location.replace(getRedirectTarget());
     }, 500);
   } catch (error) {
     console.error('[Auth] Unexpected error during login:', error);
@@ -492,26 +590,173 @@ async function handleLogin(event, supabase) {
   }
 }
 
+async function handleGoogleSignIn(supabase) {
+  clearFeedback();
+  setOtpLoading(true, { phase: 'request' });
+
+  try {
+    const redirectTo = new URL(window.location.href);
+    redirectTo.hash = '';
+    // Preserve next/planId params so the return continues smoothly.
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectTo.toString(),
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    if (data?.url) {
+      window.location.assign(data.url);
+    }
+  } catch (error) {
+    console.error('[Auth] Google sign-in failed', error);
+    const msg =
+      error?.message?.includes('already registered') ||
+      error?.message?.includes('already exists') ||
+      error?.message?.includes('Email address already')
+        ? 'This email already has an account. Use Email OTP to sign in, then connect Google from Profile & security.'
+        : error?.message || 'Unable to start Google sign-in. Please try again.';
+    showFeedback(msg);
+  } finally {
+    setOtpLoading(false, { phase: 'request' });
+  }
+}
+
+function showOtpVerification() {
+  otpVerifyForm?.classList.remove('hidden');
+  resendOtpBtn?.classList.remove('hidden');
+  otpCodeInput?.focus();
+}
+
+function normalizeOtpCode(value) {
+  return String(value || '').replace(/\D/g, '').slice(0, 6);
+}
+
+async function handleOtpRequest(event, supabase) {
+  event.preventDefault();
+  clearFeedback();
+
+  const email = String(otpEmailInput?.value || '').trim().toLowerCase();
+  if (!email || !EMAIL_PATTERN.test(email)) {
+    showFeedback('Enter a valid email address.');
+    otpEmailInput?.focus();
+    return;
+  }
+
+  setOtpLoading(true, { phase: 'request' });
+
+  try {
+    const redirectTo = new URL(window.location.href);
+    redirectTo.hash = '';
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: redirectTo.toString(),
+        shouldCreateUser: true,
+      },
+    });
+
+    if (error) throw error;
+
+    showFeedback(
+      'We sent a 6-digit code to your email. Enter it here, or click the sign-in link in the email.',
+      'info'
+    );
+    showOtpVerification();
+  } catch (error) {
+    console.error('[Auth] OTP send failed', error);
+    showFeedback(
+      error?.message || 'Unable to send the code right now. Please try again.'
+    );
+  } finally {
+    setOtpLoading(false, { phase: 'request' });
+  }
+}
+
+async function handleOtpVerify(event, supabase) {
+  event.preventDefault();
+  clearFeedback();
+
+  const email = String(otpEmailInput?.value || '').trim().toLowerCase();
+  const token = normalizeOtpCode(otpCodeInput?.value);
+  if (!email || !EMAIL_PATTERN.test(email)) {
+    showFeedback('Enter the email you used to request the code.');
+    otpEmailInput?.focus();
+    return;
+  }
+  if (!OTP_CODE_PATTERN.test(token)) {
+    showFeedback('Enter the 6-digit code from your email.');
+    otpCodeInput?.focus();
+    return;
+  }
+
+  setOtpLoading(true, { phase: 'verify' });
+  try {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'email',
+    });
+
+    if (error) throw error;
+
+    await ensureLearnerProfile(supabase, data?.user || null);
+    showFeedback('Signed in successfully. Redirecting…', 'success');
+    window.setTimeout(() => {
+      window.location.replace(getRedirectTarget());
+    }, 350);
+  } catch (error) {
+    console.error('[Auth] OTP verification failed', error);
+    showFeedback(
+      error?.message ||
+        'Unable to verify the code. Please request a new code and try again.'
+    );
+  } finally {
+    setOtpLoading(false, { phase: 'verify' });
+  }
+}
+
+async function handleOtpResend(supabase) {
+  clearFeedback();
+  setOtpLoading(true, { phase: 'resend' });
+  try {
+    const email = String(otpEmailInput?.value || '').trim().toLowerCase();
+    if (!email || !EMAIL_PATTERN.test(email)) {
+      showFeedback('Enter your email address first.');
+      otpEmailInput?.focus();
+      return;
+    }
+
+    const redirectTo = new URL(window.location.href);
+    redirectTo.hash = '';
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: redirectTo.toString(),
+        shouldCreateUser: true,
+      },
+    });
+    if (error) throw error;
+    showFeedback('A new code has been sent. Check your email.', 'info');
+  } catch (error) {
+    console.error('[Auth] OTP resend failed', error);
+    showFeedback(
+      error?.message || 'Unable to resend the code right now. Please try again.'
+    );
+  } finally {
+    setOtpLoading(false, { phase: 'resend' });
+  }
+}
+
 // ============================================================================
 // SESSION MANAGEMENT
 // ============================================================================
-
-/**
- * Check if user already has an active session
- * @param {Object} supabase - Supabase client
- * @returns {Promise<boolean>} - True if user has active session
- */
-async function checkExistingSession(supabase) {
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    return !!session?.user;
-  } catch (error) {
-    console.error('[Auth] Error checking session:', error);
-    return false;
-  }
-}
 
 /**
  * Handle impersonation token from URL
@@ -547,20 +792,35 @@ async function handleImpersonation(supabase, token) {
 async function init() {
   try {
     const supabase = await getSupabaseClient();
+    maybePersistPendingPlanFromUrl();
 
     // Check for impersonation token
     const params = new URLSearchParams(window.location.search);
     const impersonatedToken = params.get('impersonated_token');
+    const oauthError =
+      params.get('error_description') || params.get('error') || null;
 
     if (impersonatedToken) {
       await handleImpersonation(supabase, impersonatedToken);
       return;
     }
 
+    if (oauthError) {
+      const decoded = oauthError ? decodeURIComponent(oauthError) : oauthError;
+      showFeedback(
+        decoded ||
+          'Sign-in did not complete. Please try again or use Email OTP.',
+        'error'
+      );
+    }
+
     // Check if user already has active session
-    const hasSession = await checkExistingSession(supabase);
-    if (hasSession) {
-      window.location.replace(DASHBOARD_URL);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.user) {
+      await ensureLearnerProfile(supabase, session.user);
+      window.location.replace(getRedirectTarget());
       return;
     }
 
@@ -585,7 +845,9 @@ async function init() {
     // Set up auth state listener
     supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        window.location.replace(DASHBOARD_URL);
+        ensureLearnerProfile(supabase, session.user).finally(() => {
+          window.location.replace(getRedirectTarget());
+        });
       }
     });
 
@@ -597,6 +859,32 @@ async function init() {
     } else {
       console.error('[Auth] Login form not found');
       showFeedback('Login form not found. Please refresh the page.');
+    }
+
+    if (googleSignInBtn) {
+      googleSignInBtn.addEventListener('click', () => handleGoogleSignIn(supabase));
+    }
+
+    if (otpRequestForm) {
+      otpRequestForm.addEventListener('submit', (event) =>
+        handleOtpRequest(event, supabase)
+      );
+    }
+
+    if (otpVerifyForm) {
+      otpVerifyForm.addEventListener('submit', (event) =>
+        handleOtpVerify(event, supabase)
+      );
+    }
+
+    if (resendOtpBtn) {
+      resendOtpBtn.addEventListener('click', () => handleOtpResend(supabase));
+    }
+
+    if (otpCodeInput) {
+      otpCodeInput.addEventListener('input', () => {
+        otpCodeInput.value = normalizeOtpCode(otpCodeInput.value);
+      });
     }
   } catch (error) {
     console.error('[Auth] Initialization failed:', error);

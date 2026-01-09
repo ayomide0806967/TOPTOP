@@ -759,7 +759,61 @@ async function ensureProfile() {
     if (error) {
       throw error;
     }
-    state.profile = data || null;
+
+    if (!data) {
+      const fallbackName = state.user.email?.split('@')[0] ?? 'Learner';
+      const metadata = state.user.user_metadata || {};
+      const fullName =
+        metadata.full_name || metadata.name || metadata.fullName || fallbackName;
+      const parts = String(fullName || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+      const firstName =
+        metadata.first_name || (parts.length ? parts[0] : null) || null;
+      const lastName =
+        metadata.last_name ||
+        (parts.length > 1 ? parts.slice(1).join(' ') : null) ||
+        null;
+
+      const { data: inserted, error: insertError } = await supabase
+        .from('profiles')
+        .upsert(
+          {
+            id: state.user.id,
+            role: 'learner',
+            email: state.user.email ?? null,
+            full_name: fullName || null,
+            first_name: firstName,
+            last_name: lastName,
+            phone: metadata.phone || null,
+            last_seen_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        )
+        .select(
+          'id, full_name, first_name, last_name, phone, email, username, subscription_status'
+        )
+        .single();
+      if (insertError) {
+        throw insertError;
+      }
+      state.profile = inserted || null;
+    } else {
+      const patch = {
+        last_seen_at: new Date().toISOString(),
+        ...(state.user.email ? { email: state.user.email } : {}),
+      };
+      const { data: updated, error: updateError } = await supabase
+        .from('profiles')
+        .update(patch)
+        .eq('id', state.user.id)
+        .select(
+          'id, full_name, first_name, last_name, phone, email, username, subscription_status'
+        )
+        .single();
+      state.profile = !updateError && updated ? updated : data;
+    }
   } catch (error) {
     console.error('[Pricing] Failed to load profile for checkout', error);
     state.profile = null;

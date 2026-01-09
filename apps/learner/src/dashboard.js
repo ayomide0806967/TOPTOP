@@ -130,6 +130,10 @@ const elements = {
   ),
   profileFeedback: document.querySelector('[data-role="profile-feedback"]'),
   profileEmail: document.querySelector('[data-role="profile-email"]'),
+  connectGoogleBtn: document.querySelector('[data-role="connect-google"]'),
+  authMethodsFeedback: document.querySelector(
+    '[data-role="auth-methods-feedback"]'
+  ),
 };
 
 const state = {
@@ -1967,6 +1971,76 @@ async function handleProfileSubmit(event) {
   }
 }
 
+function setAuthMethodsFeedback(message, type = 'info') {
+  const target = elements.authMethodsFeedback;
+  if (!target) return;
+  target.textContent = message;
+  target.classList.remove('hidden');
+  target.className = 'rounded-xl border px-3.5 py-2.5 text-sm';
+  if (type === 'success') {
+    target.className =
+      'rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-700';
+  } else if (type === 'error') {
+    target.className =
+      'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
+  } else {
+    target.className =
+      'rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-600';
+  }
+}
+
+async function handleConnectGoogle() {
+  if (!state.supabase || !state.user) return;
+
+  setAuthMethodsFeedback('Connecting Google…', 'info');
+
+  try {
+    if (typeof state.supabase.auth.linkIdentity !== 'function') {
+      setAuthMethodsFeedback(
+        'Google linking is not available in this build. Please update the app.',
+        'error'
+      );
+      return;
+    }
+
+    const redirectTo = new URL(window.location.href);
+    redirectTo.hash = '';
+
+    const { data, error } = await state.supabase.auth.linkIdentity({
+      provider: 'google',
+      options: {
+        redirectTo: redirectTo.toString(),
+      },
+    });
+
+    if (error) {
+      const msg =
+        error.message?.includes('manual linking') ||
+        error.message?.includes('disabled')
+          ? 'Google linking is disabled in Supabase settings. Enable manual linking, then try again.'
+          : error.message || 'Unable to connect Google right now.';
+      setAuthMethodsFeedback(msg, 'error');
+      return;
+    }
+
+    if (data?.url) {
+      window.location.assign(data.url);
+      return;
+    }
+
+    setAuthMethodsFeedback(
+      'Continue in the Google window to finish linking.',
+      'success'
+    );
+  } catch (error) {
+    console.error('[Dashboard] Google linking failed', error);
+    setAuthMethodsFeedback(
+      error?.message || 'Unable to connect Google right now.',
+      'error'
+    );
+  }
+}
+
 function setDailyButtonVariant(status) {
   const btn = elements.resumeBtn;
   if (!btn) return;
@@ -3093,12 +3167,30 @@ async function ensureProfile() {
     if (error) throw error;
 
     if (!data) {
+      const metadata = state.user.user_metadata || {};
+      const fullName =
+        metadata.full_name || metadata.name || metadata.fullName || fallbackName;
+      const parts = String(fullName || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+      const firstName =
+        metadata.first_name || (parts.length ? parts[0] : null) || null;
+      const lastName =
+        metadata.last_name ||
+        (parts.length > 1 ? parts.slice(1).join(' ') : null) ||
+        null;
+
       const { data: inserted, error: insertError } = await state.supabase
         .from('profiles')
         .upsert({
           id: state.user.id,
-          full_name: state.user.user_metadata?.full_name ?? fallbackName,
+          full_name: fullName || null,
+          first_name: firstName,
+          last_name: lastName,
+          email: state.user.email ?? null,
           role: 'learner',
+          phone: metadata.phone || null,
           last_seen_at: new Date().toISOString(),
         })
         .select(
@@ -3108,9 +3200,13 @@ async function ensureProfile() {
       if (insertError) throw insertError;
       state.profile = inserted;
     } else {
+      const patch = {
+        last_seen_at: new Date().toISOString(),
+        ...(state.user.email ? { email: state.user.email } : {}),
+      };
       const { data: updated, error: updateError } = await state.supabase
         .from('profiles')
-        .update({ last_seen_at: new Date().toISOString() })
+        .update(patch)
         .eq('id', state.user.id)
         .select(
           'id, full_name, role, last_seen_at, subscription_status, default_subscription_id, registration_stage, pending_plan_id, pending_plan_snapshot, phone'
@@ -3196,6 +3292,7 @@ async function initialise() {
     );
     elements.extraSetsList?.addEventListener('click', handleExtraSetsClick);
     elements.profileForm?.addEventListener('submit', handleProfileSubmit);
+    elements.connectGoogleBtn?.addEventListener('click', handleConnectGoogle);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     elements.globalNoticeDismiss?.addEventListener(
       'click',
@@ -3227,6 +3324,7 @@ function cleanup() {
   );
   elements.extraSetsList?.removeEventListener('click', handleExtraSetsClick);
   elements.profileForm?.removeEventListener('submit', handleProfileSubmit);
+  elements.connectGoogleBtn?.removeEventListener('click', handleConnectGoogle);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
   elements.globalNoticeDismiss?.removeEventListener(
     'click',
