@@ -799,6 +799,7 @@ async function init() {
     const impersonatedToken = params.get('impersonated_token');
     const oauthError =
       params.get('error_description') || params.get('error') || null;
+    const authAction = params.get('auth');
 
     if (impersonatedToken) {
       await handleImpersonation(supabase, impersonatedToken);
@@ -821,6 +822,20 @@ async function init() {
     if (session?.user) {
       await ensureLearnerProfile(supabase, session.user);
       window.location.replace(getRedirectTarget());
+      return;
+    }
+
+    if (authAction === 'google') {
+      try {
+        // Remove the auth action from the URL to avoid retrigger loops.
+        params.delete('auth');
+        const cleaned = new URL(window.location.href);
+        cleaned.search = params.toString() ? `?${params.toString()}` : '';
+        window.history.replaceState({}, '', cleaned.toString());
+      } catch (error) {
+        console.warn('[Auth] Unable to clean auth action from URL', error);
+      }
+      await handleGoogleSignIn(supabase);
       return;
     }
 

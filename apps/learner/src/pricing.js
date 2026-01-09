@@ -14,6 +14,17 @@ const gateLoadingEl = document.querySelector(
   '[data-role="department-loading"]'
 );
 const gateGeneralBtn = document.querySelector('[data-role="select-general"]');
+const authChoiceModal = document.querySelector('[data-role="auth-choice-modal"]');
+const authChoicePanel = document.querySelector('[data-role="auth-choice-panel"]');
+const authChoiceCloseBtn = document.querySelector(
+  '[data-role="auth-choice-close"]'
+);
+const authChoiceGoogleBtn = document.querySelector(
+  '[data-role="auth-choice-google"]'
+);
+const authChoiceManualBtn = document.querySelector(
+  '[data-role="auth-choice-manual"]'
+);
 
 const THEME_MAP = {
   nursing: {
@@ -173,6 +184,90 @@ const state = {
   },
   authListenerBound: false,
 };
+
+let pendingAuthChoicePlanId = null;
+
+function buildLoginRedirectUrl(planId, { auth } = {}) {
+  const url = new URL('login.html', window.location.href);
+  url.searchParams.set('next', 'subscription-plans.html');
+  if (planId) {
+    url.searchParams.set('planId', planId);
+  }
+  if (auth) {
+    url.searchParams.set('auth', auth);
+  }
+  return url.toString();
+}
+
+function openAuthChoiceModal(planId) {
+  if (!authChoiceModal) {
+    showBanner(
+      'Tell us who is subscribing so we can tailor your practice sets.',
+      'info'
+    );
+    redirectToRegistration(planId);
+    return;
+  }
+
+  pendingAuthChoicePlanId = planId;
+  authChoiceModal.classList.remove('hidden');
+  authChoiceModal.classList.add('flex');
+  authChoiceModal.setAttribute('aria-hidden', 'false');
+
+  window.setTimeout(() => {
+    (authChoiceGoogleBtn || authChoiceManualBtn)?.focus?.();
+  }, 50);
+}
+
+function closeAuthChoiceModal() {
+  if (!authChoiceModal) return;
+  pendingAuthChoicePlanId = null;
+  authChoiceModal.classList.add('hidden');
+  authChoiceModal.classList.remove('flex');
+  authChoiceModal.setAttribute('aria-hidden', 'true');
+}
+
+function bindAuthChoiceModalHandlers() {
+  if (!authChoiceModal) return;
+
+  authChoiceCloseBtn?.addEventListener('click', closeAuthChoiceModal);
+
+  authChoiceManualBtn?.addEventListener('click', () => {
+    const planId = pendingAuthChoicePlanId;
+    closeAuthChoiceModal();
+    if (!planId) return;
+    showBanner(
+      'Tell us who is subscribing so we can tailor your practice sets.',
+      'info'
+    );
+    redirectToRegistration(planId);
+  });
+
+  authChoiceGoogleBtn?.addEventListener('click', () => {
+    const planId = pendingAuthChoicePlanId;
+    closeAuthChoiceModal();
+    if (!planId) return;
+    persistRegistrationPlan(planId);
+    window.localStorage.setItem('pendingPlanId', planId);
+    window.location.href = buildLoginRedirectUrl(planId, { auth: 'google' });
+  });
+
+  authChoiceModal.addEventListener('click', (event) => {
+    if (event.target === authChoiceModal) {
+      closeAuthChoiceModal();
+    }
+  });
+
+  authChoicePanel?.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+
+  window.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    if (authChoiceModal.classList.contains('hidden')) return;
+    closeAuthChoiceModal();
+  });
+}
 
 function themeForDepartment(color) {
   return THEME_MAP[color] || THEME_MAP.default;
@@ -1187,6 +1282,11 @@ async function handlePlanSelection(planId) {
     }
   }
 
+  if (!state.user) {
+    openAuthChoiceModal(planId);
+    return;
+  }
+
   showBanner(
     'Tell us who is subscribing so we can tailor your practice sets.',
     'info'
@@ -1323,6 +1423,7 @@ async function loadPricing() {
 }
 
 async function initialisePricing() {
+  bindAuthChoiceModalHandlers();
   await ensureAuthSession();
   await loadPricing();
 }
