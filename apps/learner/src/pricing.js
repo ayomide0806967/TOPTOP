@@ -246,8 +246,7 @@ async function startGoogleOAuth(planId) {
 
   try {
     const supabase = await getSupabaseClient();
-    const redirectTo = new URL(window.location.href);
-    redirectTo.hash = '';
+    const redirectTo = new URL('subscription-plans.html', window.location.href);
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -281,6 +280,9 @@ function openAuthChoiceModal(planId) {
     redirectToRegistration(planId);
     return;
   }
+
+  // Warm up Supabase JS so the Google redirect is faster.
+  getSupabaseClient().catch(() => {});
 
   pendingAuthChoicePlanId = planId;
   authChoiceModal.classList.remove('hidden');
