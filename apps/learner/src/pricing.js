@@ -432,6 +432,81 @@ function groupProducts(rows) {
   );
 }
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function looksLikeUuid(value) {
+  return typeof value === 'string' && UUID_PATTERN.test(value);
+}
+
+function humaniseDepartmentSlug(slug) {
+  if (!slug || typeof slug !== 'string') return null;
+  const cleaned = slug.trim().replace(/[-_]+/g, ' ');
+  if (!cleaned) return null;
+  return cleaned
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function deriveDepartmentDisplayName(product) {
+  const rawName = product.department_name;
+  if (rawName && !looksLikeUuid(rawName)) return rawName;
+
+  const slugName = humaniseDepartmentSlug(product.department_slug);
+  if (slugName && !looksLikeUuid(slugName)) return slugName;
+
+  const productName =
+    typeof product.name === 'string' ? product.name.trim() : null;
+  if (productName && !looksLikeUuid(productName)) {
+    const cleaned = productName.replace(
+      /\s+(subscription|plan|bundle|access)\s*$/i,
+      ''
+    );
+    if (cleaned.trim()) return cleaned.trim();
+    return productName;
+  }
+
+  return product.department_id;
+}
+
+async function hydrateDepartmentMetadata(supabase, products) {
+  const departmentIds = Array.from(
+    new Set(products.map((product) => product.department_id).filter(Boolean))
+  );
+  if (!departmentIds.length) return;
+
+  const needsHydration = products.some(
+    (product) =>
+      product.department_id &&
+      !product.department_name &&
+      !product.department_slug
+  );
+  if (!needsHydration) return;
+
+  try {
+    const { data, error } = await supabase
+      .from('departments')
+      .select('id,name,slug,color_theme')
+      .in('id', departmentIds);
+    if (error || !Array.isArray(data) || !data.length) return;
+    const lookup = new Map(data.map((row) => [row.id, row]));
+    products.forEach((product) => {
+      const dept = lookup.get(product.department_id);
+      if (!dept) return;
+      if (!product.department_name && dept.name)
+        product.department_name = dept.name;
+      if (!product.department_slug && dept.slug)
+        product.department_slug = dept.slug;
+      if (!product.color_theme && dept.color_theme)
+        product.color_theme = dept.color_theme;
+    });
+  } catch (error) {
+    console.warn('[Pricing] Unable to hydrate departments', error);
+  }
+}
+
 function deriveDepartments(products) {
   const lookup = new Map();
   products.forEach((product) => {
@@ -439,10 +514,7 @@ function deriveDepartments(products) {
     if (!lookup.has(product.department_id)) {
       lookup.set(product.department_id, {
         id: product.department_id,
-        name:
-          product.department_name ||
-          product.department_slug ||
-          product.department_id,
+        name: deriveDepartmentDisplayName(product),
         slug: product.department_slug || product.department_id,
         color: product.color_theme || product.department_slug || 'default',
       });
@@ -1164,6 +1236,7 @@ async function loadPricing() {
     if (error) throw error;
     clearError();
     const products = groupProducts(data || []);
+    await hydrateDepartmentMetadata(supabase, products);
     state.products = products.filter((product) => product.department_id);
     state.generalProducts = products.filter(
       (product) => !product.department_id
