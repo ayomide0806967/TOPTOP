@@ -1443,8 +1443,90 @@ class DataService {
         .select('*')
         .maybeSingle();
       if (error) {
-        console.error('[DataService] Dashboard stats query error:', error);
-        throw error;
+        const missingStatsView =
+          error?.code === 'PGRST205' &&
+          String(error?.message || '')
+            .toLowerCase()
+            .includes('admin_dashboard_stats');
+        if (!missingStatsView) {
+          console.error('[DataService] Dashboard stats query error:', error);
+          throw error;
+        }
+
+        console.warn(
+          '[DataService] admin_dashboard_stats view missing; falling back to direct table queries.'
+        );
+
+        const monthStart = new Date();
+        monthStart.setUTCDate(1);
+        monthStart.setUTCHours(0, 0, 0, 0);
+        const monthEnd = new Date(
+          Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 1)
+        );
+
+        const [profilesRes, subsRes, questionsRes, monthlySubsRes] =
+          await Promise.all([
+            client
+              .from('profiles')
+              .select('id', { count: 'exact', head: true }),
+            client
+              .from('user_subscriptions')
+              .select('id', { count: 'exact', head: true })
+              .eq('status', 'active'),
+            client
+              .from('questions')
+              .select('id', { count: 'exact', head: true }),
+            client
+              .from('user_subscriptions')
+              .select('plan_id, price, started_at')
+              .eq('status', 'active')
+              .gte('started_at', monthStart.toISOString())
+              .lt('started_at', monthEnd.toISOString()),
+          ]);
+
+        if (profilesRes.error) throw profilesRes.error;
+        if (subsRes.error) throw subsRes.error;
+        if (questionsRes.error) throw questionsRes.error;
+
+        let revenue = 0;
+        if (!monthlySubsRes.error && Array.isArray(monthlySubsRes.data)) {
+          const monthSubs = monthlySubsRes.data;
+          const planIds = Array.from(
+            new Set(
+              monthSubs
+                .filter((sub) => sub?.plan_id && sub.price === null)
+                .map((sub) => sub.plan_id)
+            )
+          );
+
+          let planPriceById = new Map();
+          if (planIds.length) {
+            const { data: plans, error: plansError } = await client
+              .from('subscription_plans')
+              .select('id, price')
+              .in('id', planIds);
+            if (!plansError && Array.isArray(plans)) {
+              planPriceById = new Map(
+                plans.map((plan) => [plan.id, Number(plan.price) || 0])
+              );
+            }
+          }
+
+          revenue = monthSubs.reduce((sum, sub) => {
+            const rowPrice =
+              sub.price === null
+                ? (planPriceById.get(sub.plan_id) ?? 0)
+                : Number(sub.price) || 0;
+            return sum + rowPrice;
+          }, 0);
+        }
+
+        return {
+          users: profilesRes.count ?? 0,
+          subscriptions: subsRes.count ?? 0,
+          totalQuestions: questionsRes.count ?? 0,
+          revenue,
+        };
       }
       console.log('[DataService] Dashboard stats retrieved:', data);
       return {
@@ -4668,9 +4750,13 @@ class DataService {
   async updateGlobalAnnouncement(id, { isActive }) {
     const client = await ensureClient();
     if (!id) {
-      throw wrapError('Announcement id is required.', new Error('Validation error'), {
-        id,
-      });
+      throw wrapError(
+        'Announcement id is required.',
+        new Error('Validation error'),
+        {
+          id,
+        }
+      );
     }
 
     try {
@@ -4691,16 +4777,23 @@ class DataService {
 
       return data;
     } catch (error) {
-      throw wrapError('Failed to update announcement.', error, { id, isActive });
+      throw wrapError('Failed to update announcement.', error, {
+        id,
+        isActive,
+      });
     }
   }
 
   async deleteGlobalAnnouncement(id) {
     const client = await ensureClient();
     if (!id) {
-      throw wrapError('Announcement id is required.', new Error('Validation error'), {
-        id,
-      });
+      throw wrapError(
+        'Announcement id is required.',
+        new Error('Validation error'),
+        {
+          id,
+        }
+      );
     }
 
     try {

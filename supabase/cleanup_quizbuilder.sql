@@ -8,10 +8,13 @@
 -- STEP 1: Drop Views (must be dropped before tables they depend on)
 -- ============================================================================
 
-DROP VIEW IF EXISTS public.user_profile CASCADE;
-DROP VIEW IF EXISTS public.active_user_plans CASCADE;
-DROP VIEW IF EXISTS public.admin_dashboard_stats CASCADE;
-DROP VIEW IF EXISTS public.subscription_products_with_plans CASCADE;
+-- NOTE: These views are used outside Quiz Builder (admin/registration/pricing).
+-- Do NOT drop them unless you are intentionally removing those features too.
+-- DROP VIEW IF EXISTS public.user_profile CASCADE;
+-- DROP VIEW IF EXISTS public.active_user_plans CASCADE;
+-- DROP VIEW IF EXISTS public.admin_dashboard_stats CASCADE;
+-- ⚠️ PRESERVED: subscription_products_with_plans is used by the pricing page (NOT a QuizBuilder object)
+-- DROP VIEW IF EXISTS public.subscription_products_with_plans CASCADE;
 
 -- ============================================================================
 -- STEP 2: Drop Tables (in reverse dependency order)
