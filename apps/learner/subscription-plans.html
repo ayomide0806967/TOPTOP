@@ -512,6 +512,28 @@
         </div>
       </div>
     </div>
+
+    <!-- Full page auth loading overlay (e.g. connecting to Google) -->
+    <div
+      data-role="auth-loading-overlay"
+      class="fixed inset-0 z-[60] hidden items-center justify-center bg-white/90 backdrop-blur-sm px-4"
+      aria-hidden="true"
+    >
+      <div class="w-full max-w-sm rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl">
+        <div class="flex items-center justify-center">
+          <span
+            class="inline-flex h-14 w-14 animate-spin items-center justify-center rounded-full border-4 border-cyan-200 border-t-cyan-600"
+            aria-hidden="true"
+          ></span>
+        </div>
+        <p class="mt-5 text-center text-lg font-semibold text-slate-900">
+          Connecting to Google…
+        </p>
+        <p class="mt-2 text-center text-sm text-slate-600">
+          Please wait. This can take a few seconds.
+        </p>
+      </div>
+    </div>
     <!-- Full Page Loading Spinner -->
     <div
       id="page-loader"

@@ -25,6 +25,9 @@ const authChoiceGoogleBtn = document.querySelector(
 const authChoiceManualBtn = document.querySelector(
   '[data-role="auth-choice-manual"]'
 );
+const authLoadingOverlay = document.querySelector(
+  '[data-role="auth-loading-overlay"]'
+);
 
 const THEME_MAP = {
   nursing: {
@@ -219,12 +222,27 @@ function setAuthChoiceBusy(isBusy) {
   }
 }
 
+function showAuthLoadingOverlay() {
+  if (!authLoadingOverlay) return;
+  authLoadingOverlay.classList.remove('hidden');
+  authLoadingOverlay.classList.add('flex');
+  authLoadingOverlay.setAttribute('aria-hidden', 'false');
+}
+
+function hideAuthLoadingOverlay() {
+  if (!authLoadingOverlay) return;
+  authLoadingOverlay.classList.add('hidden');
+  authLoadingOverlay.classList.remove('flex');
+  authLoadingOverlay.setAttribute('aria-hidden', 'true');
+}
+
 async function startGoogleOAuth(planId) {
   // Persist plan info so we can resume checkout after returning from Google.
   persistRegistrationPlan(planId);
   window.localStorage.setItem('pendingPlanId', planId);
 
   setAuthChoiceBusy(true);
+  showAuthLoadingOverlay();
 
   try {
     const supabase = await getSupabaseClient();
@@ -246,6 +264,7 @@ async function startGoogleOAuth(planId) {
     }
   } catch (error) {
     console.error('[Pricing] Google sign-in failed', error);
+    hideAuthLoadingOverlay();
     // Fallback: route to login page (which can still start Google).
     window.location.href = buildLoginRedirectUrl(planId, { auth: 'google' });
   } finally {
