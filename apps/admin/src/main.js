@@ -102,8 +102,6 @@ function breadcrumbForView(view) {
       return 'Study Cycles';
     case 'subscriptions':
       return 'Subscriptions';
-    case 'quizbuilder':
-      return 'Quiz Builder';
     case 'freequizzes':
       return 'Free Quiz';
     case 'extraquestions':

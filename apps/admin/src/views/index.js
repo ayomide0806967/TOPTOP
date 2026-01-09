@@ -3,7 +3,6 @@ import { departmentsView } from './departments.js';
 import { studyCyclesView } from './studyCycles.js';
 import { subscriptionsView } from './subscriptions.js';
 import { freeQuizzesView } from './freeQuizzes.js';
-import { quizBuilderView } from './quizBuilder.js';
 import { usersView } from './users.js';
 import { questionsView } from './questions.js';
 import { extraQuestionsView } from './extraQuestions.js';
@@ -15,7 +14,6 @@ export const viewRegistry = {
   subscriptions: subscriptionsView,
   freequizzes: freeQuizzesView,
   extraquestions: extraQuestionsView,
-  quizbuilder: quizBuilderView,
   users: usersView,
   questions: questionsView,
 };

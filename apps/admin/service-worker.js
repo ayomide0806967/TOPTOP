@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'admin-static-v1';
-const RUNTIME_CACHE = 'admin-runtime-v1';
+const STATIC_CACHE = 'admin-static-v2';
+const RUNTIME_CACHE = 'admin-runtime-v2';
 const BASE_URL = self.location.href.replace(/service-worker\.js$/, '');
 
 const APP_SHELL = [
@@ -17,7 +17,6 @@ const APP_SHELL = [
   './src/views/dashboard.js',
   './src/views/departments.js',
   './src/views/questions.js',
-  './src/views/quizBuilder.js',
   './src/views/studyCycles.js',
   './src/views/subscriptions.js',
   './src/views/users.js',
