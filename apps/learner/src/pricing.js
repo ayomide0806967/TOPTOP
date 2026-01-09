@@ -186,6 +186,7 @@ const state = {
 };
 
 let pendingAuthChoicePlanId = null;
+let authChoiceBusy = false;
 
 function buildLoginRedirectUrl(planId, { auth } = {}) {
   const url = new URL('login.html', window.location.href);
@@ -197,6 +198,59 @@ function buildLoginRedirectUrl(planId, { auth } = {}) {
     url.searchParams.set('auth', auth);
   }
   return url.toString();
+}
+
+function setAuthChoiceBusy(isBusy) {
+  authChoiceBusy = isBusy;
+  if (authChoiceGoogleBtn) {
+    authChoiceGoogleBtn.disabled = isBusy;
+    authChoiceGoogleBtn.classList.toggle('opacity-60', isBusy);
+    authChoiceGoogleBtn.classList.toggle('cursor-wait', isBusy);
+  }
+  if (authChoiceManualBtn) {
+    authChoiceManualBtn.disabled = isBusy;
+    authChoiceManualBtn.classList.toggle('opacity-60', isBusy);
+    authChoiceManualBtn.classList.toggle('cursor-wait', isBusy);
+  }
+  if (authChoiceCloseBtn) {
+    authChoiceCloseBtn.disabled = isBusy;
+    authChoiceCloseBtn.classList.toggle('opacity-60', isBusy);
+    authChoiceCloseBtn.classList.toggle('cursor-wait', isBusy);
+  }
+}
+
+async function startGoogleOAuth(planId) {
+  // Persist plan info so we can resume checkout after returning from Google.
+  persistRegistrationPlan(planId);
+  window.localStorage.setItem('pendingPlanId', planId);
+
+  setAuthChoiceBusy(true);
+
+  try {
+    const supabase = await getSupabaseClient();
+    const redirectTo = new URL(window.location.href);
+    redirectTo.hash = '';
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectTo.toString(),
+      },
+    });
+
+    if (error) throw error;
+
+    // Some clients return a URL instead of redirecting automatically.
+    if (data?.url) {
+      window.location.assign(data.url);
+    }
+  } catch (error) {
+    console.error('[Pricing] Google sign-in failed', error);
+    // Fallback: route to login page (which can still start Google).
+    window.location.href = buildLoginRedirectUrl(planId, { auth: 'google' });
+  } finally {
+    setAuthChoiceBusy(false);
+  }
 }
 
 function openAuthChoiceModal(planId) {
@@ -233,6 +287,7 @@ function bindAuthChoiceModalHandlers() {
   authChoiceCloseBtn?.addEventListener('click', closeAuthChoiceModal);
 
   authChoiceManualBtn?.addEventListener('click', () => {
+    if (authChoiceBusy) return;
     const planId = pendingAuthChoicePlanId;
     closeAuthChoiceModal();
     if (!planId) return;
@@ -244,12 +299,11 @@ function bindAuthChoiceModalHandlers() {
   });
 
   authChoiceGoogleBtn?.addEventListener('click', () => {
+    if (authChoiceBusy) return;
     const planId = pendingAuthChoicePlanId;
     closeAuthChoiceModal();
     if (!planId) return;
-    persistRegistrationPlan(planId);
-    window.localStorage.setItem('pendingPlanId', planId);
-    window.location.href = buildLoginRedirectUrl(planId, { auth: 'google' });
+    startGoogleOAuth(planId);
   });
 
   authChoiceModal.addEventListener('click', (event) => {
