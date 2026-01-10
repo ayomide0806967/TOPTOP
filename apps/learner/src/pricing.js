@@ -465,6 +465,17 @@ function buildPlanFeatures(plan, product) {
   return Array.from(new Set(features)).filter(Boolean).slice(0, 5);
 }
 
+function cleanseMarketingCopy(text) {
+  if (!text || typeof text !== 'string') return text;
+  return text
+    .replace(/\bMastery\b/gi, '')
+    .replace(/\bPrep\b/gi, '')
+    .replace(/\bAccelerate(?:d|r|s|ing)?\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.;!?])/g, '$1')
+    .trim();
+}
+
 const CHECK_ICON = `
   <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
     <path d="M5 10.5l3 3 7-7" stroke-linecap="round" stroke-linejoin="round"></path>
@@ -508,6 +519,8 @@ function renderPlanCard({ plan, product, palette, variant }) {
       });
 
   const featuresMarkup = buildPlanFeatures(plan, product)
+    .map((feature) => cleanseMarketingCopy(feature))
+    .filter(Boolean)
     .map(
       (feature) => `<li>${CHECK_ICON}<span>${escapeHtml(feature)}</span></li>`
     )
@@ -520,15 +533,12 @@ function renderPlanCard({ plan, product, palette, variant }) {
   const tierLabel = plan.plan_tier || plan.code || 'Plan';
   const planIdentifier = plan.id || plan.code || 'plan';
   const rawPlanName = plan.name || 'Plan';
-  const displayPlanName = rawPlanName
-    ? rawPlanName
-        .replace(/\bMastery\b/gi, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-    : 'Plan';
+  const displayPlanName = cleanseMarketingCopy(rawPlanName) || 'Plan';
   const planName = escapeHtml(displayPlanName || 'Plan');
   const tierText = escapeHtml(tierLabel);
-  const subtitle = escapeHtml(buildPlanSubtitle(plan, product));
+  const subtitle = escapeHtml(
+    cleanseMarketingCopy(buildPlanSubtitle(plan, product)) || ''
+  );
   const priceText = escapeHtml(formatCurrency(plan.price, plan.currency));
   const billingTextSafe = escapeHtml(billingText);
   const productIdSafe = escapeHtml(planIdentifier);
