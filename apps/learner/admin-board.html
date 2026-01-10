@@ -22,23 +22,24 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 0.5rem;
-        padding: 0.75rem 1rem;
-        border-radius: 0.75rem;
-        font-weight: 600;
-        font-size: 0.875rem;
-        color: #0f172a;
+        gap: 0.4rem;
+        padding: 0.55rem 0.9rem;
+        border-radius: 9999px;
+        font-weight: 500;
+        font-size: 0.8rem;
+        color: #4b5563;
         transition: all 0.18s ease;
         flex: 1;
         min-width: 0;
         white-space: nowrap;
         position: relative;
         overflow: hidden;
+        background: transparent;
       }
 
       .nav-button svg {
-        width: 1.25rem;
-        height: 1.25rem;
+        width: 1.5rem;
+        height: 1.5rem;
         color: inherit;
         flex-shrink: 0;
       }
@@ -75,20 +76,18 @@
       }
 
       .nav-button:hover {
-        background: rgba(8, 145, 178, 0.12);
-        color: #036581;
-        transform: translateY(-1px);
+        background: rgba(15, 23, 42, 0.04);
+        color: #111827;
       }
 
       .nav-button--active {
-        background: linear-gradient(135deg, #0f9ac7, #0ea5b8);
-        color: #ffffff;
-        box-shadow: 0 4px 12px -2px rgba(6, 148, 168, 0.4);
-        transform: translateY(-1px);
+        background: rgba(37, 99, 235, 0.12);
+        color: #1d4ed8;
+        box-shadow: none;
       }
 
       .nav-button--active svg {
-        color: #ffffff;
+        color: #1d4ed8;
       }
 
       .nav-button[disabled] {
@@ -101,13 +100,6 @@
         transform: none;
         background: transparent;
         color: #0f172a;
-      }
-
-      .card {
-        background: rgba(255, 255, 255, 0.94);
-        border-radius: 1.5rem;
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        box-shadow: 0 24px 60px -40px rgba(15, 23, 42, 0.45);
       }
 
       .stat-chip {
@@ -127,7 +119,13 @@
 
       /* Bottom navigation bar specific styles */
       .fixed.bottom-0 {
-        box-shadow: 0 -4px 20px -4px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 -8px 30px -18px rgba(15, 23, 42, 0.25);
+        background: linear-gradient(
+          145deg,
+          #e0ecff 0%,
+          #eef3ff 40%,
+          #f4f6fb 100%
+        );
       }
 
       /* Safe area for mobile devices with notch/home indicator */
@@ -154,26 +152,68 @@
         z-index: 9999;
       }
 
+      /* Dashboard layout refinements */
+      .card {
+        background: #ffffff;
+        border-radius: 1.25rem;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        box-shadow: 0 16px 30px -24px rgba(15, 23, 42, 0.35);
+      }
+
+      .card--minimal {
+        border-radius: 1.25rem;
+        box-shadow: 0 12px 24px -20px rgba(15, 23, 42, 0.25);
+      }
+
+      .card--primary {
+        background: linear-gradient(145deg, #e0ecff 0%, #eef3ff 40%, #f4f6fb 100%);
+        border-color: rgba(148, 163, 184, 0.3);
+      }
+
+      .card--compact {
+        padding: 1.25rem;
+      }
+
+      [data-role='questions'] > div {
+        border-radius: 1rem;
+        border-width: 0;
+        background: transparent;
+        padding: 1.5rem 1rem;
+        box-shadow: none;
+      }
+
+      [data-role='questions'] > div svg {
+        width: 2.25rem;
+        height: 2.25rem;
+      }
+
+      [data-role='questions'] > div h3 {
+        margin-bottom: 0.5rem;
+      }
+
+      [data-role='questions'] > div p {
+        margin-bottom: 0.25rem;
+      }
+
       /* Mobile-first button bar styles */
       @media (max-width: 767px) {
         [data-role='nav-buttons'] {
           grid-template-columns: repeat(4, 1fr);
-          gap: 0.125rem;
-          padding: 0.25rem;
+          gap: 0.25rem;
+          padding: 0.25rem 0.5rem;
           max-width: 100%;
           margin: 0 auto;
           height: auto;
         }
 
         .nav-button {
-          padding: 0.75rem 0.25rem;
-          font-size: 0.625rem;
+          padding: 0.55rem 0.25rem;
+          font-size: 0.65rem;
           flex-direction: column;
-          gap: 0.25rem;
-          min-height: 3.75rem;
+          gap: 0.15rem;
+          min-height: 3.25rem;
           min-width: 44px;
-          border-radius: 0.5rem;
-          background: rgba(255, 255, 255, 0.95);
+          border-radius: 9999px;
           backdrop-filter: blur(10px);
           transition: all 0.2s ease;
           cursor: pointer;
@@ -184,8 +224,8 @@
         }
 
         .nav-button svg {
-          width: 1.25rem;
-          height: 1.25rem;
+          width: 1.4rem;
+          height: 1.4rem;
           flex-shrink: 0;
         }
 
@@ -197,12 +237,12 @@
         }
 
         .nav-button:hover {
-          background: rgba(8, 145, 178, 0.15);
+          background: rgba(15, 23, 42, 0.05);
         }
 
         .nav-button--active {
-          background: linear-gradient(135deg, #0f9ac7, #0ea5b8);
-          box-shadow: 0 2px 8px -2px rgba(6, 148, 168, 0.5);
+          background: rgba(37, 99, 235, 0.15);
+          box-shadow: none;
         }
 
         .nav-button--active:active {
@@ -257,18 +297,18 @@
 
         [data-role='nav-buttons'] {
           grid-template-columns: repeat(4, 1fr);
-          gap: 0.375rem;
-          padding: 0.375rem;
-          max-width: 600px;
+          gap: 0.25rem;
+          padding: 0.35rem 0.75rem;
+          max-width: 520px;
           margin: 0 auto;
         }
 
         .nav-button {
-          padding: 0.75rem 0.5rem;
+          padding: 0.6rem 0.4rem;
           font-size: 0.75rem;
           flex-direction: column;
-          gap: 0.25rem;
-          min-height: 4rem;
+          gap: 0.2rem;
+          min-height: 3.5rem;
         }
 
         .nav-button svg {
@@ -287,34 +327,34 @@
         [data-role='nav-buttons'] {
           display: flex;
           flex-direction: row;
-          gap: 0.25rem;
-          padding: 0.375rem;
+          gap: 0.5rem;
+          padding: 0.5rem 0.75rem;
           overflow-x: auto;
-          max-width: 800px;
+          max-width: 520px;
           margin: 0 auto;
           justify-content: center;
         }
 
         .nav-button {
-          padding: 0.75rem 1.25rem;
-          font-size: 0.9375rem;
+          padding: 0.6rem 0.9rem;
+          font-size: 0.85rem;
           flex-direction: row;
-          gap: 0.65rem;
+          gap: 0.45rem;
           min-height: auto;
           flex: 0 0 auto;
           white-space: nowrap;
-          background: rgba(255, 255, 255, 0.95);
+          background: transparent;
         }
 
         .nav-button svg {
-          width: 1.25rem;
-          height: 1.25rem;
+          width: 1.5rem;
+          height: 1.5rem;
         }
 
         .nav-button span {
-          font-size: 0.9375rem;
+          font-size: 0.85rem;
           line-height: 1.2;
-          font-weight: 600;
+          font-weight: 500;
         }
       }
 
@@ -336,14 +376,12 @@
       <div class="bg-white border-b border-slate-200/50">
         <div class="px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
           <div class="flex items-center gap-3">
-            <div
-              class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-emerald-500 text-white shadow-lg"
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5">
-                <path
-                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                />
-              </svg>
+            <div class="h-10 w-10 overflow-hidden rounded-full border border-cyan-700 shadow-sm">
+              <img
+                src="../assets/academicnightingale-logo.jpg"
+                alt="Academic Nightingale logo"
+                class="h-full w-full object-cover"
+              />
             </div>
             <div>
               <h1
@@ -359,7 +397,7 @@
       </div>
 
       <main class="flex-1 overflow-y-auto pb-20">
-        <div class="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+        <div class="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
           <div
             class="mb-6 hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
             role="status"
@@ -410,8 +448,8 @@
             </div>
           </div>
 
-          <section data-view="dashboard" class="space-y-8">
-            <div data-role="dashboard-content" class="space-y-8">
+          <section data-view="dashboard" class="space-y-6">
+            <div data-role="dashboard-content" class="space-y-6">
               <div
                 class="hidden flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 shadow-sm sm:flex-row sm:items-start sm:justify-between"
                 data-role="global-notice"
@@ -428,20 +466,69 @@
                   Dismiss
                 </button>
               </div>
-              <section
-                class="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm sm:p-8"
-              >
+              <section class="grid gap-4">
+                <article class="card card--primary card--compact sm:p-6">
+                  <div class="flex items-center justify-between gap-3">
+                    <div>
+                      <h3
+                        class="text-xl font-semibold text-slate-900"
+                        data-role="quiz-title"
+                      >
+                        Start your examination
+                      </h3>
+                      <p
+                        class="mt-1 text-sm text-slate-600"
+                        data-role="quiz-subtitle"
+                      >
+                        Stay consistent, complete this session to keep your
+                        streak alive.
+                      </p>
+                    </div>
+                    <span
+                      class="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-cyan-700"
+                      data-role="quiz-timer"
+                    >
+                      <span data-role="quiz-timer-value">—</span>
+                    </span>
+                  </div>
+                  <ul
+                    class="mt-5 space-y-3 text-sm text-slate-600"
+                    data-role="questions"
+                  ></ul>
+                  <div class="mt-6 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      class="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-cyan-700"
+                      data-role="resume-quiz"
+                    >
+                      Start / resume session
+                    </button>
+                    <button
+                      type="button"
+                      class="inline-flex items-center justify-center rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:border-cyan-200 hover:text-cyan-700"
+                      data-role="regenerate-quiz"
+                    >
+                      Regenerate session
+                    </button>
+                  </div>
+                  <div
+                    class="mt-6 hidden rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+                    data-role="completion-banner"
+                  ></div>
+                </article>
+              </section>
+
+              <section class="card card--minimal card--compact">
                 <div
                   class="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between"
                 >
                   <div class="space-y-5 lg:max-w-xl">
-                    <span class="stat-chip">Today's focus</span>
                     <div>
                       <h2
-                        class="text-3xl font-bold text-slate-900 sm:text-4xl"
+                        class="text-[15px] font-semibold text-slate-900"
                         data-role="hero-name"
                       >
-                        Ready to crush today's goals
+                        Dashboard
                       </h2>
                       <p
                         class="mt-3 text-sm text-slate-600"
@@ -453,7 +540,7 @@
                     </div>
                     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                       <article
-                        class="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-center"
+                        class="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-center"
                       >
                         <p
                           class="text-xs font-semibold uppercase tracking-wide text-slate-500"
@@ -468,7 +555,7 @@
                         </p>
                       </article>
                       <article
-                        class="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-center"
+                        class="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-center"
                       >
                         <p
                           class="text-xs font-semibold uppercase tracking-wide text-slate-500"
@@ -483,7 +570,7 @@
                         </p>
                       </article>
                       <article
-                        class="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-center"
+                        class="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-center"
                       >
                         <p
                           class="text-xs font-semibold uppercase tracking-wide text-slate-500"
@@ -498,7 +585,7 @@
                         </p>
                       </article>
                       <article
-                        class="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-center"
+                        class="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-center"
                       >
                         <p
                           class="text-xs font-semibold uppercase tracking-wide text-slate-500"
@@ -544,58 +631,6 @@
                     </p>
                   </div>
                 </div>
-              </section>
-
-              <section class="grid gap-6">
-                <article class="card p-6 sm:p-7">
-                  <div class="flex items-center justify-between gap-3">
-                    <div>
-                      <h3
-                        class="text-xl font-semibold text-slate-900"
-                        data-role="quiz-title"
-                      >
-                        Today's personalised drill
-                      </h3>
-                      <p
-                        class="mt-1 text-sm text-slate-600"
-                        data-role="quiz-subtitle"
-                      >
-                        Stay consistent—complete this session to keep your
-                        streak alive.
-                      </p>
-                    </div>
-                    <span
-                      class="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-cyan-700"
-                      data-role="quiz-timer"
-                    >
-                      <span data-role="quiz-timer-value">—</span>
-                    </span>
-                  </div>
-                  <ul
-                    class="mt-5 space-y-3 text-sm text-slate-600"
-                    data-role="questions"
-                  ></ul>
-                  <div class="mt-6 flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      class="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-cyan-700"
-                      data-role="resume-quiz"
-                    >
-                      Start / resume session
-                    </button>
-                    <button
-                      type="button"
-                      class="inline-flex items-center justify-center rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:border-cyan-200 hover:text-cyan-700"
-                      data-role="regenerate-quiz"
-                    >
-                      Regenerate session
-                    </button>
-                  </div>
-                  <div
-                    class="mt-6 hidden rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
-                    data-role="completion-banner"
-                  ></div>
-                </article>
               </section>
 
               <section
@@ -881,11 +916,11 @@
 
       <!-- Bottom Navigation Bar -->
       <div
-        class="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200/70 bg-white/95 backdrop-blur-md safe-area-inset-bottom"
+        class="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200/50 bg-white/90 backdrop-blur-md safe-area-inset-bottom"
       >
         <div class="px-4 py-2 sm:px-6 sm:py-3 lg:px-8">
           <div
-            class="grid grid-cols-4 gap-1 rounded-2xl border border-slate-200 bg-white/90 p-1 overflow-hidden shadow-lg max-w-2xl mx-auto"
+            class="grid grid-cols-4 gap-1 rounded-3xl bg-white/40 p-1 max-w-xl mx-auto"
             data-role="nav-buttons"
           >
             <button
@@ -898,8 +933,8 @@
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  stroke-width="1.5"
-                  d="M3 12l2-2m0 0l7-7 7 7m-9 9V9a2 2 0 012-2h4a2 2 0 012 2v10"
+                  stroke-width="1.6"
+                  d="M3 9.75 12 3l9 6.75V20.25a.75.75 0 0 1-.75.75h-5.25a.75.75 0 0 1-.75-.75V15a.75.75 0 0 0-.75-.75h-3A.75.75 0 0 0 10.5 15v5.25a.75.75 0 0 1-.75.75H3.75A.75.75 0 0 1 3 20.25z"
                 />
               </svg>
               <span>Dashboard</span>
@@ -909,8 +944,8 @@
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  stroke-width="1.5"
-                  d="M5 6h14M5 12h14M5 18h7"
+                  stroke-width="1.6"
+                  d="M5 7.5h14M5 12h14M5 16.5h9"
                 />
               </svg>
               <span>Plan</span>
@@ -925,8 +960,8 @@
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  stroke-width="1.5"
-                  d="M12 8c1.656 0 3-.895 3-2s-1.344-2-3-2-3 .895-3 2 1.344 2 3 2zM6 22h12M5 20l2-6h10l2 6"
+                  stroke-width="1.6"
+                  d="M12 4.5 14.3 9l5.2.35-4 3.45 1.2 5.2L12 15.7l-4.7 2.3 1.2-5.2-4-3.45 5.2-.35z"
                 />
               </svg>
               <span
@@ -941,8 +976,8 @@
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  stroke-width="1.5"
-                  d="M15 11a3 3 0 10-6 0 3 3 0 006 0zM5 20a7 7 0 0114 0"
+                  stroke-width="1.6"
+                  d="M12 11.5a3.75 3.75 0 1 0-3.75-3.75A3.75 3.75 0 0 0 12 11.5Zm0 2.25c-3.2 0-6 1.41-6 3.15 0 .6.45 1.1 1 1.1h10c.55 0 1-.5 1-1.1 0-1.74-2.8-3.15-6-3.15Z"
                 />
               </svg>
               <span>Profile</span>
