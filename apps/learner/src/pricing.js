@@ -14,8 +14,12 @@ const gateLoadingEl = document.querySelector(
   '[data-role="department-loading"]'
 );
 const gateGeneralBtn = document.querySelector('[data-role="select-general"]');
-const authChoiceModal = document.querySelector('[data-role="auth-choice-modal"]');
-const authChoicePanel = document.querySelector('[data-role="auth-choice-panel"]');
+const authChoiceModal = document.querySelector(
+  '[data-role="auth-choice-modal"]'
+);
+const authChoicePanel = document.querySelector(
+  '[data-role="auth-choice-panel"]'
+);
 const authChoiceCloseBtn = document.querySelector(
   '[data-role="auth-choice-close"]'
 );
@@ -515,7 +519,14 @@ function renderPlanCard({ plan, product, palette, variant }) {
 
   const tierLabel = plan.plan_tier || plan.code || 'Plan';
   const planIdentifier = plan.id || plan.code || 'plan';
-  const planName = escapeHtml(plan.name || 'Plan');
+  const rawPlanName = plan.name || 'Plan';
+  const displayPlanName = rawPlanName
+    ? rawPlanName
+        .replace(/\bMastery\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+    : 'Plan';
+  const planName = escapeHtml(displayPlanName || 'Plan');
   const tierText = escapeHtml(tierLabel);
   const subtitle = escapeHtml(buildPlanSubtitle(plan, product));
   const priceText = escapeHtml(formatCurrency(plan.price, plan.currency));
@@ -955,7 +966,10 @@ async function ensureProfile() {
       const fallbackName = state.user.email?.split('@')[0] ?? 'Learner';
       const metadata = state.user.user_metadata || {};
       const fullName =
-        metadata.full_name || metadata.name || metadata.fullName || fallbackName;
+        metadata.full_name ||
+        metadata.name ||
+        metadata.fullName ||
+        fallbackName;
       const parts = String(fullName || '')
         .trim()
         .split(/\s+/)
@@ -1186,24 +1200,6 @@ async function waitForActiveProfile(options = {}) {
     }
   }
   return false;
-}
-
-async function verifyExistingPayment(reference) {
-  const supabase = await getSupabaseClient();
-  const { data, error } = await supabase.functions.invoke('paystack-verify', {
-    body: { reference },
-  });
-  if (error) {
-    const message = await extractEdgeFunctionError(
-      error,
-      'Payment verification failed. Please contact support with your reference.'
-    );
-    throw new Error(message);
-  }
-
-  if (data?.error) {
-    throw new Error(String(data.error));
-  }
 }
 
 async function refreshProfileStatus() {
