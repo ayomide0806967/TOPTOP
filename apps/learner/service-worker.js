@@ -1,22 +1,18 @@
 // NOTE: This service worker is registered from exam pages, but it controls the
 // entire /apps/learner/ scope once installed. Use online-first strategies for
 // unversioned assets (CSS/JS) to avoid UI "reverting" to old cached builds.
-const STATIC_CACHE = 'learner-static-v3';
-const RUNTIME_CACHE = 'learner-runtime-v3';
-const FONT_CACHE = 'learner-font-v3';
+const STATIC_CACHE = 'learner-static-v4';
+const RUNTIME_CACHE = 'learner-runtime-v4';
+const FONT_CACHE = 'learner-font-v4';
 
 // Keep pre-cache small and stable. Avoid caching HTML pages here because they
 // change often and are not filename-versioned.
 const APP_SHELL = [
   './offline.html',
-  './manifest.webmanifest',
-  './shared/footer-content.html',
-  './src/pwa-bootstrap.js',
   '../assets/academicnightingale-logo.jpg',
   '../assets/academicnightingale-icon-32.png',
   '../assets/academicnightingale-icon-192.png',
   '../assets/academicnightingale-icon-512.png',
-  '../assets/tailwind.css',
 ];
 
 const BASE_URL = self.location.href.replace(/service-worker\.js$/, '');
