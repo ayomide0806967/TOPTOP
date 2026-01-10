@@ -470,6 +470,8 @@ function cleanseMarketingCopy(text) {
   return text
     .replace(/\bMastery\b/gi, '')
     .replace(/\bPrep\b/gi, '')
+    .replace(/\bPreparation\b/gi, '')
+    .replace(/\bPreparing\b/gi, '')
     .replace(/\bAccelerate(?:d|r|s|ing)?\b/gi, '')
     .replace(/\s{2,}/g, ' ')
     .replace(/\s+([,.;!?])/g, '$1')
@@ -543,7 +545,7 @@ function renderPlanCard({ plan, product, palette, variant }) {
   const billingTextSafe = escapeHtml(billingText);
   const productIdSafe = escapeHtml(planIdentifier);
   const isLoading = state.checkout.loadingPlanId === planIdentifier;
-  const ctaLabel = isLoading ? 'Preparing checkout…' : `Choose ${planName}`;
+  const ctaLabel = isLoading ? 'Starting checkout…' : `Choose ${planName}`;
 
   return `
     <article class="plan-card ${isContrast ? 'plan-card--contrast' : 'plan-card--soft'}" data-plan-id="${productIdSafe}" style="${style}">
@@ -1262,7 +1264,7 @@ async function startExistingUserCheckout(planId) {
     }
 
     setCheckoutLoading(planKey);
-    showBanner('Preparing secure checkout. Please wait…', 'info');
+    showBanner('Starting secure checkout…', 'info');
 
     const supabase = await getSupabaseClient();
     const { data, error } = await supabase.functions.invoke(
