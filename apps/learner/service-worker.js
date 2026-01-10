@@ -1,50 +1,21 @@
-const STATIC_CACHE = 'learner-static-v2';
-const RUNTIME_CACHE = 'learner-runtime-v2';
-const FONT_CACHE = 'learner-font-v2';
+// NOTE: This service worker is registered from exam pages, but it controls the
+// entire /apps/learner/ scope once installed. Use online-first strategies for
+// unversioned assets (CSS/JS) to avoid UI "reverting" to old cached builds.
+const STATIC_CACHE = 'learner-static-v3';
+const RUNTIME_CACHE = 'learner-runtime-v3';
+const FONT_CACHE = 'learner-font-v3';
 
+// Keep pre-cache small and stable. Avoid caching HTML pages here because they
+// change often and are not filename-versioned.
 const APP_SHELL = [
-  './',
-  './index.html',
-  './about-us.html',
-  './admin-board.html',
-  './blog.html',
-  './careers.html',
-  './contact.html',
-  './press-release.html',
-  './exam-builder.html',
-  './exam-face.html',
-  './forgot-password.html',
-  './help-center.html',
-  './login.html',
-  './privacy-policy.html',
-  './registration-before-payment.html',
-  './reset-password.html',
-  './result-face.html',
-  './resume-registration.html',
-  './subscription-plans.html',
-  './terms-of-service.html',
   './offline.html',
   './manifest.webmanifest',
   './shared/footer-content.html',
   './src/pwa-bootstrap.js',
-  './src/auth.js',
-  './src/authGuard.js',
-  './src/dashboard.js',
-  './src/dashboard.bak.js',
-  './src/exam-face.js',
-  './src/forgot-password.js',
-  './src/pricing.js',
-  './src/registration-before.js',
-  './src/reset-password.js',
-  './src/result-face.js',
-  './src/resume-registration.js',
   '../assets/academicnightingale-logo.jpg',
   '../assets/academicnightingale-icon-32.png',
   '../assets/academicnightingale-icon-192.png',
   '../assets/academicnightingale-icon-512.png',
-  '../assets/admin-screenshot-wide.png',
-  '../assets/admin-screenshot-portrait.png',
-  '../assets/partnership.png',
   '../assets/tailwind.css',
 ];
 
@@ -120,6 +91,10 @@ function cacheFirst(request) {
   });
 }
 
+function cacheOnly(request) {
+  return caches.match(request);
+}
+
 function staleWhileRevalidate(request, cacheName = RUNTIME_CACHE) {
   return caches.match(request).then((cached) => {
     const fetchPromise = fetch(request)
@@ -149,6 +124,22 @@ function networkFirst(request, fallback) {
     .catch(() => caches.match(request).then((cached) => cached || fallback));
 }
 
+self.addEventListener('message', (event) => {
+  const type = event?.data?.type;
+  if (type === 'SKIP_WAITING' || type === 'SKIP_WAITING_AND_EXIT') {
+    event.waitUntil(
+      (async () => {
+        try {
+          await self.skipWaiting();
+          await self.clients.claim();
+        } catch (error) {
+          console.warn('[ServiceWorker] skipWaiting failed', error);
+        }
+      })()
+    );
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
@@ -177,6 +168,20 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.origin === self.location.origin) {
+    const pathname = url.pathname.toLowerCase();
+    const isCss = request.destination === 'style' || pathname.endsWith('.css');
+    const isScript =
+      request.destination === 'script' ||
+      pathname.endsWith('.js') ||
+      pathname.endsWith('.mjs');
+
+    // Unversioned CSS/JS must be online-first to prevent serving stale builds.
+    if (isCss || isScript) {
+      event.respondWith(networkFirst(request));
+      return;
+    }
+
+    // Pre-cached assets (icons, offline page, tailwind) can be served cache-first.
     if (SHELL_SET.has(request.url)) {
       event.respondWith(cacheFirst(request));
       return;
