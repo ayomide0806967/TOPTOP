@@ -2069,14 +2069,13 @@ function updateQuizSection() {
   if (!state.todayQuiz) {
     // No quiz exists yet
     if (elements.quizTitle) {
-      elements.quizTitle.textContent = "Today's Questions";
+      elements.quizTitle.textContent = 'Start your examination';
     }
     if (elements.quizSubtitle) {
-      elements.quizSubtitle.textContent =
-        'Your daily practice questions are ready to generate';
+      elements.quizSubtitle.textContent = 'Your questions are ready.';
     }
     if (elements.resumeBtn) {
-      elements.resumeBtn.textContent = 'Start Daily Questions';
+      elements.resumeBtn.textContent = 'Start examination';
       elements.resumeBtn.classList.remove('hidden');
     }
     setDailyButtonVariant('pending');
@@ -2085,20 +2084,19 @@ function updateQuizSection() {
     }
     if (elements.questions) {
       elements.questions.innerHTML = `
-        <div class="rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center">
-          <svg class="h-16 w-16 mx-auto text-cyan-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+        <li class="quiz-state">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" class="text-slate-700">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M12 6.25V20m0-13.75c-1.1-.85-2.55-1.35-4.25-1.35S4.6 5.4 3.5 6.25V20c1.1-.85 2.55-1.35 4.25-1.35S10.9 19.15 12 20m0-13.75c1.1-.85 2.55-1.35 4.25-1.35s3.15.5 4.25 1.35V20c-1.1-.85-2.55-1.35-4.25-1.35S13.1 19.15 12 20"></path>
           </svg>
-          <h3 class="text-lg font-semibold text-slate-900 mb-2">Ready to Practice?</h3>
-          <p class="text-sm text-slate-600 mb-4">Click "Start Daily Questions" to begin your personalized practice session for today.</p>
-          <p class="text-xs text-slate-500">Questions are tailored to your department and study progress</p>
-        </div>
+          <h3 class="text-base font-semibold text-slate-900">Ready?</h3>
+          <p class="text-sm text-slate-600">Tap “Start examination” to begin.</p>
+        </li>
       `;
     }
   } else if (state.todayQuiz.status === 'completed') {
     // Quiz completed
     if (elements.quizTitle) {
-      elements.quizTitle.textContent = "Today's Questions - Completed ✓";
+      elements.quizTitle.textContent = 'Examination completed';
     }
     if (elements.quizSubtitle) {
       const score = state.todayQuiz.correct_answers || 0;
@@ -2107,7 +2105,7 @@ function updateQuizSection() {
       elements.quizSubtitle.textContent = `Score: ${score}/${total} (${percent}%)`;
     }
     if (elements.resumeBtn) {
-      elements.resumeBtn.textContent = 'Review Results';
+      elements.resumeBtn.textContent = 'View results';
       elements.resumeBtn.classList.remove('hidden');
     }
     setDailyButtonVariant('completed');
@@ -2116,17 +2114,14 @@ function updateQuizSection() {
     }
     if (elements.questions) {
       elements.questions.innerHTML = `
-        <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-8 text-center">
-          <svg class="h-16 w-16 mx-auto text-emerald-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <li class="quiz-state">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" class="text-emerald-700">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <h3 class="text-lg font-semibold text-emerald-900 mb-2">Great Job!</h3>
-          <p class="text-sm text-emerald-700 mb-4">You've completed today's questions. Click "Review Results" to see detailed feedback and corrections.</p>
-          <div class="flex justify-center gap-4 text-sm">
-            <span class="font-medium">Score: ${state.todayQuiz.correct_answers}/${state.todayQuiz.total_questions}</span>
-            <span class="font-medium">${toPercent(state.todayQuiz.correct_answers, state.todayQuiz.total_questions)}%</span>
-          </div>
-        </div>
+          <h3 class="text-base font-semibold text-slate-900">Done</h3>
+          <p class="text-sm text-slate-600">You can view your results or start again.</p>
+          <p class="text-xs text-slate-500">Score: ${state.todayQuiz.correct_answers}/${state.todayQuiz.total_questions} (${toPercent(state.todayQuiz.correct_answers, state.todayQuiz.total_questions)}%)</p>
+        </li>
       `;
     }
     if (elements.completionBanner) {
@@ -2135,13 +2130,13 @@ function updateQuizSection() {
   } else {
     // Quiz in progress or assigned
     if (elements.quizTitle) {
-      elements.quizTitle.textContent = "Today's Questions - In Progress";
+      elements.quizTitle.textContent = 'Continue your examination';
     }
     if (elements.quizSubtitle) {
-      elements.quizSubtitle.textContent = 'Continue where you left off';
+      elements.quizSubtitle.textContent = 'Continue where you stopped.';
     }
     if (elements.resumeBtn) {
-      elements.resumeBtn.textContent = 'Continue Quiz';
+      elements.resumeBtn.textContent = 'Continue';
       elements.resumeBtn.classList.remove('hidden');
     }
     setDailyButtonVariant('pending');
@@ -2150,14 +2145,13 @@ function updateQuizSection() {
     }
     if (elements.questions) {
       elements.questions.innerHTML = `
-        <div class="rounded-2xl border border-cyan-200 bg-cyan-50 px-6 py-8 text-center">
-          <svg class="h-16 w-16 mx-auto text-cyan-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        <li class="quiz-state">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" class="text-cyan-700">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <h3 class="text-lg font-semibold text-cyan-900 mb-2">Quiz in Progress</h3>
-          <p class="text-sm text-cyan-700 mb-4">You have an ongoing quiz session. Click "Continue Quiz" to resume answering questions.</p>
-          <p class="text-xs text-cyan-600">Your progress is automatically saved</p>
-        </div>
+          <h3 class="text-base font-semibold text-slate-900">In progress</h3>
+          <p class="text-sm text-slate-600">Tap “Continue” to resume.</p>
+        </li>
       `;
     }
   }
