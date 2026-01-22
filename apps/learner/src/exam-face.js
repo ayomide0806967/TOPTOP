@@ -1846,6 +1846,17 @@ async function loadQuizData() {
     });
     if (error) throw error;
 
+    if (data?.status === 'completed' || data?.attempt?.completed_at) {
+      const resultsUrl = new URL(window.location.href);
+      resultsUrl.pathname = resultsUrl.pathname.replace(
+        /[^/]+$/,
+        'result-face.html'
+      );
+      resultsUrl.searchParams.set('exam_hall_attempt', examHallAttemptId);
+      window.location.replace(resultsUrl.toString());
+      return;
+    }
+
     const quiz = data?.quiz || null;
     const attempt = data?.attempt || null;
     if (!quiz?.id || !attempt?.id) {

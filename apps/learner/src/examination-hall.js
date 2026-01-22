@@ -61,6 +61,13 @@ form?.addEventListener('submit', async (event) => {
     }
 
     const url = new URL(window.location.href);
+    if (data?.status === 'completed' || data?.attempt?.completed_at) {
+      url.pathname = url.pathname.replace(/[^/]+$/, 'result-face.html');
+      url.searchParams.set('exam_hall_attempt', attemptId);
+      window.location.assign(url.toString());
+      return;
+    }
+
     url.pathname = url.pathname.replace(/[^/]+$/, 'exam-face.html');
     url.searchParams.set('exam_hall_attempt', attemptId);
     window.location.assign(url.toString());
