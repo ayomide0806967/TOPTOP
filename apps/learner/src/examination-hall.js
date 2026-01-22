@@ -45,7 +45,7 @@ form?.addEventListener('submit', async (event) => {
   setStatus('Validating PIN and admission number…');
 
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await getSupabaseClient();
     const { data, error } = await supabase.rpc('start_exam_hall', {
       p_pin: pin,
       p_admission_no: admissionNo,

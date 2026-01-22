@@ -128,6 +128,14 @@
         anonKey:
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobmhmYWd5ZGN5bmhrZ2JhemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwMDM2MjQsImV4cCI6MjA3NDU3OTYyNH0.KHgZ_ESTneR0CqWBGfu-JOmI3eBBLCZr1XG-g2vpclw',
       };
+      window.__SUPABASE_CONFIG__.options =
+        window.__SUPABASE_CONFIG__.options || {};
+      window.__SUPABASE_CONFIG__.options.auth = {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        storageKey: 'an.supabase.auth.exam_hall',
+      };
     </script>
     <script type="module" src="./src/examination-hall.js?v=cbd263c"></script>
     <script type="module" src="src/pwa-bootstrap.js?v=cbd263c"></script>
