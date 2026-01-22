@@ -30,7 +30,6 @@ dist/
 
 # Supabase
 supabase/.temp/
-supabase/migrations/
 
 # Database
 *.db
