@@ -687,6 +687,12 @@ function buildFreeQuiz(row) {
     intro: row.intro,
     is_active: row.is_active,
     time_limit_seconds: row.time_limit_seconds,
+    access_mode: row.access_mode ?? 'public',
+    join_pin: row.join_pin ?? null,
+    starts_at: row.starts_at ?? null,
+    ends_at: row.ends_at ?? null,
+    seat_limit: row.seat_limit ?? null,
+    pass_mark_percent: row.pass_mark_percent ?? 50,
     question_count: row.question_count ?? 0,
     total_attempts: row.total_attempts ?? 0,
     average_score: row.average_score ?? 0,
@@ -694,6 +700,39 @@ function buildFreeQuiz(row) {
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
+}
+
+function buildExamHallQuiz(row) {
+  if (!row) return null;
+  return {
+    ...buildFreeQuiz({
+      ...row,
+      access_mode: 'exam_hall',
+      total_attempts: row.attempt_count ?? 0,
+      average_duration_seconds: null,
+      average_score: row.average_score ?? 0,
+    }),
+    candidate_count: row.candidate_count ?? 0,
+    completed_count: row.completed_count ?? 0,
+  };
+}
+
+function generateNumericPin(length = 6) {
+  const pinLength = Math.min(8, Math.max(4, Number(length) || 6));
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const bytes = new Uint8Array(pinLength);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes)
+      .map((b) => String(b % 10))
+      .join('');
+  }
+  return Array.from({ length: pinLength })
+    .map(() => String(Math.floor(Math.random() * 10)))
+    .join('');
+}
+
+function normalizeAdmissionNo(value) {
+  return (value ?? '').toString().trim().toUpperCase();
 }
 
 function buildFreeQuizQuestion(row) {
@@ -3559,6 +3598,122 @@ class DataService {
     }
   }
 
+  async listExamHallQuizzes() {
+    const client = await ensureClient();
+    try {
+      const { data, error } = await client
+        .from('exam_hall_metrics')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return Array.isArray(data) ? data.map(buildExamHallQuiz) : [];
+    } catch (error) {
+      throw wrapError('Failed to load examination hall quizzes.', error);
+    }
+  }
+
+  async createExamHallQuiz({
+    title,
+    description,
+    intro,
+    starts_at,
+    ends_at,
+    seat_limit,
+    time_limit_seconds,
+    is_active = true,
+    pin_length = 6,
+  }) {
+    const client = await ensureClient();
+    const baseSlug = slugify(title);
+    const basePayload = {
+      title,
+      description,
+      intro,
+      access_mode: 'exam_hall',
+      is_active,
+      starts_at: starts_at || null,
+      ends_at: ends_at || null,
+      seat_limit: seat_limit != null ? Number(seat_limit) : null,
+      time_limit_seconds: time_limit_seconds
+        ? Number(time_limit_seconds)
+        : null,
+      pass_mark_percent: 50,
+    };
+
+    let lastError = null;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const slugSuffix = attempt ? `-eh${attempt + 1}` : '';
+      const payload = {
+        ...basePayload,
+        join_pin: generateNumericPin(pin_length),
+        slug: `${baseSlug}${slugSuffix}`,
+      };
+      try {
+        const { data, error } = await client
+          .from('free_quizzes')
+          .insert(payload)
+          .select('*')
+          .single();
+        if (error) throw error;
+        return buildFreeQuiz(data);
+      } catch (error) {
+        lastError = error;
+        if (error?.code === '23505') {
+          continue;
+        }
+        throw wrapError('Failed to create examination hall quiz.', error, {
+          payload,
+        });
+      }
+    }
+    throw wrapError(
+      'Failed to create examination hall quiz (PIN collision).',
+      lastError,
+      { title }
+    );
+  }
+
+  async updateExamHallQuiz(quizId, updates) {
+    const client = await ensureClient();
+    const payload = {};
+    if (updates.title !== undefined) {
+      payload.title = updates.title;
+    }
+    if (updates.description !== undefined)
+      payload.description = updates.description;
+    if (updates.intro !== undefined) payload.intro = updates.intro;
+    if (updates.time_limit_seconds !== undefined)
+      payload.time_limit_seconds = updates.time_limit_seconds
+        ? Number(updates.time_limit_seconds)
+        : null;
+    if (updates.is_active !== undefined) payload.is_active = updates.is_active;
+    if (updates.starts_at !== undefined) payload.starts_at = updates.starts_at;
+    if (updates.ends_at !== undefined) payload.ends_at = updates.ends_at;
+    if (updates.seat_limit !== undefined)
+      payload.seat_limit =
+        updates.seat_limit != null && updates.seat_limit !== ''
+          ? Number(updates.seat_limit)
+          : null;
+    if (updates.join_pin !== undefined) payload.join_pin = updates.join_pin;
+
+    if (!Object.keys(payload).length) return null;
+    try {
+      const { data, error } = await client
+        .from('free_quizzes')
+        .update(payload)
+        .eq('id', quizId)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return buildFreeQuiz(data);
+    } catch (error) {
+      throw wrapError('Failed to update examination hall quiz.', error, {
+        quizId,
+        payload,
+      });
+    }
+  }
+
   async getFreeQuizDetail(quizId) {
     const client = await ensureClient();
     try {
@@ -3581,6 +3736,68 @@ class DataService {
       return { quiz, questions };
     } catch (error) {
       throw wrapError('Failed to load free quiz details.', error, { quizId });
+    }
+  }
+
+  async listExamHallCandidates(quizId) {
+    const client = await ensureClient();
+    try {
+      const { data, error } = await client
+        .from('exam_hall_candidates')
+        .select('id, admission_no, is_active, created_at, updated_at')
+        .eq('free_quiz_id', quizId)
+        .order('admission_no', { ascending: true });
+      if (error) throw error;
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      throw wrapError('Failed to load exam hall candidates.', error, {
+        quizId,
+      });
+    }
+  }
+
+  async upsertExamHallCandidates(quizId, admissionNumbers = []) {
+    const client = await ensureClient();
+    const normalized = Array.isArray(admissionNumbers)
+      ? admissionNumbers
+          .map((value) => normalizeAdmissionNo(value))
+          .filter(Boolean)
+      : [];
+    const unique = Array.from(new Set(normalized));
+    if (!unique.length) return { insertedCount: 0 };
+    const payload = unique.map((admissionNo) => ({
+      free_quiz_id: quizId,
+      admission_no: admissionNo,
+      is_active: true,
+    }));
+    try {
+      const { data, error } = await client
+        .from('exam_hall_candidates')
+        .upsert(payload, { onConflict: 'free_quiz_id,admission_no' })
+        .select('id');
+      if (error) throw error;
+      return { insertedCount: Array.isArray(data) ? data.length : 0 };
+    } catch (error) {
+      throw wrapError('Failed to upload exam hall candidates.', error, {
+        quizId,
+      });
+    }
+  }
+
+  async exportExamHallResults(quizId) {
+    const client = await ensureClient();
+    try {
+      const { data, error } = await client
+        .from('exam_hall_attempts')
+        .select(
+          'first_name, last_name, phone, admission_no, score_percent, duration_seconds, correct_count, total_questions, passed, completed_at'
+        )
+        .eq('free_quiz_id', quizId)
+        .order('admission_no', { ascending: true });
+      if (error) throw error;
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      throw wrapError('Failed to export exam hall results.', error, { quizId });
     }
   }
 

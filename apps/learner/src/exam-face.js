@@ -30,6 +30,8 @@ const state = {
   mode: 'daily',
   dailyQuiz: null, // active quiz metadata (daily or free)
   freeQuizAttempt: null,
+  examHallAttempt: null,
+  examHallSession: null,
   extraSet: null,
   extraAttempt: null,
   extraPlanId: null,
@@ -166,9 +168,10 @@ function selectEntriesByRule(entries, rule, context = {}) {
     const T = entries.length;
     if (!T) return [];
     // Use selected plan tiers from visibility rules; fall back to [100,200,250]
-    const selectedTiers = Array.isArray(context.selectedTiers) && context.selectedTiers.length
-      ? context.selectedTiers.map(String)
-      : ['100', '200', '250'];
+    const selectedTiers =
+      Array.isArray(context.selectedTiers) && context.selectedTiers.length
+        ? context.selectedTiers.map(String)
+        : ['100', '200', '250'];
     const m = Math.max(1, selectedTiers.length);
     const base = Math.floor(T / m);
     let remainder = T - base * m;
@@ -199,8 +202,37 @@ const STORAGE_KEYS = {
   PENDING_SUBMISSION: 'pending_submission_',
   OFFLINE_ANSWERS: 'offline_answers_',
   FREE_PROGRESS: 'free_quiz_progress_',
+  EXAM_HALL_PROGRESS: 'exam_hall_progress_',
   EXTRA_PROGRESS: 'extra_quiz_progress_',
 };
+
+function getExamHallAttemptId() {
+  return (
+    state.examHallAttempt?.id || state.examHallSession?.attempt?.id || null
+  );
+}
+
+function getExamDeadlineKey() {
+  if (state.mode === 'exam_hall') {
+    const attemptId = getExamHallAttemptId();
+    return attemptId
+      ? `${STORAGE_KEYS.EXAM_DEADLINE}exam_hall_${attemptId}`
+      : null;
+  }
+  if (!state.dailyQuiz) return null;
+  return STORAGE_KEYS.EXAM_DEADLINE + state.dailyQuiz.id;
+}
+
+function getPendingSubmissionKey() {
+  if (state.mode === 'exam_hall') {
+    const attemptId = getExamHallAttemptId();
+    return attemptId
+      ? `${STORAGE_KEYS.PENDING_SUBMISSION}exam_hall_${attemptId}`
+      : null;
+  }
+  if (!state.dailyQuiz) return null;
+  return STORAGE_KEYS.PENDING_SUBMISSION + state.dailyQuiz.id;
+}
 
 function readExtraSetLaunchDebug() {
   if (typeof sessionStorage === 'undefined') return null;
@@ -525,16 +557,34 @@ function setTimerDisplay(text) {
 }
 
 function updateTimer() {
-  const limit = Number(state.dailyQuiz?.time_limit_seconds || 0);
-  if (!limit || !state.dailyQuiz) {
+  if (!state.dailyQuiz) {
     setTimerDisplay('No limit');
     return;
   }
+
   const startedAt = state.dailyQuiz.started_at
     ? new Date(state.dailyQuiz.started_at)
     : null;
-  if (!startedAt) {
-    // Not started yet; show full limit
+
+  const deadlineKey = getExamDeadlineKey();
+  const deadlineStr = deadlineKey ? localStorage.getItem(deadlineKey) : null;
+  const deadline = deadlineStr ? new Date(deadlineStr) : null;
+  const hasDeadline = deadline && !Number.isNaN(deadline.getTime());
+
+  const limit = Number(state.dailyQuiz?.time_limit_seconds || 0);
+  if (
+    !hasDeadline &&
+    (!limit || !startedAt || Number.isNaN(startedAt.getTime()))
+  ) {
+    setTimerDisplay('No limit');
+    return;
+  }
+
+  if (!startedAt || Number.isNaN(startedAt.getTime())) {
+    if (!limit) {
+      setTimerDisplay('No limit');
+      return;
+    }
     const hours = Math.floor(limit / 3600);
     const minutes = Math.floor((limit % 3600) / 60);
     const seconds = limit % 60;
@@ -543,11 +593,16 @@ function updateTimer() {
     );
     return;
   }
-  const elapsed = Math.max(
-    0,
-    Math.floor((Date.now() - startedAt.getTime()) / 1000)
-  );
-  const remaining = limit - elapsed;
+
+  const remaining = hasDeadline
+    ? Math.floor((deadline.getTime() - Date.now()) / 1000)
+    : (() => {
+        const elapsed = Math.max(
+          0,
+          Math.floor((Date.now() - startedAt.getTime()) / 1000)
+        );
+        return limit - elapsed;
+      })();
   if (remaining <= 0) {
     setTimerDisplay("Time's up!");
     clearInterval(state.timerId);
@@ -566,8 +621,16 @@ function updateTimer() {
 
 function startTimerTicking() {
   clearTimer();
+  if (!state.dailyQuiz) {
+    setTimerDisplay('No limit');
+    return;
+  }
+  const deadlineKey = getExamDeadlineKey();
+  const deadlineStr = deadlineKey ? localStorage.getItem(deadlineKey) : null;
+  const deadline = deadlineStr ? new Date(deadlineStr) : null;
+  const hasDeadline = deadline && !Number.isNaN(deadline.getTime());
   const limit = Number(state.dailyQuiz?.time_limit_seconds || 0);
-  if (!limit) {
+  if (!hasDeadline && !limit) {
     setTimerDisplay('No limit');
     return;
   }
@@ -590,21 +653,36 @@ function clearTimer() {
 function storeExamDeadline() {
   if (!state.dailyQuiz || !state.dailyQuiz.started_at) return;
 
-  const limit = Number(state.dailyQuiz.time_limit_seconds || 0);
-  if (!limit) return;
-
   const startedAt = new Date(state.dailyQuiz.started_at);
-  const deadline = new Date(startedAt.getTime() + limit * 1000);
+  if (Number.isNaN(startedAt.getTime())) return;
 
-  const key = STORAGE_KEYS.EXAM_DEADLINE + state.dailyQuiz.id;
-  localStorage.setItem(key, deadline.toISOString());
+  const limit = Number(state.dailyQuiz.time_limit_seconds || 0);
+  const limitDeadline =
+    limit > 0 ? new Date(startedAt.getTime() + limit * 1000) : null;
+
+  const endsAtStr = state.dailyQuiz.ends_at || null;
+  const endsAt = endsAtStr ? new Date(endsAtStr) : null;
+  const hasEndsAt = endsAt && !Number.isNaN(endsAt.getTime());
+
+  const effectiveDeadline = hasEndsAt
+    ? limitDeadline
+      ? new Date(Math.min(limitDeadline.getTime(), endsAt.getTime()))
+      : endsAt
+    : limitDeadline;
+
+  if (!effectiveDeadline) return;
+
+  const key = getExamDeadlineKey();
+  if (!key) return;
+  localStorage.setItem(key, effectiveDeadline.toISOString());
 }
 
 // Check if exam deadline has passed
 function checkExamDeadline() {
   if (!state.dailyQuiz) return false;
 
-  const key = STORAGE_KEYS.EXAM_DEADLINE + state.dailyQuiz.id;
+  const key = getExamDeadlineKey();
+  if (!key) return false;
   const deadlineStr = localStorage.getItem(key);
 
   if (!deadlineStr) return false;
@@ -617,8 +695,8 @@ function checkExamDeadline() {
 
 // Clear exam deadline from localStorage
 function clearExamDeadline() {
-  if (!state.dailyQuiz) return;
-  const key = STORAGE_KEYS.EXAM_DEADLINE + state.dailyQuiz.id;
+  const key = getExamDeadlineKey();
+  if (!key) return;
   localStorage.removeItem(key);
 }
 
@@ -681,6 +759,25 @@ function cleanupOldDeadlines() {
           }
         }
       }
+      if (key.startsWith(STORAGE_KEYS.EXAM_HALL_PROGRESS)) {
+        const dataStr = localStorage.getItem(key);
+        if (dataStr) {
+          try {
+            const data = JSON.parse(dataStr);
+            const timestamp = new Date(
+              data.lastUpdatedAt || data.startedAt || data.started_at || 0
+            );
+            if (
+              !isNaN(timestamp.getTime()) &&
+              now - timestamp.getTime() > sevenDaysMs
+            ) {
+              localStorage.removeItem(key);
+            }
+          } catch {
+            localStorage.removeItem(key);
+          }
+        }
+      }
     });
   } catch (err) {
     console.error('[Exam Face] Cleanup failed:', err);
@@ -689,23 +786,27 @@ function cleanupOldDeadlines() {
 
 // Store pending submission for offline scenarios
 function storePendingSubmission(submissionData) {
-  if (!state.dailyQuiz || ['free', 'extra'].includes(state.mode)) return;
-  const key = STORAGE_KEYS.PENDING_SUBMISSION + state.dailyQuiz.id;
+  if (!submissionData) return;
+  if (state.mode === 'free' || state.mode === 'extra') return;
+  const key = getPendingSubmissionKey();
+  if (!key) return;
   localStorage.setItem(key, JSON.stringify(submissionData));
 }
 
 // Get pending submission
 function getPendingSubmission() {
-  if (!state.dailyQuiz || ['free', 'extra'].includes(state.mode)) return null;
-  const key = STORAGE_KEYS.PENDING_SUBMISSION + state.dailyQuiz.id;
+  if (state.mode === 'free' || state.mode === 'extra') return null;
+  const key = getPendingSubmissionKey();
+  if (!key) return null;
   const data = localStorage.getItem(key);
   return data ? JSON.parse(data) : null;
 }
 
 // Clear pending submission
 function clearPendingSubmission() {
-  if (!state.dailyQuiz || ['free', 'extra'].includes(state.mode)) return;
-  const key = STORAGE_KEYS.PENDING_SUBMISSION + state.dailyQuiz.id;
+  if (state.mode === 'free' || state.mode === 'extra') return;
+  const key = getPendingSubmissionKey();
+  if (!key) return;
   localStorage.removeItem(key);
 }
 
@@ -752,6 +853,52 @@ function saveFreeQuizProgress(update = {}) {
 function clearFreeQuizProgress() {
   if (state.mode !== 'free') return;
   const key = getFreeProgressKey();
+  if (key) {
+    localStorage.removeItem(key);
+  }
+}
+
+function getExamHallProgressKey() {
+  const attemptId = getExamHallAttemptId();
+  if (!attemptId) return null;
+  return STORAGE_KEYS.EXAM_HALL_PROGRESS + attemptId;
+}
+
+function loadExamHallProgress() {
+  if (state.mode !== 'exam_hall') return null;
+  const key = getExamHallProgressKey();
+  if (!key) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    console.warn('[Exam Face] Unable to read stored exam hall progress', err);
+    return null;
+  }
+}
+
+function saveExamHallProgress(update = {}) {
+  if (state.mode !== 'exam_hall') return;
+  const key = getExamHallProgressKey();
+  if (!key) return;
+  const existing = loadExamHallProgress() || {};
+  const merged = { ...existing, ...update };
+  if (update.answers) {
+    merged.answers = { ...(existing.answers || {}), ...update.answers };
+  }
+  if (update.startedAt) merged.startedAt = update.startedAt;
+  if (update.attemptId) merged.attemptId = update.attemptId;
+  merged.lastUpdatedAt = new Date().toISOString();
+  try {
+    localStorage.setItem(key, JSON.stringify(merged));
+  } catch (err) {
+    console.warn('[Exam Face] Unable to persist exam hall progress', err);
+  }
+}
+
+function clearExamHallProgress() {
+  if (state.mode !== 'exam_hall') return;
+  const key = getExamHallProgressKey();
   if (key) {
     localStorage.removeItem(key);
   }
@@ -804,7 +951,8 @@ function clearExtraQuizProgress() {
 
 // Store an answer that couldn't be saved online
 function storeOfflineAnswer(entryId, optionId) {
-  if (!state.dailyQuiz || ['free', 'extra'].includes(state.mode)) return;
+  if (!state.dailyQuiz || ['free', 'extra', 'exam_hall'].includes(state.mode))
+    return;
   const key = STORAGE_KEYS.OFFLINE_ANSWERS + state.dailyQuiz.id;
   const offlineAnswers = JSON.parse(localStorage.getItem(key) || '{}');
   offlineAnswers[entryId] = { optionId, timestamp: new Date().toISOString() };
@@ -813,7 +961,8 @@ function storeOfflineAnswer(entryId, optionId) {
 
 // Process stored offline answers when online
 async function processOfflineAnswers() {
-  if (!state.dailyQuiz || ['free', 'extra'].includes(state.mode)) return;
+  if (!state.dailyQuiz || ['free', 'extra', 'exam_hall'].includes(state.mode))
+    return;
   const key = STORAGE_KEYS.OFFLINE_ANSWERS + state.dailyQuiz.id;
   const offlineAnswers = JSON.parse(localStorage.getItem(key) || '{}');
 
@@ -853,6 +1002,28 @@ async function processPendingSubmission() {
   if (!pending) return;
 
   try {
+    if (pending.type === 'exam_hall') {
+      const { error, data } = await state.supabase.rpc(
+        'submit_exam_hall_attempt',
+        {
+          p_attempt_id: pending.attemptId,
+          p_answers: pending.answers || {},
+        }
+      );
+      if (error) throw error;
+      if (!data?.attempt_id) throw new Error('Unable to submit exam attempt.');
+
+      clearPendingSubmission();
+      clearExamDeadline();
+      clearExamHallProgress();
+
+      const url = new URL(window.location.href);
+      url.pathname = url.pathname.replace(/[^/]+$/, 'result-face.html');
+      url.searchParams.set('exam_hall_attempt', pending.attemptId);
+      window.location.replace(url.toString());
+      return;
+    }
+
     const { error } = await state.supabase
       .from('daily_quizzes')
       .update(pending.payload)
@@ -1080,8 +1251,38 @@ function persistFreeQuizAnswer(entry) {
   });
 }
 
+function persistExamHallAnswer(entry) {
+  if (state.mode !== 'exam_hall' || !entry) return;
+  saveExamHallProgress({
+    startedAt: state.dailyQuiz?.started_at,
+    attemptId: getExamHallAttemptId(),
+    answers: {
+      [entry.id]: {
+        optionId: entry.selected_option_id,
+        recordedAt: entry.answered_at,
+      },
+    },
+  });
+}
+
 function applyStoredFreeAnswers(answersMap) {
   if (state.mode !== 'free' || !answersMap) return;
+  Object.entries(answersMap).forEach(([entryId, storedValue]) => {
+    const optionId =
+      typeof storedValue === 'object' && storedValue !== null
+        ? (storedValue.optionId ??
+          storedValue.value ??
+          storedValue.answer ??
+          storedValue)
+        : storedValue;
+    const entry = state.entries.find((item) => item.id === entryId);
+    if (!entry) return;
+    updateEntrySelection(entry, optionId);
+  });
+}
+
+function applyStoredExamHallAnswers(answersMap) {
+  if (state.mode !== 'exam_hall' || !answersMap) return;
   Object.entries(answersMap).forEach(([entryId, storedValue]) => {
     const optionId =
       typeof storedValue === 'object' && storedValue !== null
@@ -1101,7 +1302,10 @@ function applyStoredExtraAnswers(answersMap) {
   Object.entries(answersMap).forEach(([entryId, storedValue]) => {
     const optionId =
       typeof storedValue === 'object' && storedValue !== null
-        ? (storedValue.optionId ?? storedValue.value ?? storedValue.answer ?? storedValue)
+        ? (storedValue.optionId ??
+          storedValue.value ??
+          storedValue.answer ??
+          storedValue)
         : storedValue;
     const entry = state.entries.find((item) => item.id === entryId);
     if (!entry) return;
@@ -1127,14 +1331,18 @@ async function recordAnswer(entryId, optionId, isSyncing = false) {
     updateProgress();
     renderPalette();
 
-  if (state.mode === 'free') {
-    persistFreeQuizAnswer(entry);
-    return;
-  }
+    if (state.mode === 'free') {
+      persistFreeQuizAnswer(entry);
+      return;
+    }
 
-  if (state.mode === 'extra') {
-    // Persist locally so answers survive refresh
-    if (entry) {
+    if (state.mode === 'exam_hall') {
+      persistExamHallAnswer(entry);
+      return;
+    }
+
+    if (state.mode === 'extra') {
+      // Persist locally so answers survive refresh
       saveExtraQuizProgress({
         startedAt: state.dailyQuiz?.started_at,
         attemptId: state.extraAttempt?.id,
@@ -1145,9 +1353,8 @@ async function recordAnswer(entryId, optionId, isSyncing = false) {
           },
         },
       });
+      return;
     }
-    return;
-  }
 
     const { error } = await state.supabase
       .from('daily_quiz_questions')
@@ -1162,7 +1369,7 @@ async function recordAnswer(entryId, optionId, isSyncing = false) {
     console.error('[Exam Face] recordAnswer failed', err);
     showToast(err.message || 'Unable to save your answer.', 'error');
 
-    if (!['free', 'extra'].includes(state.mode) && !isSyncing) {
+    if (!['free', 'extra', 'exam_hall'].includes(state.mode) && !isSyncing) {
       storeOfflineAnswer(entryId, optionId);
       showToast('Answer saved locally. Will sync when online.', 'info');
     }
@@ -1189,6 +1396,64 @@ async function submitQuiz(forceSubmit = false) {
   try {
     clearTimer();
     showToast('Submitting quiz...', 'info');
+
+    if (state.mode === 'exam_hall') {
+      const attemptId = getExamHallAttemptId();
+      if (!attemptId) {
+        throw new Error('Missing exam attempt id.');
+      }
+
+      const answers = {};
+      state.entries.forEach((entry) => {
+        if (entry?.id && entry.selected_option_id) {
+          answers[entry.id] = entry.selected_option_id;
+        }
+      });
+
+      if (!navigator.onLine) {
+        storePendingSubmission({
+          type: 'exam_hall',
+          attemptId,
+          answers,
+          timestamp: new Date().toISOString(),
+        });
+
+        clearExamDeadline();
+        clearExamHallProgress();
+
+        const url = new URL(window.location.href);
+        url.pathname = url.pathname.replace(/[^/]+$/, 'result-face.html');
+        url.searchParams.set('exam_hall_attempt', attemptId);
+        url.searchParams.set('pending', '1');
+        window.location.replace(url.toString());
+        return;
+      }
+
+      const { data, error } = await state.supabase.rpc(
+        'submit_exam_hall_attempt',
+        { p_attempt_id: attemptId, p_answers: answers }
+      );
+      if (error) throw error;
+      if (!data?.attempt_id) throw new Error('Unable to submit your exam.');
+
+      try {
+        sessionStorage.setItem(
+          'exam_hall_last_result',
+          JSON.stringify({ attemptId, result: data })
+        );
+      } catch {
+        // ignore
+      }
+
+      clearExamDeadline();
+      clearExamHallProgress();
+
+      const url = new URL(window.location.href);
+      url.pathname = url.pathname.replace(/[^/]+$/, 'result-face.html');
+      url.searchParams.set('exam_hall_attempt', attemptId);
+      window.location.replace(url.toString());
+      return;
+    }
 
     correct = state.entries.filter(isEntryCorrect).length;
     if (state.mode === 'free') {
@@ -1318,7 +1583,8 @@ async function submitQuiz(forceSubmit = false) {
           id: entry.id,
           // Only store the chosen answer and correctness signals
           selected_option_id: entry.selected_option_id ?? null,
-          is_correct: typeof entry.is_correct === 'boolean' ? entry.is_correct : null,
+          is_correct:
+            typeof entry.is_correct === 'boolean' ? entry.is_correct : null,
           // Keep the resolved correct option id/key if available (tiny)
           correct_option_id: entry.correct_option_id ?? null,
           correct_option_key: entry.correct_option_key ?? null,
@@ -1342,43 +1608,43 @@ async function submitQuiz(forceSubmit = false) {
       }
 
       if (state.extraAttempt?.id && state.supabase) {
-      try {
-        await state.supabase
-          .from('extra_question_attempts')
-          .update({
+        try {
+          await state.supabase
+            .from('extra_question_attempts')
+            .update({
+              status: 'completed',
+              completed_at: completedAt,
+              duration_seconds: durationSeconds ?? null,
+              total_questions: total,
+              correct_answers: correct,
+              score_percent: scorePercent,
+              response_snapshot: practicePayload,
+            })
+            .eq('id', state.extraAttempt.id);
+          state.extraAttempt = {
+            ...state.extraAttempt,
             status: 'completed',
             completed_at: completedAt,
             duration_seconds: durationSeconds ?? null,
             total_questions: total,
             correct_answers: correct,
             score_percent: scorePercent,
-            response_snapshot: practicePayload,
-          })
-          .eq('id', state.extraAttempt.id);
-        state.extraAttempt = {
-          ...state.extraAttempt,
-          status: 'completed',
-          completed_at: completedAt,
-          duration_seconds: durationSeconds ?? null,
-          total_questions: total,
-          correct_answers: correct,
-          score_percent: scorePercent,
-        };
-      } catch (attemptError) {
-        console.error(
-          '[Exam Face] Unable to persist extra attempt summary',
-          attemptError
-        );
+          };
+        } catch (attemptError) {
+          console.error(
+            '[Exam Face] Unable to persist extra attempt summary',
+            attemptError
+          );
+        }
       }
-    }
 
-    clearExamDeadline();
-    clearExtraQuizProgress();
+      clearExamDeadline();
+      clearExtraQuizProgress();
 
-    const extraResultsUrl = new URL(window.location.href);
-    extraResultsUrl.pathname = extraResultsUrl.pathname.replace(
-      /[^/]+$/,
-      'result-face.html'
+      const extraResultsUrl = new URL(window.location.href);
+      extraResultsUrl.pathname = extraResultsUrl.pathname.replace(
+        /[^/]+$/,
+        'result-face.html'
       );
       extraResultsUrl.searchParams.set(
         'extra_question_set_id',
@@ -1569,6 +1835,55 @@ async function loadQuizData() {
   state.extraPlanId = url.searchParams.get('plan_id');
   state.extraPlanTier = null;
   state.extraAttempt = null;
+  state.examHallAttempt = null;
+  state.examHallSession = null;
+
+  const examHallAttemptId = url.searchParams.get('exam_hall_attempt');
+  if (examHallAttemptId) {
+    state.mode = 'exam_hall';
+    const { data, error } = await state.supabase.rpc('get_exam_hall_attempt', {
+      p_attempt_id: examHallAttemptId,
+    });
+    if (error) throw error;
+
+    const quiz = data?.quiz || null;
+    const attempt = data?.attempt || null;
+    if (!quiz?.id || !attempt?.id) {
+      throw new Error('Unable to load this exam attempt.');
+    }
+
+    state.examHallSession = data;
+    state.examHallAttempt = attempt;
+    state.dailyQuiz = {
+      id: quiz.id,
+      title: quiz.title,
+      description: quiz.description,
+      intro: quiz.intro,
+      time_limit_seconds: quiz.time_limit_seconds,
+      starts_at: quiz.starts_at || null,
+      ends_at: quiz.ends_at || null,
+      pass_mark_percent: quiz.pass_mark_percent ?? null,
+      total_questions: 0,
+      status: 'in_progress',
+      assigned_date: new Date().toISOString(),
+      started_at: attempt.started_at || new Date().toISOString(),
+    };
+
+    const deadlineAt = data?.deadline_at || null;
+    if (deadlineAt) {
+      const key = getExamDeadlineKey();
+      if (key) {
+        try {
+          localStorage.setItem(key, new Date(deadlineAt).toISOString());
+        } catch {
+          // ignore
+        }
+      }
+    } else if (state.dailyQuiz.started_at) {
+      storeExamDeadline();
+    }
+    return;
+  }
 
   if (freeQuizSlug) {
     state.mode = 'free';
@@ -1683,7 +1998,10 @@ async function loadQuizData() {
         state.extraPlanTier = (data?.plan_tier ?? '').toString();
         return state.extraPlanTier;
       } catch (err) {
-        console.warn('[Exam Face] Failed to resolve plan tier for extra set', err);
+        console.warn(
+          '[Exam Face] Failed to resolve plan tier for extra set',
+          err
+        );
         state.extraPlanTier = null;
         return null;
       }
@@ -1725,7 +2043,7 @@ async function loadQuizData() {
           attemptId: state.extraAttempt?.id,
         });
       }
-    } catch (_) {
+    } catch {
       // non-fatal; persistence is best-effort
     }
     return;
@@ -1797,6 +2115,51 @@ async function loadQuizData() {
 }
 
 async function loadQuestions() {
+  if (state.mode === 'exam_hall') {
+    const questions = Array.isArray(state.examHallSession?.questions)
+      ? state.examHallSession.questions
+      : [];
+    state.entries = questions
+      .slice()
+      .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+      .map((row, idx) => {
+        const rawOptions = Array.isArray(row.options) ? row.options : [];
+        const options = rawOptions.map((option, optionIndex) => {
+          const id =
+            option.id || option.label || String.fromCharCode(65 + optionIndex);
+          const label = option.label || String.fromCharCode(65 + optionIndex);
+          return {
+            id,
+            label,
+            content: option.content,
+            is_correct: false,
+            order_index: option.order_index ?? optionIndex,
+          };
+        });
+        return {
+          id: row.id,
+          question: {
+            id: row.id,
+            stem: row.prompt,
+            explanation: null,
+            image_url: row.image_url,
+            question_options: options,
+          },
+          selected_option_id: null,
+          is_correct: null,
+          answered_at: null,
+          daily_quiz_id: state.dailyQuiz.id,
+          order_index: row.order_index ?? idx,
+          correct_option_id: null,
+          correct_option_key: null,
+          raw_correct_option: null,
+        };
+      });
+    state.answers = {};
+    state.dailyQuiz.total_questions = state.entries.length;
+    return;
+  }
+
   if (state.mode === 'free') {
     const { data, error } = await state.supabase
       .from('free_quiz_questions')
@@ -1922,13 +2285,20 @@ async function loadQuestions() {
         raw_correct_option: correctOption?.label ?? null,
       };
     });
-    const selectedTiers = Array.isArray(state.extraSet?.visibility_rules?.planTiers)
+    const selectedTiers = Array.isArray(
+      state.extraSet?.visibility_rules?.planTiers
+    )
       ? state.extraSet.visibility_rules.planTiers.map((t) => t.toString())
       : null;
-    const { selected } = applyAssignmentRules(mappedEntries, state.extraSet?.assignment_rules, state.extraPlanId, {
-      planTier: state.extraPlanTier,
-      selectedTiers,
-    });
+    const { selected } = applyAssignmentRules(
+      mappedEntries,
+      state.extraSet?.assignment_rules,
+      state.extraPlanId,
+      {
+        planTier: state.extraPlanTier,
+        selectedTiers,
+      }
+    );
     state.entries = selected;
     state.answers = {};
     state.dailyQuiz.total_questions = state.entries.length;
@@ -2005,6 +2375,36 @@ function setHeader() {
     return;
   }
 
+  if (state.mode === 'exam_hall') {
+    if (els.title)
+      els.title.textContent = state.dailyQuiz.title || 'Examination Hall';
+    if (els.desc) {
+      const scheduleBits = [];
+      if (state.dailyQuiz.starts_at) {
+        scheduleBits.push(
+          `Opens ${formatDateTimeLabel(state.dailyQuiz.starts_at)}`
+        );
+      }
+      if (state.dailyQuiz.ends_at) {
+        scheduleBits.push(
+          `Closes ${formatDateTimeLabel(state.dailyQuiz.ends_at)}`
+        );
+      }
+      const scheduleText = scheduleBits.length
+        ? scheduleBits.join(' • ')
+        : 'Timer is running. Submit before time expires.';
+      els.desc.textContent = scheduleText;
+    }
+    if (els.questionCount)
+      els.questionCount.textContent = `Questions: ${state.entries.length}`;
+    if (els.timeLimitLabel)
+      els.timeLimitLabel.textContent = `Time Limit: ${formatTimeLabel(state.dailyQuiz.time_limit_seconds)}`;
+    if (els.difficulty) els.difficulty.style.display = 'none';
+    if (els.totalQuestions)
+      els.totalQuestions.textContent = String(state.entries.length);
+    return;
+  }
+
   if (state.mode === 'extra') {
     if (els.title)
       els.title.textContent = state.extraSet?.title || 'Bonus Practice Session';
@@ -2064,13 +2464,16 @@ async function initialise() {
     if (url.searchParams.get('free_quiz')) {
       state.mode = 'free';
     }
+    if (url.searchParams.get('exam_hall_attempt')) {
+      state.mode = 'exam_hall';
+    }
 
     state.supabase = await getSupabaseClient();
     const {
       data: { session },
     } = await state.supabase.auth.getSession();
     state.user = session?.user ?? null;
-    if (state.mode !== 'free' && !state.user) {
+    if (!['free', 'exam_hall'].includes(state.mode) && !state.user) {
       window.location.replace('login.html');
       return;
     }
@@ -2127,6 +2530,18 @@ async function initialise() {
       }
       if (storedFreeProgress?.answers) {
         applyStoredFreeAnswers(storedFreeProgress.answers);
+      }
+    }
+
+    let storedExamHallProgress = null;
+    if (state.mode === 'exam_hall') {
+      storedExamHallProgress = loadExamHallProgress();
+      if (storedExamHallProgress?.startedAt && !state.dailyQuiz.started_at) {
+        state.dailyQuiz.started_at = storedExamHallProgress.startedAt;
+        state.dailyQuiz.status = 'in_progress';
+      }
+      if (storedExamHallProgress?.answers) {
+        applyStoredExamHallAnswers(storedExamHallProgress.answers);
       }
     }
 

@@ -29,6 +29,44 @@ function formatNumber(value) {
   return Number(value ?? 0).toLocaleString();
 }
 
+function formatDateTimeLocal(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+function toDateTimeLocalValue(isoString) {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function normalizeAdmissionNumbers(text) {
+  const raw = (text || '').toString();
+  return raw
+    .split(/[\n,;\t\r]+/g)
+    .map((value) => value.trim().toUpperCase())
+    .filter(Boolean);
+}
+
+function downloadCsv(filename, csv) {
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
+
 function buildQuizCard(quiz) {
   return `
     <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-lg transition" data-quiz-id="${quiz.id}">
@@ -55,6 +93,46 @@ function buildQuizCard(quiz) {
         <div class="rounded-2xl bg-slate-50 p-3">
           <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Avg score</div>
           <div class="mt-1 text-lg font-bold text-slate-900">${quiz.average_score ? `${Number(quiz.average_score).toFixed(1)}%` : '—'}</div>
+        </div>
+      </div>
+      <footer class="mt-6 flex items-center justify-between">
+        <button type="button" class="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-cyan-600 hover:text-cyan-700" data-role="manage-quiz">
+          Manage
+        </button>
+        <button type="button" class="inline-flex items-center gap-2 rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50" data-role="delete-quiz">
+          Delete
+        </button>
+      </footer>
+    </article>
+  `;
+}
+
+function buildExamHallCard(quiz) {
+  return `
+    <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-lg transition" data-quiz-id="${quiz.id}">
+      <header class="flex items-start justify-between gap-4">
+        <div>
+          <h3 class="text-xl font-semibold text-slate-900">${escapeHtml(quiz.title)}</h3>
+          <p class="mt-1 text-sm text-slate-500">${quiz.is_active ? 'Active' : 'Inactive'} • PIN <span class="font-semibold text-slate-700">${escapeHtml(quiz.join_pin || '—')}</span></p>
+        </div>
+        <span class="inline-flex items-center rounded-full ${quiz.is_active ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'} px-3 py-1 text-xs font-semibold uppercase tracking-wide">${quiz.is_active ? 'Live' : 'Draft'}</span>
+      </header>
+      <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
+        <div class="rounded-2xl bg-slate-50 p-3">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Schedule</div>
+          <div class="mt-1 text-sm font-semibold text-slate-900">${formatDateTimeLocal(quiz.starts_at)} → ${formatDateTimeLocal(quiz.ends_at)}</div>
+        </div>
+        <div class="rounded-2xl bg-slate-50 p-3">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Candidates</div>
+          <div class="mt-1 text-lg font-bold text-slate-900">${formatNumber(quiz.candidate_count)}</div>
+        </div>
+        <div class="rounded-2xl bg-slate-50 p-3">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Completed</div>
+          <div class="mt-1 text-lg font-bold text-slate-900">${formatNumber(quiz.completed_count)}</div>
+        </div>
+        <div class="rounded-2xl bg-slate-50 p-3">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Timer</div>
+          <div class="mt-1 text-lg font-bold text-slate-900">${formatDuration(quiz.time_limit_seconds)}</div>
         </div>
       </div>
       <footer class="mt-6 flex items-center justify-between">
@@ -242,13 +320,124 @@ function openCreateQuizModal(actions) {
   });
 }
 
+function openCreateExamHallModal(actions) {
+  openModal({
+    title: 'Create Examination Hall',
+    render: ({ body, footer, close }) => {
+      body.innerHTML = `
+        <form id="exam-hall-form" class="space-y-4">
+          <label class="block text-sm font-medium text-slate-700">
+            <span>Title</span>
+            <input type="text" name="title" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" placeholder="School Mock Exam" required />
+          </label>
+          <label class="block text-sm font-medium text-slate-700">
+            <span>Description</span>
+            <textarea name="description" rows="2" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" placeholder="Short summary shown to candidates"></textarea>
+          </label>
+          <label class="block text-sm font-medium text-slate-700">
+            <span>Intro Message</span>
+            <textarea name="intro" rows="3" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" placeholder="Displayed on the instruction modal"></textarea>
+          </label>
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label class="block text-sm font-medium text-slate-700">
+              <span>Starts at</span>
+              <input type="datetime-local" name="starts_at" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" required />
+            </label>
+            <label class="block text-sm font-medium text-slate-700">
+              <span>Ends at</span>
+              <input type="datetime-local" name="ends_at" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" required />
+            </label>
+          </div>
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label class="block text-sm font-medium text-slate-700">
+              <span>Timer (minutes)</span>
+              <input type="number" name="time_limit" min="0" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" placeholder="e.g. 60" />
+              <p class="mt-1 text-xs text-slate-500">Leave blank to use only the schedule window.</p>
+            </label>
+            <label class="block text-sm font-medium text-slate-700">
+              <span>Seat limit (optional)</span>
+              <input type="number" name="seat_limit" min="0" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" placeholder="e.g. 120" />
+            </label>
+          </div>
+          <label class="inline-flex items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" name="is_active" checked />
+            Make exam visible immediately
+          </label>
+          <p class="text-xs text-slate-500">Pass mark is 50% (global default).</p>
+        </form>
+      `;
+      footer.innerHTML = `
+        <button type="button" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600" data-role="cancel">Cancel</button>
+        <button type="button" class="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white" data-role="create">Create Exam</button>
+      `;
+
+      footer
+        .querySelector('[data-role="cancel"]')
+        .addEventListener('click', close);
+      footer
+        .querySelector('[data-role="create"]')
+        .addEventListener('click', async () => {
+          const form = body.querySelector('#exam-hall-form');
+          const formData = new FormData(form);
+          const title = (formData.get('title') || '').toString().trim();
+          if (!title) {
+            showToast('Title is required.', { type: 'error' });
+            return;
+          }
+          const startsAt = (formData.get('starts_at') || '').toString();
+          const endsAt = (formData.get('ends_at') || '').toString();
+          if (!startsAt || !endsAt) {
+            showToast('Start and end time are required.', { type: 'error' });
+            return;
+          }
+          const payload = {
+            title,
+            description: (formData.get('description') || '').toString().trim(),
+            intro: (formData.get('intro') || '').toString().trim(),
+            starts_at: new Date(startsAt).toISOString(),
+            ends_at: new Date(endsAt).toISOString(),
+            seat_limit: formData.get('seat_limit')
+              ? Number(formData.get('seat_limit'))
+              : null,
+            time_limit_seconds: formData.get('time_limit')
+              ? Number(formData.get('time_limit')) * 60
+              : null,
+            is_active: formData.get('is_active') === 'on',
+          };
+          try {
+            await dataService.createExamHallQuiz(payload);
+            showToast('Examination hall created.', { type: 'success' });
+            close();
+            actions.refresh();
+          } catch (error) {
+            console.error(error);
+            showToast(error.message || 'Unable to create examination hall.', {
+              type: 'error',
+            });
+          }
+        });
+    },
+  });
+}
+
 async function openManageQuizModal(quiz, topics, actions) {
   try {
     const detail = await dataService.getFreeQuizDetail(quiz.id);
     const currentQuiz = detail.quiz;
+    const isExamHall = currentQuiz?.access_mode === 'exam_hall';
     let questions = detail.questions || [];
     let selectedQuestionIds = new Set();
     let questionSearchTerm = '';
+    let candidates = [];
+
+    if (isExamHall) {
+      try {
+        candidates = await dataService.listExamHallCandidates(currentQuiz.id);
+      } catch (error) {
+        console.warn('[Examination Hall] Failed to load candidates', error);
+        candidates = [];
+      }
+    }
 
     openModal({
       title: `Manage · ${escapeHtml(currentQuiz.title)}`,
@@ -285,6 +474,69 @@ async function openManageQuizModal(quiz, topics, actions) {
                 </label>
               </form>
             </section>
+
+            ${
+              isExamHall
+                ? `
+            <section class="space-y-4">
+              <header class="flex flex-col gap-2">
+                <h3 class="text-lg font-semibold text-slate-900">Examination Hall</h3>
+                <p class="text-sm text-slate-600">PIN access, schedule, candidates, and export.</p>
+              </header>
+              <div class="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 md:grid-cols-2">
+                <div class="rounded-xl bg-white p-4">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">PIN</p>
+                  <div class="mt-2 flex items-center justify-between gap-3">
+                    <p class="text-2xl font-semibold text-slate-900" data-role="exam-pin">${escapeHtml(currentQuiz.join_pin || '—')}</p>
+                    <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-cyan-600" data-role="copy-pin">Copy</button>
+                  </div>
+                  <p class="mt-2 text-xs text-slate-500">Share with candidates only.</p>
+                </div>
+                <div class="rounded-xl bg-white p-4">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pass mark</p>
+                  <p class="mt-2 text-2xl font-semibold text-slate-900">50%</p>
+                  <p class="mt-2 text-xs text-slate-500">Global default.</p>
+                </div>
+              </div>
+
+              <form id="exam-hall-settings" class="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-2">
+                <label class="text-sm font-medium text-slate-700">
+                  <span>Starts at</span>
+                  <input type="datetime-local" name="starts_at" value="${escapeHtml(toDateTimeLocalValue(currentQuiz.starts_at))}" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" required />
+                </label>
+                <label class="text-sm font-medium text-slate-700">
+                  <span>Ends at</span>
+                  <input type="datetime-local" name="ends_at" value="${escapeHtml(toDateTimeLocalValue(currentQuiz.ends_at))}" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" required />
+                </label>
+                <label class="text-sm font-medium text-slate-700">
+                  <span>Seat limit (optional)</span>
+                  <input type="number" min="0" name="seat_limit" value="${currentQuiz.seat_limit ?? ''}" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" />
+                </label>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Candidates</p>
+                  <p class="mt-2 text-2xl font-semibold text-slate-900">${formatNumber(candidates.length)}</p>
+                  <p class="mt-1 text-xs text-slate-500">Upload admission numbers to whitelist candidates.</p>
+                </div>
+              </form>
+
+              <div class="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-2">
+                <div class="space-y-3">
+                  <p class="text-sm font-semibold text-slate-900">Upload candidates</p>
+                  <input type="file" accept=".csv,.txt" class="block w-full text-sm" data-role="candidate-file" />
+                  <textarea rows="4" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Paste admission numbers (one per line)" data-role="candidate-text"></textarea>
+                  <button type="button" class="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white" data-role="upload-candidates">Upload candidates</button>
+                  <p class="text-xs text-slate-500">Only admission number is required. One attempt per admission number.</p>
+                </div>
+                <div class="space-y-3">
+                  <p class="text-sm font-semibold text-slate-900">Export results</p>
+                  <p class="text-sm text-slate-600">Download submissions as CSV (Excel compatible).</p>
+                  <button type="button" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300" data-role="export-results">Export results CSV</button>
+                </div>
+              </div>
+            </section>
+            `
+                : ''
+            }
 
             <section class="space-y-4">
               <header class="flex flex-col gap-2">
@@ -371,8 +623,27 @@ async function openManageQuizModal(quiz, topics, actions) {
                 : null,
               is_active: formData.get('is_active') === 'on',
             };
+            if (isExamHall) {
+              const hallForm = body.querySelector('#exam-hall-settings');
+              const hallData = hallForm
+                ? new FormData(hallForm)
+                : new FormData();
+              payload.starts_at = hallData.get('starts_at')
+                ? new Date(hallData.get('starts_at')).toISOString()
+                : null;
+              payload.ends_at = hallData.get('ends_at')
+                ? new Date(hallData.get('ends_at')).toISOString()
+                : null;
+              payload.seat_limit = hallData.get('seat_limit')
+                ? Number(hallData.get('seat_limit'))
+                : null;
+            }
             try {
-              await dataService.updateFreeQuiz(currentQuiz.id, payload);
+              if (isExamHall) {
+                await dataService.updateExamHallQuiz(currentQuiz.id, payload);
+              } else {
+                await dataService.updateFreeQuiz(currentQuiz.id, payload);
+              }
               showToast('Quiz updated.', { type: 'success' });
               actions.refresh();
             } catch (error) {
@@ -382,6 +653,130 @@ async function openManageQuizModal(quiz, topics, actions) {
               });
             }
           });
+
+        if (isExamHall) {
+          body
+            .querySelector('[data-role="copy-pin"]')
+            ?.addEventListener('click', () => {
+              const pin = currentQuiz.join_pin || '';
+              if (!pin) {
+                showToast('PIN not available.', { type: 'warning' });
+                return;
+              }
+              navigator.clipboard
+                .writeText(pin)
+                .then(() => showToast('PIN copied.', { type: 'success' }))
+                .catch(() =>
+                  showToast('Unable to copy PIN. Copy manually.', {
+                    type: 'error',
+                  })
+                );
+            });
+
+          body
+            .querySelector('[data-role="upload-candidates"]')
+            ?.addEventListener('click', async () => {
+              const fileEl = body.querySelector('[data-role="candidate-file"]');
+              const textEl = body.querySelector('[data-role="candidate-text"]');
+              let values = [];
+              if (fileEl?.files?.[0]) {
+                try {
+                  const fileText = await fileEl.files[0].text();
+                  values = values.concat(normalizeAdmissionNumbers(fileText));
+                } catch (error) {
+                  console.warn(
+                    '[Examination Hall] Unable to read candidate file',
+                    error
+                  );
+                }
+              }
+              values = values.concat(
+                normalizeAdmissionNumbers(textEl?.value || '')
+              );
+              const unique = Array.from(new Set(values));
+              if (!unique.length) {
+                showToast('Add at least one admission number.', {
+                  type: 'warning',
+                });
+                return;
+              }
+              try {
+                const result = await dataService.upsertExamHallCandidates(
+                  currentQuiz.id,
+                  unique
+                );
+                showToast(
+                  `Uploaded ${result.insertedCount || unique.length} candidate(s).`,
+                  { type: 'success' }
+                );
+                candidates = await dataService.listExamHallCandidates(
+                  currentQuiz.id
+                );
+                actions.refresh();
+              } catch (error) {
+                console.error(error);
+                showToast(error.message || 'Unable to upload candidates.', {
+                  type: 'error',
+                });
+              }
+            });
+
+          body
+            .querySelector('[data-role="export-results"]')
+            ?.addEventListener('click', async () => {
+              try {
+                const rows = await dataService.exportExamHallResults(
+                  currentQuiz.id
+                );
+                const header = [
+                  'First Name',
+                  'Last Name',
+                  'Phone Number',
+                  'Admission No',
+                  'Percentage',
+                  'Time Used (seconds)',
+                  'Score',
+                  'Passed',
+                  'Completed At',
+                ];
+                const lines = [header.join(',')];
+                rows.forEach((row) => {
+                  const total = Number(row.total_questions ?? 0);
+                  const correct = Number(row.correct_count ?? 0);
+                  const score = `${correct}/${total}`;
+                  const percentage = Number(row.score_percent ?? 0);
+                  const duration = row.duration_seconds ?? '';
+                  const completedAt = row.completed_at ?? '';
+                  lines.push(
+                    [
+                      row.first_name ?? '',
+                      row.last_name ?? '',
+                      row.phone ?? '',
+                      row.admission_no ?? '',
+                      percentage,
+                      duration,
+                      score,
+                      row.passed ? 'Yes' : 'No',
+                      completedAt,
+                    ]
+                      .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+                      .join(',')
+                  );
+                });
+                const dateStr = new Date().toISOString().split('T')[0];
+                downloadCsv(
+                  `examination-hall-results-${dateStr}.csv`,
+                  lines.join('\n')
+                );
+                showToast('Results exported.', { type: 'success' });
+              } catch (error) {
+                console.error(error);
+                showToast(error.message || 'Unable to export results.', {
+                  type: 'error',
+                });
+              }
+            });
+        }
 
         const questionListContainer = body.querySelector(
           '[data-role="question-list"]'
@@ -964,6 +1359,82 @@ export async function freeQuizzesView(state, actions) {
             } catch (error) {
               console.error(error);
               showToast(error.message || 'Unable to delete quiz.', {
+                type: 'error',
+              });
+            }
+          });
+      });
+    },
+  };
+}
+
+export async function examinationHallView(state, actions) {
+  const [quizzes, topics] = await Promise.all([
+    dataService.listExamHallQuizzes(),
+    dataService.listAllTopics(),
+  ]);
+
+  const cards = quizzes.length
+    ? quizzes.map((quiz) => buildExamHallCard(quiz)).join('')
+    : '<p class="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center text-sm text-slate-500">No examination halls created yet.</p>';
+
+  return {
+    html: `
+      <section class="space-y-8">
+        <header class="flex flex-col gap-4 rounded-3xl bg-white p-8 shadow-sm shadow-slate-200/60 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 class="text-3xl font-bold text-slate-900">Examination Hall</h1>
+            <p class="mt-2 text-sm text-slate-600">
+              Create PIN-based scheduled exams, upload candidate admission numbers, and export results to Excel (CSV).
+            </p>
+          </div>
+          <div class="flex flex-col gap-3 sm:flex-row">
+            <button type="button" class="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-600 hover:border-slate-400" data-role="refresh">
+              Refresh
+            </button>
+            <button type="button" class="inline-flex items-center justify-center rounded-full bg-cyan-600 px-5 py-2 text-sm font-semibold text-white shadow-sm shadow-cyan-600/30 transition hover:bg-cyan-700" data-role="create-exam">
+              Create Examination Hall
+            </button>
+          </div>
+        </header>
+
+        <section class="grid grid-cols-1 gap-6 lg:grid-cols-2" data-role="quiz-grid">
+          ${cards}
+        </section>
+      </section>
+    `,
+    onMount(container) {
+      container
+        .querySelector('[data-role="refresh"]')
+        .addEventListener('click', () => actions.refresh());
+      container
+        .querySelector('[data-role="create-exam"]')
+        .addEventListener('click', () => {
+          openCreateExamHallModal(actions);
+        });
+      container.querySelectorAll('[data-quiz-id]').forEach((card) => {
+        const quizId = card.dataset.quizId;
+        const quiz = quizzes.find((item) => item.id === quizId);
+        if (!quiz) return;
+        card
+          .querySelector('[data-role="manage-quiz"]')
+          .addEventListener('click', () => {
+            openManageQuizModal(quiz, topics, actions);
+          });
+        card
+          .querySelector('[data-role="delete-quiz"]')
+          .addEventListener('click', async () => {
+            if (
+              !window.confirm('Delete this exam hall? This cannot be undone.')
+            )
+              return;
+            try {
+              await dataService.deleteFreeQuiz(quiz.id);
+              showToast('Examination hall removed.', { type: 'success' });
+              actions.refresh();
+            } catch (error) {
+              console.error(error);
+              showToast(error.message || 'Unable to delete exam hall.', {
                 type: 'error',
               });
             }

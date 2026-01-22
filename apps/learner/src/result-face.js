@@ -694,9 +694,7 @@ async function renderExtraPracticeResults(supabase, setId, userId, attemptId) {
   );
   if (entries.length && needsHydration) {
     try {
-      const ids = entries
-        .map((e) => e?.id || e?.question?.id)
-        .filter(Boolean);
+      const ids = entries.map((e) => e?.id || e?.question?.id).filter(Boolean);
       if (ids.length) {
         let resp = await supabase
           .from('extra_questions')
@@ -718,7 +716,7 @@ async function renderExtraPracticeResults(supabase, setId, userId, attemptId) {
         if (!resp.error) {
           const rows = Array.isArray(resp.data) ? resp.data : [];
           const byId = new Map(rows.map((r) => [r.id, r]));
-          entries = entries.map((e, idx) => {
+          entries = entries.map((e) => {
             const q = byId.get(e?.id || e?.question?.id);
             if (!q) return e; // keep as-is if missing
             // Sort options by order_index/label for stable display
@@ -753,15 +751,21 @@ async function renderExtraPracticeResults(supabase, setId, userId, attemptId) {
                 question_options: options,
               },
               is_correct:
-                typeof e.is_correct === 'boolean' ? e.is_correct : computedIsCorrect,
-              correct_option_id: e.correct_option_id ?? correctOption?.id ?? null,
+                typeof e.is_correct === 'boolean'
+                  ? e.is_correct
+                  : computedIsCorrect,
+              correct_option_id:
+                e.correct_option_id ?? correctOption?.id ?? null,
               correct_option_key: e.correct_option_key ?? correctKey ?? null,
             };
           });
         }
       }
     } catch (hydrateErr) {
-      console.warn('[Result Face] Unable to hydrate lightweight snapshot', hydrateErr);
+      console.warn(
+        '[Result Face] Unable to hydrate lightweight snapshot',
+        hydrateErr
+      );
     }
   }
   const derivedStats = entries.length
@@ -877,10 +881,126 @@ async function renderExtraPracticeResults(supabase, setId, userId, attemptId) {
   }
 }
 
+function getExamHallPendingKey(attemptId) {
+  if (!attemptId) return null;
+  return `pending_submission_exam_hall_${attemptId}`;
+}
+
+function readExamHallPendingSubmission(attemptId) {
+  const key = getExamHallPendingKey(attemptId);
+  if (!key) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearExamHallPendingSubmission(attemptId) {
+  const key = getExamHallPendingKey(attemptId);
+  if (!key) return;
+  localStorage.removeItem(key);
+}
+
+async function maybeProcessExamHallPendingSubmission(supabase, attemptId) {
+  if (!attemptId || !navigator.onLine) return null;
+  const pending = readExamHallPendingSubmission(attemptId);
+  if (!pending?.answers) return null;
+  try {
+    const { data, error } = await supabase.rpc('submit_exam_hall_attempt', {
+      p_attempt_id: attemptId,
+      p_answers: pending.answers || {},
+    });
+    if (error) throw error;
+    clearExamHallPendingSubmission(attemptId);
+    return data || null;
+  } catch (error) {
+    console.warn(
+      '[Result Face] Unable to process pending exam hall submission',
+      error
+    );
+    return null;
+  }
+}
+
+async function renderExamHallResults(supabase, attemptId) {
+  await maybeProcessExamHallPendingSubmission(supabase, attemptId);
+
+  const { data, error } = await supabase.rpc('get_exam_hall_result', {
+    p_attempt_id: attemptId,
+  });
+  if (error) throw error;
+
+  const quiz = data?.quiz || {};
+  const attempt = data?.attempt || {};
+  const total = Number(attempt.total_questions ?? 0);
+  const correct = Number(attempt.correct_count ?? 0);
+  const percent = Number(attempt.score_percent ?? 0);
+  const passed = attempt.passed === true;
+
+  $('quiz-title').textContent = quiz.title || 'Exam Result';
+  const completedAt = attempt.completed_at || null;
+  const subtitle = completedAt
+    ? `Examination Hall • Completed on ${formatDateTime(completedAt)}`
+    : 'Examination Hall • Submission pending';
+  $('quiz-meta').textContent = `${subtitle} • ${passed ? 'Passed' : 'Failed'}`;
+
+  $('stat-score').textContent = `${correct}/${total}`;
+  $('stat-percentage').textContent = `${percent.toFixed(1)}%`;
+  $('stat-time-used').textContent =
+    attempt.duration_seconds != null
+      ? formatTime(attempt.duration_seconds)
+      : '--';
+  $('stat-total-time').textContent = quiz.time_limit_seconds
+    ? formatTime(quiz.time_limit_seconds)
+    : '--';
+  $('stat-correct').textContent = correct;
+  $('stat-wrong').textContent = Math.max(0, total - correct);
+
+  const questionsList = $('questions-list');
+  if (questionsList) {
+    questionsList.innerHTML =
+      '<div class="p-4 rounded-md bg-slate-100 text-slate-600 text-sm">Answer review is not available for Examination Hall.</div>';
+  }
+
+  const saveBtn = $('save-result-btn');
+  if (saveBtn) {
+    saveBtn.onclick = () => {
+      saveBtn.disabled = true;
+      downloadResultSummary({
+        quiz: {
+          assigned_date: completedAt || new Date().toISOString(),
+          time_limit_seconds: quiz.time_limit_seconds,
+          started_at: null,
+          completed_at: completedAt || new Date().toISOString(),
+        },
+        correct,
+        total,
+        percent,
+        timeUsed: attempt.duration_seconds ?? null,
+      });
+      setTimeout(() => (saveBtn.disabled = false), 1000);
+    };
+  }
+
+  const backBtn = $('back-to-dashboard');
+  if (backBtn) {
+    backBtn.href = 'examination-hall.html';
+    backBtn.textContent = 'Back to Examination Hall';
+  }
+}
+
 async function initialise() {
   const supabase = await getSupabaseClient();
   const url = new URL(window.location.href);
+  const examHallAttempt = url.searchParams.get('exam_hall_attempt');
   const freeSlug = url.searchParams.get('free_quiz');
+
+  if (examHallAttempt) {
+    await renderExamHallResults(supabase, examHallAttempt);
+    return;
+  }
 
   if (freeSlug) {
     await renderFreeQuizResults(

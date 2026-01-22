@@ -104,6 +104,8 @@ function breadcrumbForView(view) {
       return 'Subscriptions';
     case 'freequizzes':
       return 'Free Quiz';
+    case 'examinationhall':
+      return 'Examination Hall';
     case 'extraquestions':
       return 'Extra Questions';
     case 'users':
