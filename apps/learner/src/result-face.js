@@ -960,8 +960,32 @@ async function renderExamHallResults(supabase, attemptId) {
 
   const questionsList = $('questions-list');
   if (questionsList) {
-    questionsList.innerHTML =
-      '<div class="p-4 rounded-md bg-slate-100 text-slate-600 text-sm">Answer review is not available for Examination Hall.</div>';
+    if (!completedAt) {
+      questionsList.innerHTML =
+        '<div class="p-4 rounded-md bg-slate-100 text-slate-600 text-sm">Submission is still pending. Answer review will appear once the exam is submitted.</div>';
+    } else {
+      let reviewData = null;
+      try {
+        const reviewResp = await supabase.rpc('get_exam_hall_review', {
+          p_attempt_id: attemptId,
+        });
+        if (!reviewResp.error) reviewData = reviewResp.data || null;
+      } catch (err) {
+        console.warn('[Result Face] Unable to load exam hall review', err);
+      }
+
+      const entries = Array.isArray(reviewData?.entries)
+        ? reviewData.entries
+        : [];
+      if (entries.length) {
+        questionsList.innerHTML = entries
+          .map((entry, index) => renderQuestion(entry, index))
+          .join('');
+      } else {
+        questionsList.innerHTML =
+          '<div class="p-4 rounded-md bg-slate-100 text-slate-600 text-sm">Answer review is unavailable right now. Please try again.</div>';
+      }
+    }
   }
 
   const saveBtn = $('save-result-btn');
