@@ -525,7 +525,7 @@ async function openManageQuizModal(quiz, topics, actions) {
                   <input type="file" accept=".csv,.txt" class="block w-full text-sm" data-role="candidate-file" />
                   <textarea rows="4" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Paste admission numbers (one per line)" data-role="candidate-text"></textarea>
                   <button type="button" class="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white" data-role="upload-candidates">Upload candidates</button>
-                  <p class="text-xs text-slate-500">Only admission number is required. One attempt per admission number.</p>
+                  <p class="text-xs text-slate-500">If you upload candidates, only listed admission numbers can join. If you don’t upload any, anyone with the PIN can join (until seat limit).</p>
                 </div>
                 <div class="space-y-3">
                   <p class="text-sm font-semibold text-slate-900">Export results</p>
