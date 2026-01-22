@@ -387,15 +387,17 @@ function renderOptions(q, response) {
         (b.order_index ?? b.label?.charCodeAt(0) ?? 0)
     );
   const selectedId = response.selected_option_id;
+  const responseIsCorrect = response.is_correct === true;
   return options
     .map((opt) => {
       const wasSelected = selectedId === opt.id;
+      const optionIsCorrect = opt.is_correct === true;
       let cls = 'opt';
       if (wasSelected) {
-        cls += opt.is_correct
+        cls += optionIsCorrect
           ? ' user-selected-correct'
           : ' user-selected-incorrect';
-      } else if (opt.is_correct && !response.is_correct) {
+      } else if (optionIsCorrect && !responseIsCorrect) {
         cls += ' correct-answer';
       }
       return `
@@ -411,7 +413,8 @@ function renderOptions(q, response) {
 function renderQuestion(qEntry, index) {
   const q = qEntry.question;
   const isSkipped = !qEntry.selected_option_id;
-  const statusIndicator = qEntry.is_correct
+  const entryIsCorrect = qEntry.is_correct === true;
+  const statusIndicator = entryIsCorrect
     ? '<span class="status-indicator correct">✓ Correct</span>'
     : isSkipped
       ? '<span class="status-indicator skipped">○ Skipped</span>'
@@ -420,9 +423,9 @@ function renderQuestion(qEntry, index) {
   let body = '';
   body += `<div class="options">${renderOptions(q, qEntry)}</div>`;
 
-  if (!qEntry.is_correct && !isSkipped) {
+  if (!entryIsCorrect && !isSkipped) {
     const correctAnswers = (q.question_options || [])
-      .filter((o) => o.is_correct)
+      .filter((o) => o.is_correct === true)
       .map((o) => `${o.label ? o.label + '. ' : ''}${o.content}`)
       .join(', ');
     body += `
