@@ -11,7 +11,7 @@ class QuizEngine {
       container: '#quiz-container',
       autoSave: true,
       saveInterval: 30000, // 30 seconds
-      ...options
+      ...options,
     };
 
     this.quizData = {
@@ -24,8 +24,8 @@ class QuizEngine {
         randomizeQuestions: false,
         randomizeOptions: false,
         showCorrectAnswers: true,
-        passingScore: 70
-      }
+        passingScore: 70,
+      },
     };
 
     this.currentQuestionIndex = 0;
@@ -50,10 +50,10 @@ class QuizEngine {
       'quiz-question-template',
       'quiz-sidebar-template',
       'quiz-navigation-template',
-      'quiz-results-template'
+      'quiz-results-template',
     ];
 
-    templates.forEach(templateId => {
+    templates.forEach((templateId) => {
       const template = document.getElementById(templateId);
       if (template) {
         this[templateId.replace('-template', '')] = template.innerHTML;
@@ -114,7 +114,7 @@ class QuizEngine {
       options: type === 'multiple-choice' ? ['', ''] : [],
       correctAnswer: null,
       required: true,
-      randomizeOptions: false
+      randomizeOptions: false,
     };
 
     this.quizData.questions.push(questionData);
@@ -139,7 +139,8 @@ class QuizEngine {
       // Update question number
       const questionNumber = questionEl.querySelector('.question-number');
       if (questionNumber) {
-        questionNumber.textContent = this.quizData.questions.indexOf(questionData) + 1;
+        questionNumber.textContent =
+          this.quizData.questions.indexOf(questionData) + 1;
       }
 
       // Set question data
@@ -160,7 +161,9 @@ class QuizEngine {
   }
 
   renderOptions(questionEl, questionData) {
-    const optionsContainer = questionEl.querySelector('.multiple-choice-options');
+    const optionsContainer = questionEl.querySelector(
+      '.multiple-choice-options'
+    );
     if (!optionsContainer) return;
 
     optionsContainer.innerHTML = '';
@@ -191,7 +194,9 @@ class QuizEngine {
     if (questionText) {
       questionText.addEventListener('input', (e) => {
         const questionId = questionEl.dataset.questionId;
-        const question = this.quizData.questions.find(q => q.id === questionId);
+        const question = this.quizData.questions.find(
+          (q) => q.id === questionId
+        );
         if (question) question.text = e.target.value;
       });
     }
@@ -199,7 +204,9 @@ class QuizEngine {
     if (questionType) {
       questionType.addEventListener('change', (e) => {
         const questionId = questionEl.dataset.questionId;
-        const question = this.quizData.questions.find(q => q.id === questionId);
+        const question = this.quizData.questions.find(
+          (q) => q.id === questionId
+        );
         if (question) {
           question.type = e.target.value;
           this.renderOptions(questionEl, question);
@@ -210,7 +217,9 @@ class QuizEngine {
     if (pointsInput) {
       pointsInput.addEventListener('input', (e) => {
         const questionId = questionEl.dataset.questionId;
-        const question = this.quizData.questions.find(q => q.id === questionId);
+        const question = this.quizData.questions.find(
+          (q) => q.id === questionId
+        );
         if (question) question.points = parseInt(e.target.value) || 1;
         this.updateTotalPoints();
       });
@@ -220,7 +229,7 @@ class QuizEngine {
   addOption(button) {
     const questionEl = button.closest('.quiz-question');
     const questionId = questionEl.dataset.questionId;
-    const question = this.quizData.questions.find(q => q.id === questionId);
+    const question = this.quizData.questions.find((q) => q.id === questionId);
 
     if (question && question.type === 'multiple-choice') {
       question.options.push('');
@@ -231,9 +240,11 @@ class QuizEngine {
   removeOption(button) {
     const questionEl = button.closest('.quiz-question');
     const optionEl = button.closest('.option-item');
-    const optionIndex = Array.from(optionEl.parentNode.children).indexOf(optionEl);
+    const optionIndex = Array.from(optionEl.parentNode.children).indexOf(
+      optionEl
+    );
     const questionId = questionEl.dataset.questionId;
-    const question = this.quizData.questions.find(q => q.id === questionId);
+    const question = this.quizData.questions.find((q) => q.id === questionId);
 
     if (question && question.type === 'multiple-choice') {
       question.options.splice(optionIndex, 1);
@@ -248,7 +259,7 @@ class QuizEngine {
 
   removeQuestion(questionEl) {
     const questionId = questionEl.dataset.questionId;
-    const index = this.quizData.questions.findIndex(q => q.id === questionId);
+    const index = this.quizData.questions.findIndex((q) => q.id === questionId);
 
     if (index > -1) {
       this.quizData.questions.splice(index, 1);
@@ -277,13 +288,16 @@ class QuizEngine {
       questionList.innerHTML = '';
       this.quizData.questions.forEach((question, index) => {
         const item = document.createElement('div');
-        item.className = 'flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors';
+        item.className =
+          'flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors';
         item.innerHTML = `
           <span class="text-sm font-medium">Question ${index + 1}</span>
           <span class="text-xs text-muted">${question.points} pts</span>
         `;
         item.addEventListener('click', () => {
-          document.querySelector(`[data-question-id="${question.id}"]`)?.scrollIntoView({ behavior: 'smooth' });
+          document
+            .querySelector(`[data-question-id="${question.id}"]`)
+            ?.scrollIntoView({ behavior: 'smooth' });
         });
         questionList.appendChild(item);
       });
@@ -297,7 +311,10 @@ class QuizEngine {
   }
 
   updateTotalPoints() {
-    const totalPoints = this.quizData.questions.reduce((sum, q) => sum + q.points, 0);
+    const totalPoints = this.quizData.questions.reduce(
+      (sum, q) => sum + q.points,
+      0
+    );
     const totalPointsEl = document.getElementById('total-points');
     if (totalPointsEl) {
       totalPointsEl.textContent = totalPoints;
@@ -424,12 +441,16 @@ class QuizEngine {
   }
 
   renderMultipleChoice(question, container) {
-    const options = this.shuffleArray(question.options, question.randomizeOptions);
+    const options = this.shuffleArray(
+      question.options,
+      question.randomizeOptions
+    );
 
     options.forEach((option, index) => {
       const optionId = `option-${index}`;
       const optionEl = document.createElement('label');
-      optionEl.className = 'flex items-start gap-3 p-4 border border-medium rounded-lg cursor-pointer hover:bg-gray-50 transition-colors';
+      optionEl.className =
+        'flex items-start gap-3 p-4 border border-medium rounded-lg cursor-pointer hover:bg-gray-50 transition-colors';
       optionEl.innerHTML = `
         <input type="radio" name="answer" value="${index}" id="${optionId}" class="mt-1">
         <span class="flex-1">${option}</span>
@@ -442,7 +463,8 @@ class QuizEngine {
     ['True', 'False'].forEach((option, index) => {
       const optionId = `option-${index}`;
       const optionEl = document.createElement('label');
-      optionEl.className = 'flex items-start gap-3 p-4 border border-medium rounded-lg cursor-pointer hover:bg-gray-50 transition-colors';
+      optionEl.className =
+        'flex items-start gap-3 p-4 border border-medium rounded-lg cursor-pointer hover:bg-gray-50 transition-colors';
       optionEl.innerHTML = `
         <input type="radio" name="answer" value="${option}" id="${optionId}" class="mt-1">
         <span class="flex-1 font-medium">${option}</span>
@@ -493,20 +515,29 @@ class QuizEngine {
   }
 
   updateNavigationButtons() {
-    const prevBtn = document.querySelector('.quiz-navigation button:first-child');
-    const nextBtn = document.querySelector('.quiz-navigation button:last-child span');
+    const prevBtn = document.querySelector(
+      '.quiz-navigation button:first-child'
+    );
+    const nextBtn = document.querySelector(
+      '.quiz-navigation button:last-child span'
+    );
 
     if (prevBtn) {
       prevBtn.disabled = this.currentQuestionIndex === 0;
     }
 
     if (nextBtn) {
-      nextBtn.textContent = this.currentQuestionIndex === this.quizData.questions.length - 1 ? 'Submit Quiz' : 'Next';
+      nextBtn.textContent =
+        this.currentQuestionIndex === this.quizData.questions.length - 1
+          ? 'Submit Quiz'
+          : 'Next';
     }
   }
 
   getCurrentAnswer() {
-    const selectedRadio = document.querySelector('input[name="answer"]:checked');
+    const selectedRadio = document.querySelector(
+      'input[name="answer"]:checked'
+    );
     const textArea = document.querySelector('textarea');
 
     if (selectedRadio) return selectedRadio.value;
@@ -597,7 +628,8 @@ class QuizEngine {
       }
     });
 
-    const percentage = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
+    const percentage =
+      totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
     const passed = percentage >= this.quizData.settings.passingScore;
 
     return {
@@ -607,8 +639,8 @@ class QuizEngine {
       earnedPoints,
       percentage,
       passed,
-      timeTaken: (this.quizData.timeLimit * 60) - this.timeRemaining,
-      answers: this.answers
+      timeTaken: this.quizData.timeLimit * 60 - this.timeRemaining,
+      answers: this.answers,
     };
   }
 
@@ -620,7 +652,10 @@ class QuizEngine {
       case 'true-false':
         return userAnswer === question.correctAnswer;
       case 'short-answer':
-        return userAnswer.trim().toLowerCase() === question.correctAnswer?.toLowerCase();
+        return (
+          userAnswer.trim().toLowerCase() ===
+          question.correctAnswer?.toLowerCase()
+        );
       case 'essay':
         // Essays need manual grading
         return false;
@@ -639,10 +674,15 @@ class QuizEngine {
     container.innerHTML = template.innerHTML;
 
     // Update result values
-    document.getElementById('score-percentage').textContent = `${results.percentage}%`;
-    document.getElementById('correct-answers').textContent = results.correctAnswers;
-    document.getElementById('incorrect-answers').textContent = results.incorrectAnswers;
-    document.getElementById('time-taken').textContent = this.formatTime(results.timeTaken);
+    document.getElementById('score-percentage').textContent =
+      `${results.percentage}%`;
+    document.getElementById('correct-answers').textContent =
+      results.correctAnswers;
+    document.getElementById('incorrect-answers').textContent =
+      results.incorrectAnswers;
+    document.getElementById('time-taken').textContent = this.formatTime(
+      results.timeTaken
+    );
 
     // Update message based on performance
     const messageEl = document.getElementById('result-message');
@@ -650,7 +690,8 @@ class QuizEngine {
       if (results.passed) {
         messageEl.textContent = 'Congratulations! You passed the quiz.';
       } else {
-        messageEl.textContent = 'You did not pass this time. Review the material and try again.';
+        messageEl.textContent =
+          'You did not pass this time. Review the material and try again.';
       }
     }
 
@@ -660,7 +701,6 @@ class QuizEngine {
 
   setupResultListeners() {
     const retakeBtn = document.querySelector('.retake-quiz-btn');
-    const viewResultsBtn = document.querySelector('.view-results-btn');
     const backDashboardBtn = document.querySelector('.back-dashboard-btn');
 
     if (retakeBtn) {
@@ -711,9 +751,11 @@ class QuizEngine {
 
   getToastIcon(type) {
     const icons = {
-      success: '<svg class="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>',
-      error: '<svg class="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>',
-      info: '<svg class="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>'
+      success:
+        '<svg class="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>',
+      error:
+        '<svg class="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>',
+      info: '<svg class="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>',
     };
     return icons[type] || icons.info;
   }
@@ -729,10 +771,13 @@ class QuizEngine {
 
   autoSave() {
     // Save quiz data to localStorage
-    localStorage.setItem('quiz-autosave', JSON.stringify({
-      quizData: this.quizData,
-      timestamp: Date.now()
-    }));
+    localStorage.setItem(
+      'quiz-autosave',
+      JSON.stringify({
+        quizData: this.quizData,
+        timestamp: Date.now(),
+      })
+    );
   }
 
   // API Methods
@@ -740,7 +785,7 @@ class QuizEngine {
     try {
       // Save to database
       this.showToast('Quiz saved successfully', 'success');
-    } catch (error) {
+    } catch {
       this.showToast('Failed to save quiz', 'error');
     }
   }
@@ -755,12 +800,9 @@ class QuizEngine {
   }
 }
 
-// Global instance
-let quizEngine;
-
 // Initialize quiz engine when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-  quizEngine = new QuizEngine();
+  new QuizEngine();
 });
 
 // Export for module usage

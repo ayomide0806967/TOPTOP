@@ -7,21 +7,21 @@
 const TEST_CONFIG = {
   baseUrl: 'http://localhost:3000',
   timeout: 10000,
-  retries: 3
+  retries: 3,
 };
 
 // Test utilities
 class TestUtils {
   static async delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   static async makeRequest(url, options = {}) {
     const defaultOptions = {
       timeout: TEST_CONFIG.timeout,
       headers: {
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+      },
     };
 
     const response = await fetch(url, { ...defaultOptions, ...options });
@@ -38,8 +38,8 @@ class TestUtils {
       ...options,
       headers: {
         ...options.headers,
-        'Authorization': `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     });
   }
 
@@ -66,7 +66,7 @@ class TestUtils {
       firstName: 'Test',
       lastName: 'User',
       phone: `+1234567890${timestamp % 1000}`,
-      tenantSlug: `test-tenant-${timestamp}`
+      tenantSlug: `test-tenant-${timestamp}`,
     };
   }
 
@@ -108,11 +108,11 @@ class MultiTenantTestSuite {
       () => this.testStudentRegistration(),
       () => this.testAuthentication(),
       () => this.testRoleBasedAccess(),
-      () => this testData.isolation.testTenantIsolation(),
+      () => this.testTenantIsolation(),
       () => this.testSubscriptionGating(),
       () => this.testFeatureGating(),
       () => this.testUsageLimits(),
-      () => this.testDataSecurity()
+      () => this.testDataSecurity(),
     ];
 
     let passed = 0;
@@ -150,13 +150,16 @@ class MultiTenantTestSuite {
     this.testData.superAdmin = testData;
 
     // Register super admin
-    const registerResponse = await TestUtils.makeRequest(`${TEST_CONFIG.baseUrl}/api/auth/register`, {
-      method: 'POST',
-      body: JSON.stringify({
-        ...testData,
-        planType: 'enterprise'
-      })
-    });
+    const registerResponse = await TestUtils.makeRequest(
+      `${TEST_CONFIG.baseUrl}/api/auth/register`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          ...testData,
+          planType: 'enterprise',
+        }),
+      }
+    );
 
     if (!registerResponse.token || !registerResponse.user) {
       throw new Error('Super admin registration failed');
@@ -180,13 +183,16 @@ class MultiTenantTestSuite {
     this.testData.instructor = testData;
 
     // Register instructor
-    const registerResponse = await TestUtils.makeRequest(`${TEST_CONFIG.baseUrl}/api/auth/register`, {
-      method: 'POST',
-      body: JSON.stringify({
-        ...testData,
-        planType: 'pro'
-      })
-    });
+    const registerResponse = await TestUtils.makeRequest(
+      `${TEST_CONFIG.baseUrl}/api/auth/register`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          ...testData,
+          planType: 'pro',
+        }),
+      }
+    );
 
     if (!registerResponse.token || !registerResponse.user) {
       throw new Error('Instructor registration failed');
@@ -210,13 +216,16 @@ class MultiTenantTestSuite {
     this.testData.student = testData;
 
     // Register student
-    const registerResponse = await TestUtils.makeRequest(`${TEST_CONFIG.baseUrl}/api/auth/register`, {
-      method: 'POST',
-      body: JSON.stringify({
-        ...testData,
-        planType: 'basic'
-      })
-    });
+    const registerResponse = await TestUtils.makeRequest(
+      `${TEST_CONFIG.baseUrl}/api/auth/register`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          ...testData,
+          planType: 'basic',
+        }),
+      }
+    );
 
     if (!registerResponse.token || !registerResponse.user) {
       throw new Error('Student registration failed');
@@ -233,13 +242,16 @@ class MultiTenantTestSuite {
     TestUtils.log('Testing Authentication...');
 
     // Test login with correct credentials
-    const loginResponse = await TestUtils.makeRequest(`${TEST_CONFIG.baseUrl}/api/auth/login`, {
-      method: 'POST',
-      body: JSON.stringify({
-        email: this.testData.instructor.email,
-        password: this.testData.instructor.password
-      })
-    });
+    const loginResponse = await TestUtils.makeRequest(
+      `${TEST_CONFIG.baseUrl}/api/auth/login`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          email: this.testData.instructor.email,
+          password: this.testData.instructor.password,
+        }),
+      }
+    );
 
     if (!loginResponse.token || !loginResponse.user) {
       throw new Error('Login failed');
@@ -251,7 +263,10 @@ class MultiTenantTestSuite {
       loginResponse.token
     );
 
-    if (!validateResponse.user || validateResponse.user.id !== this.testData.instructorUser.id) {
+    if (
+      !validateResponse.user ||
+      validateResponse.user.id !== this.testData.instructorUser.id
+    ) {
       throw new Error('Token validation failed');
     }
 
@@ -261,8 +276,8 @@ class MultiTenantTestSuite {
         method: 'POST',
         body: JSON.stringify({
           email: this.testData.instructor.email,
-          password: 'wrongpassword'
-        })
+          password: 'wrongpassword',
+        }),
       });
       throw new Error('Should have failed with wrong password');
     } catch (error) {
@@ -308,7 +323,7 @@ class MultiTenantTestSuite {
         this.testData.studentToken
       );
       // This might pass if students can read quizzes, so we check other restrictions
-    } catch (error) {
+    } catch {
       // Expected for some endpoints
     }
 
@@ -328,20 +343,23 @@ class MultiTenantTestSuite {
         body: JSON.stringify({
           title: 'Instructor 1 Quiz',
           description: 'Quiz from instructor 1',
-          status: 'draft'
-        })
+          status: 'draft',
+        }),
       }
     );
 
     // Create second instructor
     const instructor2Data = TestUtils.generateTestData();
-    const instructor2Response = await TestUtils.makeRequest(`${TEST_CONFIG.baseUrl}/api/auth/register`, {
-      method: 'POST',
-      body: JSON.stringify({
-        ...instructor2Data,
-        planType: 'pro'
-      })
-    });
+    const instructor2Response = await TestUtils.makeRequest(
+      `${TEST_CONFIG.baseUrl}/api/auth/register`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          ...instructor2Data,
+          planType: 'pro',
+        }),
+      }
+    );
 
     // Try to access quiz from different tenant
     try {
@@ -369,7 +387,10 @@ class MultiTenantTestSuite {
       this.testData.instructorToken
     );
 
-    if (!subscriptionResponse.usage || subscriptionResponse.usage.plan !== 'pro') {
+    if (
+      !subscriptionResponse.usage ||
+      subscriptionResponse.usage.plan !== 'pro'
+    ) {
       throw new Error('Subscription status incorrect');
     }
 
@@ -380,8 +401,8 @@ class MultiTenantTestSuite {
       {
         method: 'POST',
         body: JSON.stringify({
-          planId: 'enterprise'
-        })
+          planId: 'enterprise',
+        }),
       }
     );
 
@@ -398,10 +419,13 @@ class MultiTenantTestSuite {
 
     // Test basic user cannot access enterprise features
     const basicUserData = TestUtils.generateTestData();
-    const basicUserResponse = await TestUtils.makeRequest(`${TEST_CONFIG.baseUrl}/api/auth/register`, {
-      method: 'POST',
-      body: JSON.stringify(basicUserData)
-    });
+    const basicUserResponse = await TestUtils.makeRequest(
+      `${TEST_CONFIG.baseUrl}/api/auth/register`,
+      {
+        method: 'POST',
+        body: JSON.stringify(basicUserData),
+      }
+    );
 
     // Try to access enterprise feature
     try {
@@ -424,10 +448,13 @@ class MultiTenantTestSuite {
     TestUtils.log('Testing Usage Limits...');
 
     const basicUserData = TestUtils.generateTestData();
-    const basicUserResponse = await TestUtils.makeRequest(`${TEST_CONFIG.baseUrl}/api/auth/register`, {
-      method: 'POST',
-      body: JSON.stringify(basicUserData)
-    });
+    const basicUserResponse = await TestUtils.makeRequest(
+      `${TEST_CONFIG.baseUrl}/api/auth/register`,
+      {
+        method: 'POST',
+        body: JSON.stringify(basicUserData),
+      }
+    );
 
     // Create quizzes up to the limit
     const limits = { maxQuizzes: 10 };
@@ -440,8 +467,8 @@ class MultiTenantTestSuite {
             method: 'POST',
             body: JSON.stringify({
               title: `Quiz ${i + 1}`,
-              description: `Test quiz ${i + 1}`
-            })
+              description: `Test quiz ${i + 1}`,
+            }),
           }
         );
 
@@ -483,8 +510,8 @@ class MultiTenantTestSuite {
         method: 'POST',
         body: JSON.stringify({
           title: 'Audit Test Quiz',
-          description: 'Quiz for testing audit logging'
-        })
+          description: 'Quiz for testing audit logging',
+        }),
       }
     );
 
@@ -506,11 +533,12 @@ class MultiTenantTestSuite {
 if (typeof module !== 'undefined' && require.main === module) {
   const testSuite = new MultiTenantTestSuite();
 
-  testSuite.runAllTests()
-    .then(results => {
+  testSuite
+    .runAllTests()
+    .then((results) => {
       process.exit(results.failed > 0 ? 1 : 0);
     })
-    .catch(error => {
+    .catch((error) => {
       console.error('Test execution failed:', error);
       process.exit(1);
     });

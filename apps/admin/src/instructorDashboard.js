@@ -46,7 +46,9 @@ class InstructorDashboard {
     }
 
     if (!authService.isInstructor() && !authService.isSuperAdmin()) {
-      showToast('Access denied. Instructor privileges required.', { type: 'error' });
+      showToast('Access denied. Instructor privileges required.', {
+        type: 'error',
+      });
       this.redirectToLogin();
       return;
     }
@@ -61,15 +63,21 @@ class InstructorDashboard {
 
   redirectToLogin() {
     // Route instructors to the Quiz Builder login (not the learner login)
-    window.location.href = '../admin/login.html?redirect=' + encodeURIComponent(window.location.href);
+    window.location.href =
+      '../admin/login.html?redirect=' +
+      encodeURIComponent(window.location.href);
   }
 
   bindEvents() {
     // Logout button
-    document.getElementById('logout-btn')?.addEventListener('click', () => this.handleLogout());
+    document
+      .getElementById('logout-btn')
+      ?.addEventListener('click', () => this.handleLogout());
 
     // Refresh button
-    document.getElementById('refresh-btn')?.addEventListener('click', () => this.refreshData());
+    document
+      .getElementById('refresh-btn')
+      ?.addEventListener('click', () => this.refreshData());
 
     // User menu dropdown
     const userMenuBtn = document.getElementById('user-menu-btn');
@@ -88,7 +96,7 @@ class InstructorDashboard {
     }
 
     // Navigation items
-    document.querySelectorAll('.nav-item').forEach(item => {
+    document.querySelectorAll('.nav-item').forEach((item) => {
       item.addEventListener('click', (e) => {
         e.preventDefault();
         const page = item.dataset.page;
@@ -142,7 +150,9 @@ class InstructorDashboard {
   async navigateToPage(page, updateHash = true) {
     // Check permissions for page access
     if (!this.canAccessPage(page)) {
-      showToast('Access denied or feature not available in your plan', { type: 'error' });
+      showToast('Access denied or feature not available in your plan', {
+        type: 'error',
+      });
       return;
     }
 
@@ -153,7 +163,7 @@ class InstructorDashboard {
     }
 
     // Update navigation UI
-    document.querySelectorAll('.nav-item').forEach(item => {
+    document.querySelectorAll('.nav-item').forEach((item) => {
       const isActive = item.dataset.page === page;
       if (isActive) {
         item.classList.add('text-white', 'bg-cyan-600', 'hover:bg-cyan-700');
@@ -173,8 +183,10 @@ class InstructorDashboard {
 
   canAccessPage(page) {
     // Check RBAC permissions
-    if (!RBAC.hasPermission(this.state.user, 'manage_own_quizzes') &&
-        !['dashboard', 'profile', 'settings'].includes(page)) {
+    if (
+      !RBAC.hasPermission(this.state.user, 'manage_own_quizzes') &&
+      !['dashboard', 'profile', 'settings'].includes(page)
+    ) {
       return false;
     }
 
@@ -183,14 +195,20 @@ class InstructorDashboard {
       analytics: 'advanced_analytics',
       'new-classroom': 'manage_classrooms',
       'new-quiz': 'create_quizzes',
-      'quizzes': 'manage_own_quizzes',
-      'classrooms': 'manage_own_classrooms',
-      'students': 'invite_students',
+      quizzes: 'manage_own_quizzes',
+      classrooms: 'manage_own_classrooms',
+      students: 'invite_students',
     };
 
     const requiredFeature = pageFeatures[page];
-    if (requiredFeature && !FeatureGating.hasFeature(this.state.user, requiredFeature)) {
-      showToast(`${this.formatFeatureName(requiredFeature)} is not available in your plan`, { type: 'warning' });
+    if (
+      requiredFeature &&
+      !FeatureGating.hasFeature(this.state.user, requiredFeature)
+    ) {
+      showToast(
+        `${this.formatFeatureName(requiredFeature)} is not available in your plan`,
+        { type: 'warning' }
+      );
       return false;
     }
 
@@ -199,13 +217,13 @@ class InstructorDashboard {
 
   formatFeatureName(feature) {
     const featureNames = {
-      'create_quizzes': 'Quiz Creation',
-      'manage_classrooms': 'Classroom Management',
-      'advanced_analytics': 'Advanced Analytics',
-      'invite_students': 'Student Management',
-      'manage_own_quizzes': 'Quiz Management',
-      'media_upload': 'Media Upload',
-      'scheduled_exams': 'Exam Scheduling',
+      create_quizzes: 'Quiz Creation',
+      manage_classrooms: 'Classroom Management',
+      advanced_analytics: 'Advanced Analytics',
+      invite_students: 'Student Management',
+      manage_own_quizzes: 'Quiz Management',
+      media_upload: 'Media Upload',
+      scheduled_exams: 'Exam Scheduling',
     };
     return featureNames[feature] || feature;
   }
@@ -343,10 +361,14 @@ class InstructorDashboard {
       this.state.metrics = { ...this.state.metrics, ...metrics };
 
       // Update UI
-      document.getElementById('total-quizzes').textContent = metrics.totalQuizzes.toLocaleString();
-      document.getElementById('active-classrooms').textContent = metrics.activeClassrooms.toLocaleString();
-      document.getElementById('total-students').textContent = metrics.totalStudents.toLocaleString();
-      document.getElementById('total-attempts').textContent = metrics.totalAttempts.toLocaleString();
+      document.getElementById('total-quizzes').textContent =
+        metrics.totalQuizzes.toLocaleString();
+      document.getElementById('active-classrooms').textContent =
+        metrics.activeClassrooms.toLocaleString();
+      document.getElementById('total-students').textContent =
+        metrics.totalStudents.toLocaleString();
+      document.getElementById('total-attempts').textContent =
+        metrics.totalAttempts.toLocaleString();
 
       // Update subscription usage
       if (metrics.subscriptionUsage) {
@@ -383,18 +405,25 @@ class InstructorDashboard {
     if (!container) return;
 
     if (activities.length === 0) {
-      container.innerHTML = '<p class="text-sm text-slate-500">No recent activity</p>';
+      container.innerHTML =
+        '<p class="text-sm text-slate-500">No recent activity</p>';
       return;
     }
 
-    container.innerHTML = activities.map(activity => `
+    container.innerHTML = activities
+      .map(
+        (activity) => `
       <div class="flex items-start gap-3 p-3 border border-slate-100 rounded-lg">
         <div class="h-2 w-2 rounded-full mt-2 ${
-          activity.type === 'quiz_created' ? 'bg-blue-500' :
-          activity.type === 'classroom_created' ? 'bg-emerald-500' :
-          activity.type === 'student_joined' ? 'bg-purple-500' :
-          activity.type === 'exam_completed' ? 'bg-amber-500' :
-          'bg-slate-500'
+          activity.type === 'quiz_created'
+            ? 'bg-blue-500'
+            : activity.type === 'classroom_created'
+              ? 'bg-emerald-500'
+              : activity.type === 'student_joined'
+                ? 'bg-purple-500'
+                : activity.type === 'exam_completed'
+                  ? 'bg-amber-500'
+                  : 'bg-slate-500'
         }"></div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-slate-900">${activity.title}</p>
@@ -402,7 +431,9 @@ class InstructorDashboard {
           <p class="text-xs text-slate-400 mt-1">${this.formatTimeAgo(activity.timestamp)}</p>
         </div>
       </div>
-    `).join('');
+    `
+      )
+      .join('');
   }
 
   async loadUpcomingExams() {
@@ -426,19 +457,24 @@ class InstructorDashboard {
     if (!container) return;
 
     if (exams.length === 0) {
-      container.innerHTML = '<p class="text-sm text-slate-500">No upcoming exams</p>';
+      container.innerHTML =
+        '<p class="text-sm text-slate-500">No upcoming exams</p>';
       return;
     }
 
-    container.innerHTML = exams.map(exam => `
+    container.innerHTML = exams
+      .map(
+        (exam) => `
       <div class="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer" onclick="navigateToPage('classrooms')">
         <div class="flex-1">
           <div class="flex items-center gap-3">
             <h4 class="text-sm font-medium text-slate-900">${exam.quizTitle}</h4>
             <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-              exam.status === 'scheduled' ? 'bg-blue-100 text-blue-700' :
-              exam.status === 'live' ? 'bg-emerald-100 text-emerald-700' :
-              'bg-slate-100 text-slate-700'
+              exam.status === 'scheduled'
+                ? 'bg-blue-100 text-blue-700'
+                : exam.status === 'live'
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-slate-100 text-slate-700'
             }">
               ${exam.status}
             </span>
@@ -451,14 +487,17 @@ class InstructorDashboard {
           ${exam.expectedParticipants || 0} students
         </div>
       </div>
-    `).join('');
+    `
+      )
+      .join('');
   }
 
   async loadQuizzes() {
     const contentArea = document.getElementById('content-area');
     if (!contentArea) return;
 
-    contentArea.innerHTML = '<div class="text-center py-12"><p class="text-slate-600">Loading quizzes...</p></div>';
+    contentArea.innerHTML =
+      '<div class="text-center py-12"><p class="text-slate-600">Loading quizzes...</p></div>';
 
     try {
       const response = await fetch('/api/instructor/quizzes', {
@@ -472,7 +511,8 @@ class InstructorDashboard {
       this.renderQuizzes(quizzes);
     } catch (error) {
       console.error('Failed to load quizzes:', error);
-      contentArea.innerHTML = '<div class="text-center py-12"><p class="text-rose-600">Failed to load quizzes</p></div>';
+      contentArea.innerHTML =
+        '<div class="text-center py-12"><p class="text-rose-600">Failed to load quizzes</p></div>';
     }
   }
 
@@ -513,7 +553,9 @@ class InstructorDashboard {
           </div>
 
           <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            ${quizzes.map(quiz => `
+            ${quizzes
+              .map(
+                (quiz) => `
               <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                 <div class="flex items-start justify-between mb-4">
                   <div>
@@ -521,9 +563,11 @@ class InstructorDashboard {
                     <p class="text-sm text-slate-500 mt-1 line-clamp-2">${quiz.description || 'No description'}</p>
                   </div>
                   <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    quiz.status === 'published' ? 'bg-emerald-100 text-emerald-700' :
-                    quiz.status === 'draft' ? 'bg-amber-100 text-amber-700' :
-                    'bg-slate-100 text-slate-700'
+                    quiz.status === 'published'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : quiz.status === 'draft'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-slate-100 text-slate-700'
                   }">
                     ${quiz.status || 'draft'}
                   </span>
@@ -547,7 +591,9 @@ class InstructorDashboard {
                   <button onclick="shareQuiz('${quiz.id}')" class="text-emerald-600 hover:text-emerald-700 text-sm font-medium">Share</button>
                 </div>
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
           </div>
         </div>
       `;
@@ -561,7 +607,8 @@ class InstructorDashboard {
     const contentArea = document.getElementById('content-area');
     if (!contentArea) return;
 
-    contentArea.innerHTML = '<div class="text-center py-12"><p class="text-slate-600">Loading classrooms...</p></div>';
+    contentArea.innerHTML =
+      '<div class="text-center py-12"><p class="text-slate-600">Loading classrooms...</p></div>';
 
     try {
       const response = await fetch('/api/instructor/classrooms', {
@@ -575,7 +622,8 @@ class InstructorDashboard {
       this.renderClassrooms(classrooms);
     } catch (error) {
       console.error('Failed to load classrooms:', error);
-      contentArea.innerHTML = '<div class="text-center py-12"><p class="text-rose-600">Failed to load classrooms</p></div>';
+      contentArea.innerHTML =
+        '<div class="text-center py-12"><p class="text-rose-600">Failed to load classrooms</p></div>';
     }
   }
 
@@ -616,7 +664,9 @@ class InstructorDashboard {
           </div>
 
           <div class="grid gap-6 md:grid-cols-2">
-            ${classrooms.map(classroom => `
+            ${classrooms
+              .map(
+                (classroom) => `
               <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                 <div class="flex items-start justify-between mb-4">
                   <div>
@@ -624,9 +674,11 @@ class InstructorDashboard {
                     <p class="text-sm text-slate-500 mt-1">${classroom.purpose || 'No purpose'}</p>
                   </div>
                   <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    classroom.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
-                    classroom.status === 'suspended' ? 'bg-rose-100 text-rose-700' :
-                    'bg-slate-100 text-slate-700'
+                    classroom.status === 'active'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : classroom.status === 'suspended'
+                        ? 'bg-rose-100 text-rose-700'
+                        : 'bg-slate-100 text-slate-700'
                   }">
                     ${classroom.status || 'active'}
                   </span>
@@ -639,9 +691,13 @@ class InstructorDashboard {
                   </div>
                   <div class="flex items-center justify-between">
                     <span>${classroom.scheduledExamCount || 0} exams</span>
-                    <span>${classroom.accessMode === 'open_link' ? 'Open link' :
-                           classroom.accessMode === 'pin' ? 'PIN protected' :
-                           'Invite only'}</span>
+                    <span>${
+                      classroom.accessMode === 'open_link'
+                        ? 'Open link'
+                        : classroom.accessMode === 'pin'
+                          ? 'PIN protected'
+                          : 'Invite only'
+                    }</span>
                   </div>
                 </div>
 
@@ -651,7 +707,9 @@ class InstructorDashboard {
                   <button onclick="viewAnalytics('${classroom.id}')" class="text-emerald-600 hover:text-emerald-700 text-sm font-medium">Analytics</button>
                 </div>
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
           </div>
         </div>
       `;
@@ -665,7 +723,8 @@ class InstructorDashboard {
     const contentArea = document.getElementById('content-area');
     if (!contentArea) return;
 
-    contentArea.innerHTML = '<div class="text-center py-12"><p class="text-slate-600">Loading students...</p></div>';
+    contentArea.innerHTML =
+      '<div class="text-center py-12"><p class="text-slate-600">Loading students...</p></div>';
 
     try {
       const response = await fetch('/api/instructor/classrooms', {
@@ -681,7 +740,8 @@ class InstructorDashboard {
             name: room.name,
             purpose: room.purpose,
             status: room.status,
-            activeParticipants: room.active_participants ?? room.activeParticipants ?? 0,
+            activeParticipants:
+              room.active_participants ?? room.activeParticipants ?? 0,
             pendingInvites: room.pending_invites ?? room.pendingInvites ?? 0,
             seatQuota: room.seat_quota ?? room.seatQuota ?? 0,
             lastExamAt: room.next_exam_at ?? room.nextExamAt ?? null,
@@ -701,8 +761,14 @@ class InstructorDashboard {
           </div>
         `;
       } else {
-        const totalSeats = mapped.reduce((sum, room) => sum + Number(room.seatQuota || 0), 0);
-        const totalStudents = mapped.reduce((sum, room) => sum + Number(room.activeParticipants || 0), 0);
+        const totalSeats = mapped.reduce(
+          (sum, room) => sum + Number(room.seatQuota || 0),
+          0
+        );
+        const totalStudents = mapped.reduce(
+          (sum, room) => sum + Number(room.activeParticipants || 0),
+          0
+        );
 
         contentArea.innerHTML = `
           <div id="students-content" class="space-y-6">
@@ -776,7 +842,8 @@ class InstructorDashboard {
       }
     } catch (error) {
       console.error('Failed to load students', error);
-      contentArea.innerHTML = '<div class="text-center py-12"><p class="text-rose-600">Unable to load classroom roster right now.</p></div>';
+      contentArea.innerHTML =
+        '<div class="text-center py-12"><p class="text-rose-600">Unable to load classroom roster right now.</p></div>';
     }
 
     contentArea.classList.remove('hidden');
@@ -800,7 +867,8 @@ class InstructorDashboard {
         </div>
       `;
     } else {
-      contentArea.innerHTML = '<div class="text-center py-12"><p class="text-slate-600">Loading analytics...</p></div>';
+      contentArea.innerHTML =
+        '<div class="text-center py-12"><p class="text-slate-600">Loading analytics...</p></div>';
 
       try {
         const [metricsResponse, examsResponse] = await Promise.all([
@@ -817,7 +885,9 @@ class InstructorDashboard {
         }
 
         const metrics = await metricsResponse.json();
-        const upcomingExams = examsResponse.ok ? await examsResponse.json() : [];
+        const upcomingExams = examsResponse.ok
+          ? await examsResponse.json()
+          : [];
 
         const seatUsage = metrics.subscriptionUsage || {};
         const seatsAvailable = Math.max(
@@ -863,27 +933,30 @@ class InstructorDashboard {
 
               <div class="rounded-xl border border-slate-200 bg-white p-6">
                 <h3 class="text-base font-semibold text-slate-900 mb-3">Upcoming exams</h3>
-                ${Array.isArray(upcomingExams) && upcomingExams.length
-                  ? `<ul class="space-y-3 text-sm text-slate-600">${upcomingExams
-                      .slice(0, 4)
-                      .map(
-                        (exam) => `
+                ${
+                  Array.isArray(upcomingExams) && upcomingExams.length
+                    ? `<ul class="space-y-3 text-sm text-slate-600">${upcomingExams
+                        .slice(0, 4)
+                        .map(
+                          (exam) => `
                           <li class="rounded-lg border border-slate-100 p-3">
                             <p class="font-medium text-slate-900">${exam.quiz_title || 'Untitled quiz'}</p>
                             <p class="text-xs text-slate-500">${exam.starts_at ? new Date(exam.starts_at).toLocaleString() : 'No schedule'}</p>
                             <p class="text-xs text-slate-400">${exam.classroom_name || 'Unassigned classroom'}</p>
                           </li>
                         `
-                      )
-                      .join('')}</ul>`
-                  : '<p class="text-sm text-slate-500">No upcoming exams scheduled.</p>'}
+                        )
+                        .join('')}</ul>`
+                    : '<p class="text-sm text-slate-500">No upcoming exams scheduled.</p>'
+                }
               </div>
             </section>
           </div>
         `;
       } catch (error) {
         console.error('Failed to load analytics', error);
-        contentArea.innerHTML = '<div class="text-center py-12"><p class="text-rose-600">Unable to load analytics right now.</p></div>';
+        contentArea.innerHTML =
+          '<div class="text-center py-12"><p class="text-rose-600">Unable to load analytics right now.</p></div>';
       }
     }
 
@@ -1044,9 +1117,15 @@ class InstructorDashboard {
       if (limit && limit > 0) {
         const percentage = value / limit;
         if (percentage > thresholds.critical) {
-          showToast(`You've reached your ${key} limit! Consider upgrading your plan.`, { type: 'error', persistent: true });
+          showToast(
+            `You've reached your ${key} limit! Consider upgrading your plan.`,
+            { type: 'error', persistent: true }
+          );
         } else if (percentage > thresholds.warning) {
-          showToast(`You're approaching your ${key} limit (${Math.round(percentage * 100)}% used)`, { type: 'warning' });
+          showToast(
+            `You're approaching your ${key} limit (${Math.round(percentage * 100)}% used)`,
+            { type: 'warning' }
+          );
         }
       }
     });
@@ -1054,7 +1133,12 @@ class InstructorDashboard {
 
   async showNewQuizModal() {
     // Check subscription limits
-    if (!await this.checkSubscriptionLimit('quizzes', this.state.metrics.subscriptionUsage.currentQuizzes)) {
+    if (
+      !(await this.checkSubscriptionLimit(
+        'quizzes',
+        this.state.metrics.subscriptionUsage.currentQuizzes
+      ))
+    ) {
       return;
     }
 
@@ -1065,7 +1149,12 @@ class InstructorDashboard {
 
   async showNewClassroomModal() {
     // Check subscription limits
-    if (!await this.checkSubscriptionLimit('classrooms', this.state.metrics.subscriptionUsage.currentClassrooms)) {
+    if (
+      !(await this.checkSubscriptionLimit(
+        'classrooms',
+        this.state.metrics.subscriptionUsage.currentClassrooms
+      ))
+    ) {
       return;
     }
 
@@ -1078,18 +1167,24 @@ class InstructorDashboard {
   }
 
   editQuiz(quizId) {
-    window.open(`/apps/learner/exam-builder.html?blueprint=${quizId}`, '_blank');
+    window.open(
+      `/apps/learner/exam-builder.html?blueprint=${quizId}`,
+      '_blank'
+    );
   }
 
-  duplicateQuiz(quizId) {
+  duplicateQuiz(_quizId) {
     showToast('Duplicate quiz feature coming soon!', { type: 'info' });
   }
 
   previewQuiz(quizId) {
-    window.open(`/apps/learner/exam-face.html?blueprint=${quizId}&preview=true`, '_blank');
+    window.open(
+      `/apps/learner/exam-face.html?blueprint=${quizId}&preview=true`,
+      '_blank'
+    );
   }
 
-  shareQuiz(quizId) {
+  shareQuiz(_quizId) {
     showToast('Share quiz feature coming soon!', { type: 'info' });
   }
 
@@ -1097,11 +1192,11 @@ class InstructorDashboard {
     window.open(`/apps/admin/classroom.html?id=${classroomId}`, '_blank');
   }
 
-  scheduleExam(classroomId) {
+  scheduleExam(_classroomId) {
     showToast('Exam scheduling feature coming soon!', { type: 'info' });
   }
 
-  viewAnalytics(classroomId) {
+  viewAnalytics(_classroomId) {
     showToast('Classroom analytics coming soon!', { type: 'info' });
   }
 

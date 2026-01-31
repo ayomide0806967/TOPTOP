@@ -324,7 +324,11 @@ function buildStudyCycle(row) {
 
 async function attachSubslotDistribution(client, cycles) {
   const subslotIds = new Set();
+  const cycleIds = new Set();
   cycles.forEach((cycle) => {
+    if (cycle?.id) {
+      cycleIds.add(cycle.id);
+    }
     (cycle.subslots || []).forEach((subslot) => {
       if (subslot?.id) {
         subslotIds.add(subslot.id);
@@ -337,33 +341,38 @@ async function attachSubslotDistribution(client, cycles) {
 
   const subslotIdList = Array.from(subslotIds);
   let query = client
-    .from('study_cycle_subslot_questions')
-    .select('subslot_id, day_offset');
-  if (subslotIdList.length) {
-    query = query.in('subslot_id', subslotIdList);
-  }
+    .from('study_cycle_daily_buckets')
+    .select('cycle_id, subslot_id, day_offset, question_count');
+  if (subslotIdList.length) query = query.in('subslot_id', subslotIdList);
+  const cycleIdList = Array.from(cycleIds);
+  if (cycleIdList.length) query = query.in('cycle_id', cycleIdList);
   const { data, error } = await query;
   if (error) throw error;
 
-  const distributionMap = new Map();
+  const bucketCountMap = new Map();
   (data || []).forEach((row) => {
+    const subslotId = row.subslot_id;
+    if (!subslotId) return;
     const dayOffset = Number(row.day_offset ?? 0);
-    const list = distributionMap.get(row.subslot_id) || [];
-    const entry = list.find((item) => item.day_offset === dayOffset);
-    if (entry) {
-      entry.count += 1;
-    } else {
-      list.push({ day_offset: dayOffset, count: 1 });
+    const questionCount = Number(row.question_count ?? 0);
+    if (!bucketCountMap.has(subslotId)) {
+      bucketCountMap.set(subslotId, new Map());
     }
-    distributionMap.set(row.subslot_id, list);
+    bucketCountMap.get(subslotId).set(dayOffset, questionCount);
   });
 
   cycles.forEach((cycle) => {
     cycle.subslots = (cycle.subslots || []).map((subslot) => ({
       ...subslot,
-      distribution: (distributionMap.get(subslot.id) || [])
-        .slice()
-        .sort((a, b) => a.day_offset - b.day_offset),
+      distribution: (() => {
+        const daySpan = Number(subslot.day_span ?? SUBSLOT_DAY_SPAN) || 0;
+        const counts = bucketCountMap.get(subslot.id) || new Map();
+        const normalizedSpan = daySpan > 0 ? daySpan : SUBSLOT_DAY_SPAN;
+        return Array.from({ length: normalizedSpan }, (_unused, index) => ({
+          day_offset: index,
+          count: Number(counts.get(index) ?? 0),
+        }));
+      })(),
     }));
   });
 

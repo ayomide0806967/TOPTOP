@@ -87,10 +87,6 @@ function cacheFirst(request) {
   });
 }
 
-function cacheOnly(request) {
-  return caches.match(request);
-}
-
 function staleWhileRevalidate(request, cacheName = RUNTIME_CACHE) {
   return caches.match(request).then((cached) => {
     const fetchPromise = fetch(request)

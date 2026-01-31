@@ -2963,7 +2963,7 @@ async function startOrResumeQuiz() {
         await state.supabase.rpc('generate_daily_quiz', rpcArgs);
       if (generateError) {
         // Handle specific error messages
-        const message = generateError.message || '';
+        const message = String(generateError.message || '').toLowerCase();
         if (message.includes('no active subscription')) {
           showToast(
             'You need an active subscription to access daily questions',
@@ -2976,12 +2976,25 @@ async function startOrResumeQuiz() {
           showToast('No active study slot for your department today', 'error');
           return;
         }
-        if (message.includes('selected subscription is no longer active')) {
+        if (
+          message.includes('selected subscription is no longer active') ||
+          message.includes('selected subscription is no longer')
+        ) {
           showToast(
             'That plan is no longer active. Choose a different plan to continue.',
             'error'
           );
           await loadSubscriptions();
+          return;
+        }
+        if (
+          message.includes('subslot configuration is incomplete') ||
+          message.includes('missing dates')
+        ) {
+          showToast(
+            'Your schedule is not ready yet. Please check back later.',
+            'error'
+          );
           return;
         }
         throw generateError;
@@ -3040,13 +3053,26 @@ async function regenerateQuiz() {
       }
     );
     if (genError) {
-      const message = genError.message || '';
-      if (message.includes('selected subscription is no longer active')) {
+      const message = String(genError.message || '').toLowerCase();
+      if (
+        message.includes('selected subscription is no longer active') ||
+        message.includes('selected subscription is no longer')
+      ) {
         showToast(
           'That plan is no longer active. Choose a different plan to continue.',
           'error'
         );
         await loadSubscriptions();
+        return;
+      }
+      if (
+        message.includes('subslot configuration is incomplete') ||
+        message.includes('missing dates')
+      ) {
+        showToast(
+          'Your schedule is not ready yet. Please check back later.',
+          'error'
+        );
         return;
       }
       throw genError;
@@ -3163,7 +3189,10 @@ async function ensureProfile() {
     if (!data) {
       const metadata = state.user.user_metadata || {};
       const fullName =
-        metadata.full_name || metadata.name || metadata.fullName || fallbackName;
+        metadata.full_name ||
+        metadata.name ||
+        metadata.fullName ||
+        fallbackName;
       const parts = String(fullName || '')
         .trim()
         .split(/\s+/)

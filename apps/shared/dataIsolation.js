@@ -33,7 +33,10 @@ export class DataIsolationService {
   // Verify user has access to requested data
   verifyDataAccess(resourceType, resourceId, action = 'read') {
     if (!this.currentUser || !this.currentTenant) {
-      throw new DataIsolationError('User context not initialized', 'NO_CONTEXT');
+      throw new DataIsolationError(
+        'User context not initialized',
+        'NO_CONTEXT'
+      );
     }
 
     // Super admins can access everything
@@ -61,10 +64,20 @@ export class DataIsolationService {
     switch (resourceType) {
       case 'quiz':
       case 'quiz_blueprint':
-        return this.verifyQuizAccess(tenantId, resourceId, this.currentUser.id, action);
+        return this.verifyQuizAccess(
+          tenantId,
+          resourceId,
+          this.currentUser.id,
+          action
+        );
 
       case 'classroom':
-        return this.verifyClassroomAccess(tenantId, resourceId, this.currentUser.id, action);
+        return this.verifyClassroomAccess(
+          tenantId,
+          resourceId,
+          this.currentUser.id,
+          action
+        );
 
       case 'student':
         return this.verifyStudentAccess(tenantId, resourceId, action);
@@ -73,7 +86,10 @@ export class DataIsolationService {
         return this.verifyAnalyticsAccess(tenantId, action);
 
       default:
-        throw new DataIsolationError(`Unknown resource type: ${resourceType}`, 'UNKNOWN_RESOURCE');
+        throw new DataIsolationError(
+          `Unknown resource type: ${resourceType}`,
+          'UNKNOWN_RESOURCE'
+        );
     }
   }
 
@@ -93,7 +109,10 @@ export class DataIsolationService {
         return this.verifyClassroomMembership(userId, resourceId);
 
       default:
-        throw new DataIsolationError(`Students cannot access ${resourceType}`, 'ACCESS_DENIED');
+        throw new DataIsolationError(
+          `Students cannot access ${resourceType}`,
+          'ACCESS_DENIED'
+        );
     }
   }
 
@@ -110,26 +129,32 @@ export class DataIsolationService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
         },
         body: JSON.stringify({
           tenantId,
           userId,
-          action
-        })
+          action,
+        }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new DataIsolationError(data.message || 'Access denied', 'QUIZ_ACCESS_DENIED');
+        throw new DataIsolationError(
+          data.message || 'Access denied',
+          'QUIZ_ACCESS_DENIED'
+        );
       }
 
       this.cache.set(cacheKey, data.hasAccess);
       return data.hasAccess;
     } catch (error) {
       if (error instanceof DataIsolationError) throw error;
-      throw new DataIsolationError('Failed to verify quiz access', 'VERIFICATION_ERROR');
+      throw new DataIsolationError(
+        'Failed to verify quiz access',
+        'VERIFICATION_ERROR'
+      );
     }
   }
 
@@ -142,30 +167,39 @@ export class DataIsolationService {
     }
 
     try {
-      const response = await fetch(`/api/classrooms/${classroomId}/verify-access`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        },
-        body: JSON.stringify({
-          tenantId,
-          userId,
-          action
-        })
-      });
+      const response = await fetch(
+        `/api/classrooms/${classroomId}/verify-access`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+          },
+          body: JSON.stringify({
+            tenantId,
+            userId,
+            action,
+          }),
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new DataIsolationError(data.message || 'Access denied', 'CLASSROOM_ACCESS_DENIED');
+        throw new DataIsolationError(
+          data.message || 'Access denied',
+          'CLASSROOM_ACCESS_DENIED'
+        );
       }
 
       this.cache.set(cacheKey, data.hasAccess);
       return data.hasAccess;
     } catch (error) {
       if (error instanceof DataIsolationError) throw error;
-      throw new DataIsolationError('Failed to verify classroom access', 'VERIFICATION_ERROR');
+      throw new DataIsolationError(
+        'Failed to verify classroom access',
+        'VERIFICATION_ERROR'
+      );
     }
   }
 
@@ -178,29 +212,38 @@ export class DataIsolationService {
     }
 
     try {
-      const response = await fetch(`/api/students/${studentId}/verify-instructor-access`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        },
-        body: JSON.stringify({
-          tenantId,
-          instructorId
-        })
-      });
+      const response = await fetch(
+        `/api/students/${studentId}/verify-instructor-access`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+          },
+          body: JSON.stringify({
+            tenantId,
+            instructorId,
+          }),
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new DataIsolationError(data.message || 'Access denied', 'STUDENT_ACCESS_DENIED');
+        throw new DataIsolationError(
+          data.message || 'Access denied',
+          'STUDENT_ACCESS_DENIED'
+        );
       }
 
       this.cache.set(cacheKey, data.hasAccess);
       return data.hasAccess;
     } catch (error) {
       if (error instanceof DataIsolationError) throw error;
-      throw new DataIsolationError('Failed to verify student access', 'VERIFICATION_ERROR');
+      throw new DataIsolationError(
+        'Failed to verify student access',
+        'VERIFICATION_ERROR'
+      );
     }
   }
 
@@ -219,18 +262,21 @@ export class DataIsolationService {
     }
 
     try {
-      const response = await fetch(`/api/classrooms/${classroomId}/members/${userId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+      const response = await fetch(
+        `/api/classrooms/${classroomId}/members/${userId}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+          },
         }
-      });
+      );
 
       const isMember = response.ok;
 
       this.cache.set(cacheKey, isMember);
       return isMember;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -267,7 +313,7 @@ export class DataIsolationService {
   }
 
   // Filter data based on tenant access
-  filterTenantData(data, resourceType) {
+  filterTenantData(data, _resourceType) {
     if (!data || !Array.isArray(data)) {
       return data;
     }
@@ -279,7 +325,7 @@ export class DataIsolationService {
     const tenantId = this.currentTenant?.id;
     const userId = this.currentUser?.id;
 
-    return data.filter(item => {
+    return data.filter((item) => {
       // Basic tenant filtering
       if (item.tenant_id && item.tenant_id !== tenantId) {
         return false;
@@ -314,13 +360,13 @@ export class DataIsolationService {
     const sensitiveFields = {
       user: ['password_hash', 'reset_token', 'email_verified'],
       tenant: ['settings', 'api_keys'],
-      subscription: ['payment_method_token', 'stripe_customer_id']
+      subscription: ['payment_method_token', 'stripe_customer_id'],
     };
 
     const fieldsToRemove = sensitiveFields[resourceType] || [];
 
     if (Array.isArray(data)) {
-      return data.map(item => this.removeFields(item, fieldsToRemove));
+      return data.map((item) => this.removeFields(item, fieldsToRemove));
     } else {
       return this.removeFields(data, fieldsToRemove);
     }
@@ -331,7 +377,7 @@ export class DataIsolationService {
     if (!obj || typeof obj !== 'object') return obj;
 
     const sanitized = { ...obj };
-    fields.forEach(field => {
+    fields.forEach((field) => {
       delete sanitized[field];
     });
 
@@ -349,7 +395,7 @@ export class DataIsolationService {
       result: result ? 'success' : 'denied',
       timestamp: new Date().toISOString(),
       user_agent: navigator.userAgent,
-      ip_address: null // Will be set by server
+      ip_address: null, // Will be set by server
     };
 
     // Send audit log to server
@@ -357,10 +403,10 @@ export class DataIsolationService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
       },
-      body: JSON.stringify(auditEntry)
-    }).catch(error => {
+      body: JSON.stringify(auditEntry),
+    }).catch((error) => {
       console.warn('Failed to log audit entry:', error);
     });
   }
@@ -373,8 +419,22 @@ export class DataIsolationService {
 
     const features = {
       basic: ['create_quizzes', 'manage_classrooms', 'basic_analytics'],
-      pro: ['create_quizzes', 'manage_classrooms', 'basic_analytics', 'advanced_analytics', 'export_data'],
-      enterprise: ['create_quizzes', 'manage_classrooms', 'basic_analytics', 'advanced_analytics', 'export_data', 'api_access', 'unlimited_students']
+      pro: [
+        'create_quizzes',
+        'manage_classrooms',
+        'basic_analytics',
+        'advanced_analytics',
+        'export_data',
+      ],
+      enterprise: [
+        'create_quizzes',
+        'manage_classrooms',
+        'basic_analytics',
+        'advanced_analytics',
+        'export_data',
+        'api_access',
+        'unlimited_students',
+      ],
     };
 
     return features[planType]?.includes(feature) || false;
@@ -391,20 +451,20 @@ export class DataIsolationService {
         maxQuizzes: 10,
         maxStudents: 50,
         maxClassrooms: 3,
-        maxFileSize: 5 * 1024 * 1024 // 5MB
+        maxFileSize: 5 * 1024 * 1024, // 5MB
       },
       pro: {
         maxQuizzes: 100,
         maxStudents: 500,
         maxClassrooms: 20,
-        maxFileSize: 10 * 1024 * 1024 // 10MB
+        maxFileSize: 10 * 1024 * 1024, // 10MB
       },
       enterprise: {
         maxQuizzes: -1, // Unlimited
         maxStudents: -1,
         maxClassrooms: -1,
-        maxFileSize: 50 * 1024 * 1024 // 50MB
-      }
+        maxFileSize: 50 * 1024 * 1024, // 50MB
+      },
     };
 
     return limits[planType] || limits.basic;
