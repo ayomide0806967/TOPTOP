@@ -293,8 +293,20 @@ const ASSIGNMENT_MODES = new Set([
 
 const ACTIVE_PLAN_STATUSES = new Set(['active', 'trialing']);
 
+function getAllNavButtons() {
+  // Query all navigation buttons including new UI structure
+  const buttons = Array.from(
+    document.querySelectorAll('[data-nav-target]')
+  ).filter((btn) => {
+    // Filter out links that are actual anchor tags (community links)
+    return !btn.href || btn.hasAttribute('data-nav-target');
+  });
+  return buttons;
+}
+
 function setNavAvailability(hasActivePlan) {
-  elements.navButtons.forEach((button) => {
+  const buttons = getAllNavButtons();
+  buttons.forEach((button) => {
     const requiresActive = button.dataset.navRequiresActive === 'true';
     if (!requiresActive) {
       button.disabled = false;
@@ -309,14 +321,24 @@ function setActiveView(targetView) {
   let matched = false;
   elements.views.forEach((section) => {
     const isMatch = section.dataset.view === targetView;
-    section.classList.toggle('hidden', !isMatch);
+    // Support both old (hidden class) and new (is-active class) UI
+    if (section.classList.contains('is-active') !== undefined) {
+      section.classList.toggle('is-active', isMatch);
+    } else {
+      section.classList.toggle('hidden', !isMatch);
+    }
     if (isMatch) matched = true;
   });
   if (!matched) return;
 
-  elements.navButtons.forEach((button) => {
+  // Update all navigation buttons (both old and new UI)
+  const buttons = getAllNavButtons();
+  buttons.forEach((button) => {
     const isActive = button.dataset.navTarget === targetView;
+    // Support both old and new active state classes
     button.classList.toggle('nav-button--active', isActive);
+    button.classList.toggle('is-active', isActive);
+    button.classList.toggle('bottom-nav__item--active', isActive);
     if (isActive) {
       button.setAttribute('aria-current', 'page');
     } else {
@@ -324,20 +346,34 @@ function setActiveView(targetView) {
     }
   });
   state.activeView = targetView;
+
+  // Close mobile drawer if open
+  const drawer = document.querySelector('[data-role="nav-drawer"]');
+  const overlay = document.querySelector('[data-role="nav-overlay"]');
+  if (drawer?.classList.contains('is-open')) {
+    drawer.classList.remove('is-open');
+    overlay?.classList.remove('is-visible');
+    document.body.style.overflow = '';
+  }
 }
 
 function bindNavigation() {
   if (navigationBound) return;
   navigationBound = true;
-  elements.navButtons = Array.from(
-    document.querySelectorAll('[data-role="nav-buttons"] [data-nav-target]')
-  );
 
-  elements.navButtons.forEach((button) => {
-    button.addEventListener('click', () => {
+  // Get all navigation buttons
+  const buttons = getAllNavButtons();
+  elements.navButtons = buttons;
+
+  buttons.forEach((button) => {
+    button.addEventListener('click', (e) => {
       if (button.disabled) return;
       const target = button.dataset.navTarget;
-      setActiveView(target);
+      if (target) {
+        e.preventDefault();
+        setActiveView(target);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     });
   });
 
@@ -355,7 +391,12 @@ function bindNavigation() {
 function showToast(message, type = 'info') {
   if (!elements.toast) return;
   elements.toast.textContent = message;
+
+  // Support both old (hidden class) and new (is-visible class) UI
   elements.toast.classList.remove('hidden');
+  elements.toast.classList.add('is-visible');
+
+  // Remove all toast type classes
   elements.toast.classList.remove(
     'border-red-200',
     'bg-red-50',
@@ -365,16 +406,24 @@ function showToast(message, type = 'info') {
     'text-emerald-700',
     'border-sky-200',
     'bg-sky-50',
-    'text-sky-700'
+    'text-sky-700',
+    'toast--success',
+    'toast--error'
   );
 
   if (type === 'error') {
-    elements.toast.classList.add('border-red-200', 'bg-red-50', 'text-red-700');
+    elements.toast.classList.add(
+      'border-red-200',
+      'bg-red-50',
+      'text-red-700',
+      'toast--error'
+    );
   } else if (type === 'success') {
     elements.toast.classList.add(
       'border-emerald-200',
       'bg-emerald-50',
-      'text-emerald-700'
+      'text-emerald-700',
+      'toast--success'
     );
   } else {
     elements.toast.classList.add('border-sky-200', 'bg-sky-50', 'text-sky-700');
@@ -382,7 +431,10 @@ function showToast(message, type = 'info') {
 
   window.clearTimeout(elements.toast.dataset.timeoutId);
   const timeoutId = window.setTimeout(() => {
-    elements.toast?.classList.add('hidden');
+    if (elements.toast) {
+      elements.toast.classList.add('hidden');
+      elements.toast.classList.remove('is-visible');
+    }
   }, 5000);
   elements.toast.dataset.timeoutId = timeoutId;
 }

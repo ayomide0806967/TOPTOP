@@ -8,754 +8,1744 @@
       href="../assets/academicnightingale-icon-32.png?v=cbd263c"
     />
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>Learner Dashboard | Academic Nightingale</title>
+
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
     <link rel="stylesheet" href="../assets/tailwind.css?v=cbd263c" />
     <style>
       :root {
         color-scheme: light;
+
+        /* Refined Design System */
+        --color-bg-primary: #fafbfc;
+        --color-bg-secondary: #f0f2f5;
+        --color-surface: #ffffff;
+        --color-surface-elevated: #ffffff;
+
+        /* Mature, muted palette */
+        --color-primary: #0f172a;
+        --color-primary-light: #1e293b;
+        --color-accent: #0d9488;
+        --color-accent-light: #14b8a6;
+        --color-accent-subtle: rgba(13, 148, 136, 0.08);
+
+        --color-text-primary: #0f172a;
+        --color-text-secondary: #475569;
+        --color-text-muted: #94a3b8;
+
+        --color-border: rgba(148, 163, 184, 0.15);
+        --color-border-strong: rgba(148, 163, 184, 0.25);
+
+        /* WhatsApp & Telegram brand colors */
+        --color-whatsapp: #25d366;
+        --color-whatsapp-dark: #128c7e;
+        --color-telegram: #0088cc;
+        --color-telegram-dark: #006699;
+
+        /* Shadows - refined, mature */
+        --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+        --shadow-md:
+          0 4px 6px -1px rgba(15, 23, 42, 0.05),
+          0 2px 4px -2px rgba(15, 23, 42, 0.04);
+        --shadow-lg:
+          0 10px 15px -3px rgba(15, 23, 42, 0.06),
+          0 4px 6px -4px rgba(15, 23, 42, 0.03);
+        --shadow-xl:
+          0 20px 25px -5px rgba(15, 23, 42, 0.07),
+          0 8px 10px -6px rgba(15, 23, 42, 0.03);
+        --shadow-glow: 0 0 40px rgba(13, 148, 136, 0.12);
+
+        /* Spacing scale */
+        --space-1: 0.25rem;
+        --space-2: 0.5rem;
+        --space-3: 0.75rem;
+        --space-4: 1rem;
+        --space-5: 1.25rem;
+        --space-6: 1.5rem;
+        --space-8: 2rem;
+        --space-10: 2.5rem;
+        --space-12: 3rem;
+        --space-16: 4rem;
+
+        /* Border radius */
+        --radius-sm: 0.5rem;
+        --radius-md: 0.75rem;
+        --radius-lg: 1rem;
+        --radius-xl: 1.25rem;
+        --radius-2xl: 1.5rem;
+        --radius-full: 9999px;
+
+        /* Transitions */
+        --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      * {
+        -webkit-tap-highlight-color: transparent;
       }
 
       body {
         font-family:
-          'Inter', 'Segoe UI', 'Tahoma', 'Geneva', 'Verdana', sans-serif;
-        background-color: #f6f8fb;
-        color: #0f172a;
-      }
-
-      .nav-button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.4rem;
-        padding: 0.55rem 0.9rem;
-        border-radius: 9999px;
-        font-weight: 500;
-        font-size: 0.8rem;
-        color: #4b5563;
-        transition: all 0.18s ease;
-        flex: 1;
-        min-width: 0;
-        white-space: nowrap;
-        position: relative;
-        overflow: hidden;
-        background: transparent;
-      }
-
-      .nav-button svg {
-        width: 1.5rem;
-        height: 1.5rem;
-        color: inherit;
-        flex-shrink: 0;
-      }
-
-      .nav-button span {
-        font-size: 0.875rem;
-        line-height: 1.2;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      .nav-button__badge {
-        position: absolute;
-        top: 0.55rem;
-        right: 0.6rem;
-        min-width: 1.25rem;
-        height: 1.25rem;
-        border-radius: 9999px;
-        background: #ef4444;
-        color: #ffffff;
-        font-size: 0.65rem;
-        font-weight: 700;
-        letter-spacing: -0.01em;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        padding: 0 0.35rem;
-        box-shadow: 0 6px 16px -6px rgba(239, 68, 68, 0.5);
-      }
-
-      .nav-button__badge.is-visible {
-        display: inline-flex;
-      }
-
-      .nav-button:hover {
-        background: rgba(15, 23, 42, 0.04);
-        color: #111827;
-      }
-
-      .nav-button--active {
-        background: rgba(37, 99, 235, 0.12);
-        color: #1d4ed8;
-        box-shadow: none;
-      }
-
-      .nav-button--active svg {
-        color: #1d4ed8;
-      }
-
-      .nav-button[disabled] {
-        opacity: 0.45;
-        cursor: not-allowed;
-        transform: none;
-      }
-
-      .nav-button[disabled]:hover {
-        transform: none;
-        background: transparent;
-        color: #0f172a;
-      }
-
-      .stat-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        border-radius: 9999px;
-        border: 1px solid rgba(8, 145, 178, 0.35);
-        background: rgba(8, 145, 178, 0.12);
-        padding: 0.35rem 0.9rem;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: #036581;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-      }
-
-      /* Bottom navigation bar specific styles */
-      .fixed.bottom-0 {
-        box-shadow: 0 -8px 30px -18px rgba(15, 23, 42, 0.25);
-        background: linear-gradient(
-          145deg,
-          #e0ecff 0%,
-          #eef3ff 40%,
-          #f4f6fb 100%
-        );
-      }
-
-      /* Safe area for mobile devices with notch/home indicator */
-      .safe-area-inset-bottom {
-        padding-bottom: env(safe-area-inset-bottom);
-      }
-
-      /* Ensure buttons are always clickable and accessible */
-      .nav-button {
-        position: relative;
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
-        user-select: none;
-        -webkit-user-select: none;
-      }
-
-      /* Prevent scrolling issues on mobile */
-      body {
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+        background-color: var(--color-bg-primary);
+        color: var(--color-text-primary);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
         overscroll-behavior: contain;
       }
 
-      /* Ensure navigation stays above all content */
-      .z-50 {
-        z-index: 9999;
+      /* ========== HEADER & NAVIGATION ========== */
+
+      .app-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        background: rgba(250, 251, 252, 0.85);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border-bottom: 1px solid var(--color-border);
+        transition: all var(--transition-base);
       }
 
-      /* Dashboard layout refinements */
+      .app-header--scrolled {
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: var(--shadow-sm);
+      }
+
+      /* Desktop Navigation Drawer */
+      .nav-drawer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 280px;
+        background: var(--color-surface);
+        border-right: 1px solid var(--color-border);
+        z-index: 200;
+        transform: translateX(-100%);
+        transition: transform var(--transition-slow);
+        overflow-y: auto;
+        padding: var(--space-6);
+      }
+
+      .nav-drawer.is-open {
+        transform: translateX(0);
+      }
+
+      .nav-drawer-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 199;
+        opacity: 0;
+        visibility: hidden;
+        transition: all var(--transition-base);
+      }
+
+      .nav-drawer-overlay.is-visible {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      /* Navigation Items */
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+        border-radius: var(--radius-lg);
+        font-size: 0.9375rem;
+        font-weight: 500;
+        color: var(--color-text-secondary);
+        transition: all var(--transition-fast);
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        width: 100%;
+        text-align: left;
+      }
+
+      .nav-item:hover {
+        background: var(--color-bg-secondary);
+        color: var(--color-text-primary);
+      }
+
+      .nav-item.is-active {
+        background: var(--color-accent-subtle);
+        color: var(--color-accent);
+      }
+
+      .nav-item svg {
+        width: 1.25rem;
+        height: 1.25rem;
+        flex-shrink: 0;
+      }
+
+      .nav-item.is-active svg {
+        color: var(--color-accent);
+      }
+
+      /* Bottom Navigation - Mobile */
+      .bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border-top: 1px solid var(--color-border);
+        padding: var(--space-2) var(--space-4)
+          calc(var(--space-2) + env(safe-area-inset-bottom));
+      }
+
+      .bottom-nav__inner {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--space-1);
+        max-width: 480px;
+        margin: 0 auto;
+      }
+
+      .bottom-nav__item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+        padding: var(--space-2) var(--space-1);
+        border-radius: var(--radius-lg);
+        font-size: 0.6875rem;
+        font-weight: 500;
+        color: var(--color-text-muted);
+        transition: all var(--transition-fast);
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        position: relative;
+      }
+
+      .bottom-nav__item:hover {
+        color: var(--color-text-secondary);
+      }
+
+      .bottom-nav__item.is-active {
+        color: var(--color-accent);
+      }
+
+      .bottom-nav__item svg {
+        width: 1.5rem;
+        height: 1.5rem;
+        transition: transform var(--transition-fast);
+      }
+
+      .bottom-nav__item.is-active svg {
+        transform: translateY(-2px);
+      }
+
+      .bottom-nav__badge {
+        position: absolute;
+        top: 0.25rem;
+        right: calc(50% - 1rem);
+        min-width: 1.125rem;
+        height: 1.125rem;
+        padding: 0 0.25rem;
+        border-radius: var(--radius-full);
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        font-size: 0.625rem;
+        font-weight: 700;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+      }
+
+      .bottom-nav__badge.is-visible {
+        display: inline-flex;
+      }
+
+      /* ========== CARDS & COMPONENTS ========== */
+
       .card {
-        background: #ffffff;
-        border-radius: 1.25rem;
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        box-shadow: 0 16px 30px -24px rgba(15, 23, 42, 0.35);
+        background: var(--color-surface);
+        border-radius: var(--radius-xl);
+        border: 1px solid var(--color-border);
+        box-shadow: var(--shadow-md);
+        transition: all var(--transition-base);
+      }
+
+      .card:hover {
+        box-shadow: var(--shadow-lg);
+        border-color: var(--color-border-strong);
+      }
+
+      .card--hero {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid rgba(13, 148, 136, 0.12);
+        box-shadow: var(--shadow-lg), var(--shadow-glow);
+      }
+
+      .card--hero:hover {
+        box-shadow: var(--shadow-xl), var(--shadow-glow);
+        transform: translateY(-2px);
+      }
+
+      .card--stats {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
       }
 
       .card--minimal {
-        border-radius: 1.25rem;
-        box-shadow: 0 12px 24px -20px rgba(15, 23, 42, 0.25);
+        border: 1px solid var(--color-border);
+        box-shadow: var(--shadow-sm);
       }
 
-      .card--primary {
+      /* Stat Badge */
+      .stat-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-full);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+
+      .stat-badge--accent {
+        background: var(--color-accent-subtle);
+        color: var(--color-accent);
+        border: 1px solid rgba(13, 148, 136, 0.15);
+      }
+
+      .stat-badge--neutral {
+        background: var(--color-bg-secondary);
+        color: var(--color-text-secondary);
+        border: 1px solid var(--color-border);
+      }
+
+      /* Buttons */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
+        padding: var(--space-3) var(--space-5);
+        border-radius: var(--radius-lg);
+        font-size: 0.9375rem;
+        font-weight: 600;
+        transition: all var(--transition-fast);
+        cursor: pointer;
+        border: none;
+        text-decoration: none;
+      }
+
+      .btn--primary {
         background: linear-gradient(
-          145deg,
-          #e0ecff 0%,
-          #eef3ff 40%,
-          #f4f6fb 100%
+          135deg,
+          var(--color-accent) 0%,
+          var(--color-accent-light) 100%
         );
-        border-color: rgba(148, 163, 184, 0.3);
+        color: white;
+        box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
       }
 
-      .card--compact {
-        padding: 1.25rem;
+      .btn--primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(13, 148, 136, 0.35);
       }
 
-      [data-role='questions'] .quiz-state {
-        border-radius: 1rem;
-        border-width: 0;
+      .btn--primary:active {
+        transform: translateY(0);
+      }
+
+      .btn--secondary {
+        background: var(--color-surface);
+        color: var(--color-text-secondary);
+        border: 1px solid var(--color-border-strong);
+      }
+
+      .btn--secondary:hover {
+        background: var(--color-bg-secondary);
+        border-color: var(--color-text-muted);
+      }
+
+      .btn--ghost {
         background: transparent;
-        padding: 1.75rem 1rem;
-        box-shadow: none;
+        color: var(--color-text-secondary);
+      }
+
+      .btn--ghost:hover {
+        background: var(--color-bg-secondary);
+        color: var(--color-text-primary);
+      }
+
+      .btn--whatsapp {
+        background: linear-gradient(
+          135deg,
+          var(--color-whatsapp) 0%,
+          var(--color-whatsapp-dark) 100%
+        );
+        color: white;
+        box-shadow: 0 4px 14px rgba(37, 211, 102, 0.3);
+      }
+
+      .btn--whatsapp:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(37, 211, 102, 0.35);
+      }
+
+      .btn--telegram {
+        background: linear-gradient(
+          135deg,
+          var(--color-telegram) 0%,
+          var(--color-telegram-dark) 100%
+        );
+        color: white;
+        box-shadow: 0 4px 14px rgba(0, 136, 204, 0.3);
+      }
+
+      .btn--telegram:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(0, 136, 204, 0.35);
+      }
+
+      .btn--sm {
+        padding: var(--space-2) var(--space-3);
+        font-size: 0.875rem;
+      }
+
+      /* Floating Action Button */
+      .fab {
+        position: fixed;
+        bottom: calc(5.5rem + env(safe-area-inset-bottom));
+        right: var(--space-4);
+        z-index: 90;
+        width: 56px;
+        height: 56px;
+        border-radius: var(--radius-full);
+        background: linear-gradient(
+          135deg,
+          var(--color-whatsapp) 0%,
+          var(--color-whatsapp-dark) 100%
+        );
+        color: white;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 20px rgba(37, 211, 102, 0.4);
+        transition: all var(--transition-base);
+      }
+
+      .fab:hover {
+        transform: scale(1.05) translateY(-2px);
+        box-shadow: 0 6px 24px rgba(37, 211, 102, 0.45);
+      }
+
+      .fab:active {
+        transform: scale(0.98);
+      }
+
+      .fab svg {
+        width: 1.75rem;
+        height: 1.75rem;
+      }
+
+      /* Progress Bar */
+      .progress-bar {
+        height: 0.5rem;
+        background: var(--color-bg-secondary);
+        border-radius: var(--radius-full);
+        overflow: hidden;
+      }
+
+      .progress-bar__fill {
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          var(--color-accent) 0%,
+          var(--color-accent-light) 100%
+        );
+        border-radius: var(--radius-full);
+        transition: width var(--transition-slow);
+      }
+
+      /* Form Elements */
+      .input {
+        width: 100%;
+        padding: var(--space-3) var(--space-4);
+        border: 1px solid var(--color-border-strong);
+        border-radius: var(--radius-lg);
+        font-size: 0.9375rem;
+        background: var(--color-surface);
+        color: var(--color-text-primary);
+        transition: all var(--transition-fast);
+      }
+
+      .input:focus {
+        outline: none;
+        border-color: var(--color-accent);
+        box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+      }
+
+      .input:disabled {
+        background: var(--color-bg-secondary);
+        color: var(--color-text-muted);
+        cursor: not-allowed;
+      }
+
+      /* Quiz States */
+      .quiz-state {
         text-align: center;
-        list-style: none;
+        padding: var(--space-8) var(--space-4);
       }
 
-      [data-role='questions'] .quiz-state svg {
-        width: 2.25rem;
-        height: 2.25rem;
-        margin: 0 auto 0.75rem;
+      .quiz-state__icon {
+        width: 4rem;
+        height: 4rem;
+        margin: 0 auto var(--space-4);
+        background: var(--color-accent-subtle);
+        border-radius: var(--radius-xl);
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
-      [data-role='questions'] .quiz-state h3 {
-        margin: 0 0 0.35rem;
+      .quiz-state__icon svg {
+        width: 2rem;
+        height: 2rem;
+        color: var(--color-accent);
       }
 
-      [data-role='questions'] .quiz-state p {
-        margin: 0.15rem 0 0;
+      /* Toast */
+      .toast {
+        position: fixed;
+        top: var(--space-4);
+        left: 50%;
+        transform: translateX(-50%) translateY(-100%);
+        z-index: 300;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-3) var(--space-5);
+        box-shadow: var(--shadow-xl);
+        font-size: 0.9375rem;
+        opacity: 0;
+        visibility: hidden;
+        transition: all var(--transition-base);
+        max-width: 90vw;
+        width: max-content;
       }
 
-      /* Mobile-first button bar styles */
-      @media (max-width: 767px) {
-        [data-role='nav-buttons'] {
-          grid-template-columns: repeat(4, 1fr);
-          gap: 0.25rem;
-          padding: 0.25rem 0.5rem;
-          max-width: 100%;
-          margin: 0 auto;
-          height: auto;
-        }
-
-        .nav-button {
-          padding: 0.55rem 0.25rem;
-          font-size: 0.65rem;
-          flex-direction: column;
-          gap: 0.15rem;
-          min-height: 3.25rem;
-          min-width: 44px;
-          border-radius: 9999px;
-          backdrop-filter: blur(10px);
-          transition: all 0.2s ease;
-          cursor: pointer;
-        }
-
-        .nav-button:active {
-          transform: scale(0.95);
-        }
-
-        .nav-button svg {
-          width: 1.4rem;
-          height: 1.4rem;
-          flex-shrink: 0;
-        }
-
-        .nav-button span {
-          font-size: 0.625rem;
-          line-height: 1;
-          font-weight: 500;
-          text-align: center;
-        }
-
-        .nav-button:hover {
-          background: rgba(15, 23, 42, 0.05);
-        }
-
-        .nav-button--active {
-          background: rgba(37, 99, 235, 0.15);
-          box-shadow: none;
-        }
-
-        .nav-button--active:active {
-          transform: scale(0.98);
-        }
-
-        /* Ensure navigation is always visible */
-        .fixed.bottom-0 {
-          position: fixed !important;
-          bottom: 0 !important;
-          left: 0 !important;
-          right: 0 !important;
-        }
-
-        /* Handle viewport height issues on mobile */
-        @supports (height: 100dvh) {
-          .fixed.bottom-0 {
-            height: auto;
-          }
-        }
-
-        /* Prevent zoom on input focus (iOS Safari fix) */
-        @supports (-webkit-touch-callout: none) {
-          .nav-button {
-            font-size: 16px;
-          }
-        }
+      .toast.is-visible {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+        visibility: visible;
       }
 
-      @media (min-width: 640px) and (max-width: 767px) {
-        .nav-button {
-          padding: 0.625rem 0.5rem;
-          font-size: 0.6875rem;
-          min-height: 3.5rem;
-        }
-
-        .nav-button svg {
-          width: 1.125rem;
-          height: 1.125rem;
-        }
-
-        .nav-button span {
-          font-size: 0.6875rem;
-        }
+      .toast--success {
+        border-color: rgba(16, 185, 129, 0.3);
+        background: rgba(16, 185, 129, 0.05);
+        color: #047857;
       }
 
-      @media (min-width: 768px) {
-        .fixed.bottom-0 .px-8 {
-          max-width: 1200px;
-          margin: 0 auto;
-        }
-
-        [data-role='nav-buttons'] {
-          grid-template-columns: repeat(4, 1fr);
-          gap: 0.25rem;
-          padding: 0.35rem 0.75rem;
-          max-width: 520px;
-          margin: 0 auto;
-        }
-
-        .nav-button {
-          padding: 0.6rem 0.4rem;
-          font-size: 0.75rem;
-          flex-direction: column;
-          gap: 0.2rem;
-          min-height: 3.5rem;
-        }
-
-        .nav-button svg {
-          width: 1.25rem;
-          height: 1.25rem;
-        }
-
-        .nav-button span {
-          font-size: 0.75rem;
-          line-height: 1.1;
-          font-weight: 500;
-        }
+      .toast--error {
+        border-color: rgba(239, 68, 68, 0.3);
+        background: rgba(239, 68, 68, 0.05);
+        color: #dc2626;
       }
 
+      /* View Transitions */
+      [data-view] {
+        opacity: 0;
+        transform: translateY(8px);
+        transition: all var(--transition-base);
+        display: none;
+      }
+
+      [data-view].is-active {
+        opacity: 1;
+        transform: translateY(0);
+        display: block;
+      }
+
+      /* Community Section */
+      .community-card {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-xl);
+        padding: var(--space-5);
+        transition: all var(--transition-base);
+      }
+
+      .community-card:hover {
+        border-color: var(--color-border-strong);
+        box-shadow: var(--shadow-md);
+      }
+
+      .community-card__icon {
+        width: 3rem;
+        height: 3rem;
+        border-radius: var(--radius-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: var(--space-3);
+      }
+
+      .community-card__icon--whatsapp {
+        background: rgba(37, 211, 102, 0.1);
+        color: var(--color-whatsapp);
+      }
+
+      .community-card__icon--telegram {
+        background: rgba(0, 136, 204, 0.1);
+        color: var(--color-telegram);
+      }
+
+      /* Desktop Layout */
       @media (min-width: 1024px) {
-        [data-role='nav-buttons'] {
+        .app-layout {
+          display: grid;
+          grid-template-columns: 280px 1fr;
+          min-height: 100vh;
+        }
+
+        .desktop-sidebar {
+          position: fixed;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          width: 280px;
+          background: var(--color-surface);
+          border-right: 1px solid var(--color-border);
+          z-index: 50;
           display: flex;
-          flex-direction: row;
-          gap: 0.5rem;
-          padding: 0.5rem 0.75rem;
-          overflow-x: auto;
-          max-width: 520px;
-          margin: 0 auto;
-          justify-content: center;
+          flex-direction: column;
+          padding: var(--space-6);
         }
 
-        .nav-button {
-          padding: 0.6rem 0.9rem;
-          font-size: 0.85rem;
-          flex-direction: row;
-          gap: 0.45rem;
-          min-height: auto;
-          flex: 0 0 auto;
-          white-space: nowrap;
-          background: transparent;
+        .desktop-sidebar__nav {
+          flex: 1;
+          margin-top: var(--space-8);
         }
 
-        .nav-button svg {
-          width: 1.5rem;
-          height: 1.5rem;
+        .desktop-sidebar__footer {
+          margin-top: auto;
+          padding-top: var(--space-6);
+          border-top: 1px solid var(--color-border);
         }
 
-        .nav-button span {
-          font-size: 0.85rem;
-          line-height: 1.2;
-          font-weight: 500;
+        .main-content {
+          margin-left: 280px;
+          padding-top: 0;
+        }
+
+        .app-header {
+          position: sticky;
+          top: 0;
+        }
+
+        .bottom-nav,
+        .fab {
+          display: none;
+        }
+
+        [data-view] {
+          animation: fadeIn 0.3s ease;
         }
       }
 
-      @media (min-width: 1280px) {
-        .nav-button {
-          padding: 0.875rem 1.5rem;
-          font-size: 1rem;
+      /* Mobile Layout */
+      @media (max-width: 1023px) {
+        .desktop-sidebar {
+          display: none;
         }
 
-        [data-role='nav-buttons'] {
-          max-width: 900px;
+        .main-content {
+          padding-top: 4.5rem;
+          padding-bottom: 5rem;
         }
+
+        .app-header {
+          padding: var(--space-3) var(--space-4);
+        }
+
+        .nav-drawer-btn {
+          display: flex;
+        }
+      }
+
+      /* Animations */
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.7;
+        }
+      }
+
+      .animate-fadeIn {
+        animation: fadeIn 0.4s ease forwards;
+      }
+
+      .animate-slideUp {
+        animation: slideUp 0.5s ease forwards;
+      }
+
+      .animate-pulse-slow {
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      /* Department Themes */
+      [data-department='nursing'] .card--hero {
+        border-color: rgba(14, 165, 233, 0.15);
+        box-shadow:
+          var(--shadow-lg),
+          0 0 40px rgba(14, 165, 233, 0.1);
+      }
+
+      [data-department='midwifery'] .card--hero {
+        border-color: rgba(139, 92, 246, 0.15);
+        box-shadow:
+          var(--shadow-lg),
+          0 0 40px rgba(139, 92, 246, 0.1);
+      }
+
+      [data-department='public-health'] .card--hero {
+        border-color: rgba(245, 158, 11, 0.15);
+        box-shadow:
+          var(--shadow-lg),
+          0 0 40px rgba(245, 158, 11, 0.1);
       }
     </style>
   </head>
   <body class="antialiased">
-    <div class="flex min-h-screen flex-col bg-slate-50 text-slate-900">
-      <!-- User Info Bar -->
-      <div class="bg-white border-b border-slate-200/50">
-        <div class="px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
-          <div class="flex items-center gap-3">
-            <div
-              class="h-10 w-10 overflow-hidden rounded-full border border-cyan-700 shadow-sm"
-            >
-              <img
-                src="../assets/academicnightingale-logo.jpg"
-                alt="Academic Nightingale logo"
-                class="h-full w-full object-cover"
-              />
-            </div>
-            <div>
-              <h1
-                class="text-lg font-semibold text-slate-900"
-                data-role="user-greeting"
-              >
-                Your workspace
-              </h1>
-              <p class="text-sm text-slate-600" data-role="user-email"></p>
-            </div>
-          </div>
+    <!-- Toast Notification -->
+    <div class="toast" data-role="toast" role="status" aria-live="polite"></div>
+
+    <!-- Desktop Sidebar Navigation -->
+    <aside class="desktop-sidebar">
+      <div class="flex items-center gap-3">
+        <div
+          class="h-10 w-10 overflow-hidden rounded-xl border border-slate-200 shadow-sm"
+        >
+          <img
+            src="../assets/academicnightingale-logo.jpg"
+            alt="Academic Nightingale"
+            class="h-full w-full object-cover"
+          />
+        </div>
+        <div>
+          <h1 class="text-base font-semibold text-slate-900">
+            Academic Nightingale
+          </h1>
+          <p class="text-xs text-slate-500">Study Smarter</p>
         </div>
       </div>
 
-      <main class="flex-1 overflow-y-auto pb-20">
-        <div class="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
-          <div
-            class="mb-6 hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
-            role="status"
-            data-role="toast"
-          ></div>
-
-          <div
-            data-role="payment-gate"
-            class="hidden rounded-3xl border border-cyan-200 bg-cyan-50/80 p-6 text-slate-700 shadow-sm"
+      <nav class="desktop-sidebar__nav space-y-1">
+        <button
+          type="button"
+          data-nav-target="dashboard"
+          class="nav-item is-active"
+          aria-current="page"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
           >
-            <span class="stat-chip" data-role="gated-badge">Activate plan</span>
-            <h2
-              class="mt-3 text-2xl font-semibold text-slate-900"
-              data-role="gated-title"
+            <path
+              d="M3 9.75 12 3l9 6.75V20.25a.75.75 0 0 1-.75.75h-5.25a.75.75 0 0 1-.75-.75V15a.75.75 0 0 0-.75-.75h-3A.75.75 0 0 0 10.5 15v5.25a.75.75 0 0 1-.75.75H3.75A.75.75 0 0 1 3 20.25z"
+            />
+          </svg>
+          Dashboard
+        </button>
+        <button type="button" data-nav-target="plan" class="nav-item">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
+            />
+            <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
+            <path d="M9 12h.01" />
+            <path d="M13 12h.01" />
+            <path d="M17 12h.01" />
+            <path d="M9 16h.01" />
+            <path d="M13 16h.01" />
+            <path d="M17 16h.01" />
+          </svg>
+          Study Plan
+        </button>
+        <button
+          type="button"
+          data-nav-target="bonus"
+          data-nav-requires-active="true"
+          class="nav-item"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polygon
+              points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+            />
+          </svg>
+          Bonus Sets
+          <span
+            class="ml-auto hidden rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white"
+            data-role="bonus-badge-desktop"
+            >0</span
+          >
+        </button>
+        <button type="button" data-nav-target="profile" class="nav-item">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          Profile
+        </button>
+
+        <div class="pt-6 mt-6 border-t border-slate-200">
+          <p
+            class="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3"
+          >
+            Community
+          </p>
+          <a
+            href="https://whatsapp.com/channel/0029VaW2i4qJuyAIGj7CRb0W"
+            target="_blank"
+            rel="noopener"
+            class="nav-item"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" class="text-green-500">
+              <path
+                d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"
+              />
+            </svg>
+            WhatsApp Channel
+          </a>
+          <a
+            href="https://t.me/AcademicNightingale"
+            target="_blank"
+            rel="noopener"
+            class="nav-item"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" class="text-blue-500">
+              <path
+                d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"
+              />
+            </svg>
+            Telegram Channel
+          </a>
+        </div>
+      </nav>
+
+      <div class="desktop-sidebar__footer">
+        <a
+          href="https://wa.me/2348012345678?text=Hi%20Academic%20Nightingale%20Support"
+          target="_blank"
+          rel="noopener"
+          class="btn btn--whatsapp w-full btn--sm"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+            <path
+              d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"
+            />
+          </svg>
+          Contact Support
+        </a>
+        <p class="mt-4 text-xs text-center text-slate-400">
+          © 2026 Academic Nightingale
+        </p>
+      </div>
+    </aside>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="nav-drawer-overlay" data-role="nav-overlay"></div>
+    <aside class="nav-drawer" data-role="nav-drawer">
+      <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center gap-3">
+          <div
+            class="h-10 w-10 overflow-hidden rounded-xl border border-slate-200 shadow-sm"
+          >
+            <img
+              src="../assets/academicnightingale-logo.jpg"
+              alt="Academic Nightingale"
+              class="h-full w-full object-cover"
+            />
+          </div>
+          <div>
+            <h1 class="text-base font-semibold text-slate-900">Menu</h1>
+          </div>
+        </div>
+        <button
+          type="button"
+          data-role="close-drawer"
+          class="p-2 rounded-lg hover:bg-slate-100"
+        >
+          <svg
+            class="w-5 h-5 text-slate-500"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <nav class="space-y-1">
+        <button
+          type="button"
+          data-nav-target="dashboard"
+          class="nav-item is-active"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M3 9.75 12 3l9 6.75V20.25a.75.75 0 0 1-.75.75h-5.25a.75.75 0 0 1-.75-.75V15a.75.75 0 0 0-.75-.75h-3A.75.75 0 0 0 10.5 15v5.25a.75.75 0 0 1-.75.75H3.75A.75.75 0 0 1 3 20.25z"
+            />
+          </svg>
+          Dashboard
+        </button>
+        <button type="button" data-nav-target="plan" class="nav-item">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
+            />
+            <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
+            <path d="M9 12h.01" />
+            <path d="M13 12h.01" />
+            <path d="M17 12h.01" />
+          </svg>
+          Study Plan
+        </button>
+        <button
+          type="button"
+          data-nav-target="bonus"
+          data-nav-requires-active="true"
+          class="nav-item"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polygon
+              points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+            />
+          </svg>
+          Bonus Sets
+        </button>
+        <button type="button" data-nav-target="profile" class="nav-item">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          Profile
+        </button>
+      </nav>
+
+      <div class="mt-8 pt-6 border-t border-slate-200">
+        <p
+          class="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3"
+        >
+          Community
+        </p>
+        <div class="space-y-2">
+          <a
+            href="https://whatsapp.com/channel/0029VaW2i4qJuyAIGj7CRb0W"
+            target="_blank"
+            rel="noopener"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-50 border border-green-100 text-green-700 font-medium text-sm hover:bg-green-100 transition-colors"
+          >
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884"
+              />
+            </svg>
+            Join WhatsApp Channel
+          </a>
+          <a
+            href="https://t.me/AcademicNightingale"
+            target="_blank"
+            rel="noopener"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 border border-blue-100 text-blue-700 font-medium text-sm hover:bg-blue-100 transition-colors"
+          >
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"
+              />
+            </svg>
+            Join Telegram Channel
+          </a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Floating WhatsApp Contact Button (Mobile) -->
+    <a
+      href="https://wa.me/2348012345678?text=Hi%20Academic%20Nightingale%20Support"
+      target="_blank"
+      rel="noopener"
+      class="fab"
+      aria-label="Contact support on WhatsApp"
+    >
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path
+          d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884"
+        />
+      </svg>
+    </a>
+
+    <!-- Main Content Area -->
+    <div class="main-content">
+      <!-- Header -->
+      <header class="app-header">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between h-16">
+            <!-- Mobile: Menu Button -->
+            <button
+              type="button"
+              data-role="open-drawer"
+              class="lg:hidden p-2 -ml-2 rounded-xl hover:bg-slate-100 transition-colors"
             >
-              Almost there—finish activating your plan
-            </h2>
-            <p
-              class="mt-2 text-sm leading-relaxed text-slate-600"
-              data-role="gated-body"
-            >
-              We saved your selection. Complete payment to unlock your
-              personalised drills.
-            </p>
-            <div class="mt-5 flex flex-wrap items-center gap-3">
-              <a
-                href="resume-registration.html"
-                data-role="gated-action"
-                class="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-cyan-700"
+              <svg
+                class="w-6 h-6 text-slate-600"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
               >
-                Finish payment
-              </a>
+                <path d="M4 12h16" />
+                <path d="M4 18h16" />
+                <path d="M4 6h16" />
+              </svg>
+            </button>
+
+            <!-- User Greeting -->
+            <div class="flex-1 lg:flex-none">
+              <h1
+                class="text-lg font-semibold text-slate-900 truncate"
+                data-role="user-greeting"
+              >
+                Good day
+              </h1>
+              <p
+                class="text-xs text-slate-500 hidden sm:block"
+                data-role="user-email"
+              ></p>
+            </div>
+
+            <!-- Right Side Actions -->
+            <div class="flex items-center gap-2">
+              <!-- Streak Badge -->
+              <div
+                class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200"
+              >
+                <svg
+                  class="w-4 h-4 text-amber-500"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path
+                    d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
+                  />
+                </svg>
+                <span
+                  class="text-sm font-semibold text-amber-700"
+                  data-role="header-streak"
+                  >0</span
+                >
+                <span class="text-xs text-amber-600">day streak</span>
+              </div>
+
+              <!-- Notification Bell -->
               <button
                 type="button"
-                data-role="refresh-payment"
-                class="inline-flex items-center justify-center rounded-xl border border-cyan-200 px-4 py-2.5 text-sm font-semibold text-cyan-700 hover:border-cyan-300 hover:text-cyan-800"
-                title="Recheck your payment and refresh your access"
+                class="p-2 rounded-xl hover:bg-slate-100 transition-colors relative"
               >
-                Refresh payment status
+                <svg
+                  class="w-5 h-5 text-slate-600"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                  <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                </svg>
+                <span
+                  class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full hidden"
+                  data-role="notification-dot"
+                ></span>
               </button>
-              <button
-                type="button"
-                data-nav-target="plan"
-                class="inline-flex items-center justify-center rounded-xl border border-cyan-200 px-4 py-2.5 text-sm font-semibold text-cyan-700 hover:border-cyan-300 hover:text-cyan-800"
+
+              <!-- User Avatar -->
+              <div
+                class="h-9 w-9 overflow-hidden rounded-xl border border-slate-200 shadow-sm"
               >
-                View plan details
-              </button>
+                <img
+                  src="../assets/academicnightingale-logo.jpg"
+                  alt="Profile"
+                  class="h-full w-full object-cover"
+                />
+              </div>
             </div>
           </div>
+        </div>
+      </header>
 
-          <section data-view="dashboard" class="space-y-6">
-            <div data-role="dashboard-content" class="space-y-6">
-              <div
-                class="hidden flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 shadow-sm sm:flex-row sm:items-start sm:justify-between"
-                data-role="global-notice"
+      <!-- Main Content -->
+      <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <!-- Payment Gate (Hidden by default) -->
+        <div
+          data-role="payment-gate"
+          class="hidden mb-6 rounded-2xl border border-amber-200 bg-amber-50/80 p-6 shadow-sm"
+        >
+          <div class="flex items-start gap-4">
+            <div
+              class="flex-shrink-0 w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center"
+            >
+              <svg
+                class="w-6 h-6 text-amber-600"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
               >
-                <div class="flex flex-1 items-start gap-3">
-                  <span class="mt-0.5 text-base">📣</span>
-                  <p
-                    class="flex-1 leading-snug"
-                    data-role="global-notice-text"
-                  ></p>
-                </div>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v4" />
+                <path d="M12 16h.01" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <span
+                class="stat-badge stat-badge--accent bg-amber-100 text-amber-700 border-amber-200 mb-2"
+                data-role="gated-badge"
+                >Activate plan</span
+              >
+              <h2
+                class="text-xl font-semibold text-slate-900"
+                data-role="gated-title"
+              >
+                Almost there—finish activating your plan
+              </h2>
+              <p class="mt-2 text-sm text-slate-600" data-role="gated-body">
+                We saved your selection. Complete payment to unlock your
+                personalised drills.
+              </p>
+              <div class="mt-5 flex flex-wrap items-center gap-3">
+                <a
+                  href="resume-registration.html"
+                  data-role="gated-action"
+                  class="btn btn--primary bg-amber-600 hover:bg-amber-700 shadow-amber-200"
+                >
+                  Finish payment
+                </a>
                 <button
                   type="button"
-                  class="ml-3 inline-flex items-center rounded-md border border-amber-300 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-700 transition hover:bg-amber-100"
-                  data-role="global-notice-dismiss"
+                  data-role="refresh-payment"
+                  class="btn btn--secondary"
                 >
-                  Dismiss
+                  Refresh status
+                </button>
+                <button
+                  type="button"
+                  data-nav-target="plan"
+                  class="btn btn--ghost"
+                >
+                  View plan details
                 </button>
               </div>
-              <section class="grid gap-4">
-                <article class="card card--primary card--compact sm:p-6">
-                  <div class="flex items-center justify-between gap-3">
+            </div>
+          </div>
+        </div>
+
+        <!-- Global Notice (Hidden by default) -->
+        <div
+          data-role="global-notice"
+          class="hidden mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm"
+        >
+          <div class="flex items-start gap-3">
+            <span class="text-lg">📣</span>
+            <p
+              class="flex-1 text-sm text-amber-800 leading-relaxed"
+              data-role="global-notice-text"
+            ></p>
+            <button
+              type="button"
+              data-role="global-notice-dismiss"
+              class="text-amber-600 hover:text-amber-800"
+            >
+              <svg
+                class="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- DASHBOARD VIEW -->
+        <section data-view="dashboard" class="is-active space-y-6">
+          <div data-role="dashboard-content" class="space-y-6">
+            <!-- Today's Quiz - Hero Card -->
+            <section class="animate-fadeIn">
+              <article class="card card--hero p-6 sm:p-8">
+                <div
+                  class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6"
+                >
+                  <div class="flex-1 space-y-4">
+                    <div class="flex items-center gap-3">
+                      <span class="stat-badge stat-badge--accent">
+                        <svg
+                          class="w-3.5 h-3.5"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M12 6v6l4 2" />
+                        </svg>
+                        Daily Session
+                      </span>
+                      <span
+                        class="stat-badge stat-badge--neutral"
+                        data-role="quiz-timer"
+                      >
+                        <span data-role="quiz-timer-value">—</span>
+                      </span>
+                    </div>
+
                     <div>
-                      <h3
-                        class="text-xl font-semibold text-slate-900"
+                      <h2
+                        class="text-2xl sm:text-3xl font-bold text-slate-900"
                         data-role="quiz-title"
                       >
                         Start your examination
-                      </h3>
+                      </h2>
                       <p
-                        class="mt-1 text-sm text-slate-600"
+                        class="mt-2 text-slate-600 max-w-xl"
                         data-role="quiz-subtitle"
                       >
                         Stay consistent, complete this session to keep your
                         streak alive.
                       </p>
                     </div>
-                    <span
-                      class="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-cyan-700"
-                      data-role="quiz-timer"
-                    >
-                      <span data-role="quiz-timer-value">—</span>
-                    </span>
-                  </div>
-                  <ul
-                    class="mt-5 space-y-3 text-sm text-slate-600"
-                    data-role="questions"
-                  ></ul>
-                  <div class="mt-6 flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      class="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-cyan-700"
-                      data-role="resume-quiz"
-                    >
-                      Start / resume session
-                    </button>
-                    <button
-                      type="button"
-                      class="inline-flex items-center justify-center rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:border-cyan-200 hover:text-cyan-700"
-                      data-role="regenerate-quiz"
-                    >
-                      Regenerate session
-                    </button>
-                  </div>
-                  <div
-                    class="mt-6 hidden rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
-                    data-role="completion-banner"
-                  ></div>
-                </article>
-              </section>
 
-              <section class="card card--minimal card--compact">
-                <div
-                  class="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between"
-                >
-                  <div class="space-y-5 lg:max-w-xl">
-                    <div>
-                      <h2
-                        class="text-[15px] font-semibold text-slate-900"
-                        data-role="hero-name"
+                    <!-- Quiz Questions List -->
+                    <ul class="mt-6 space-y-2" data-role="questions"></ul>
+
+                    <!-- Action Buttons -->
+                    <div class="mt-6 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        data-role="resume-quiz"
+                        class="btn btn--primary"
                       >
-                        Dashboard
-                      </h2>
-                      <p
-                        class="mt-3 text-sm text-slate-600"
-                        data-role="hero-plan-headline"
+                        <svg
+                          class="w-5 h-5"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="M5 12h14" />
+                          <path d="m12 5 7 7-7 7" />
+                        </svg>
+                        Start session
+                      </button>
+                      <button
+                        type="button"
+                        data-role="regenerate-quiz"
+                        class="btn btn--secondary"
                       >
-                        We’ll guide you through the exact questions you need to
-                        stay exam-ready.
-                      </p>
+                        <svg
+                          class="w-5 h-5"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path
+                            d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"
+                          />
+                          <path d="M21 3v5h-5" />
+                          <path
+                            d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"
+                          />
+                          <path d="M3 21v-5h5" />
+                        </svg>
+                        New session
+                      </button>
                     </div>
-                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                      <article
-                        class="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-center"
-                      >
-                        <p
-                          class="text-xs font-semibold uppercase tracking-wide text-slate-500"
-                        >
-                          Status
-                        </p>
-                        <p
-                          class="mt-2 text-lg font-semibold text-slate-900"
-                          data-role="stat-status"
-                        >
-                          —
-                        </p>
-                      </article>
-                      <article
-                        class="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-center"
-                      >
-                        <p
-                          class="text-xs font-semibold uppercase tracking-wide text-slate-500"
-                        >
-                          Progress
-                        </p>
-                        <p
-                          class="mt-2 text-lg font-semibold text-slate-900"
-                          data-role="stat-progress"
-                        >
-                          —
-                        </p>
-                      </article>
-                      <article
-                        class="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-center"
-                      >
-                        <p
-                          class="text-xs font-semibold uppercase tracking-wide text-slate-500"
-                        >
-                          Score
-                        </p>
-                        <p
-                          class="mt-2 text-lg font-semibold text-slate-900"
-                          data-role="stat-score"
-                        >
-                          —
-                        </p>
-                      </article>
-                      <article
-                        class="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-center"
-                      >
-                        <p
-                          class="text-xs font-semibold uppercase tracking-wide text-slate-500"
-                        >
-                          Streak
-                        </p>
-                        <p
-                          class="mt-2 text-lg font-semibold text-slate-900"
-                          data-role="stat-streak"
-                        >
-                          —
-                        </p>
-                      </article>
-                    </div>
+
+                    <!-- Completion Banner -->
+                    <div
+                      class="hidden mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+                      data-role="completion-banner"
+                    ></div>
                   </div>
+
+                  <!-- Decorative Element -->
                   <div
-                    class="flex w-full flex-col gap-4 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm lg:max-w-sm"
+                    class="hidden lg:flex items-center justify-center w-48 h-48 rounded-2xl bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-100"
                   >
-                    <div
-                      class="flex items-center justify-between text-sm font-semibold text-slate-600"
+                    <svg
+                      class="w-24 h-24 text-teal-200"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1"
                     >
-                      <span>Plan progress</span>
-                      <span
-                        class="text-cyan-600"
-                        data-role="hero-days-remaining"
-                        >Keep going!</span
-                      >
-                    </div>
-                    <div
-                      class="h-2.5 w-full overflow-hidden rounded-full bg-slate-100"
-                    >
-                      <div
-                        class="h-full rounded-full bg-gradient-to-r from-cyan-500 via-cyan-600 to-emerald-500 transition-all duration-700"
-                        style="width: 0%"
-                        data-role="hero-progress-bar"
-                      ></div>
-                    </div>
-                    <p
-                      class="text-xs text-slate-500"
-                      data-role="hero-progress-label"
-                    >
-                      We'll update this as you work through today's session.
-                    </p>
+                      <path
+                        d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
+                      />
+                    </svg>
                   </div>
                 </div>
-              </section>
+              </article>
+            </section>
 
-              <section
-                class="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm sm:p-8"
+            <!-- Stats Grid -->
+            <section
+              class="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-fadeIn"
+              style="animation-delay: 0.1s"
+            >
+              <article class="card card--stats p-4 sm:p-5 text-center">
+                <p
+                  class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                >
+                  Status
+                </p>
+                <p
+                  class="mt-2 text-2xl font-bold text-slate-900"
+                  data-role="stat-status"
+                >
+                  —
+                </p>
+                <div class="mt-2 text-xs text-slate-400">Current plan</div>
+              </article>
+              <article class="card card--stats p-4 sm:p-5 text-center">
+                <p
+                  class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                >
+                  Progress
+                </p>
+                <p
+                  class="mt-2 text-2xl font-bold text-slate-900"
+                  data-role="stat-progress"
+                >
+                  —
+                </p>
+                <div class="mt-2 text-xs text-slate-400">This week</div>
+              </article>
+              <article class="card card--stats p-4 sm:p-5 text-center">
+                <p
+                  class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                >
+                  Score
+                </p>
+                <p
+                  class="mt-2 text-2xl font-bold text-slate-900"
+                  data-role="stat-score"
+                >
+                  —
+                </p>
+                <div class="mt-2 text-xs text-slate-400">Average</div>
+              </article>
+              <article class="card card--stats p-4 sm:p-5 text-center">
+                <p
+                  class="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                >
+                  Streak
+                </p>
+                <p
+                  class="mt-2 text-2xl font-bold text-slate-900"
+                  data-role="stat-streak"
+                >
+                  —
+                </p>
+                <div class="mt-2 text-xs text-slate-400">Days</div>
+              </article>
+            </section>
+
+            <!-- Plan Progress Card -->
+            <section
+              class="card p-6 animate-fadeIn"
+              style="animation-delay: 0.15s"
+            >
+              <div
+                class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4"
               >
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 class="text-xl font-semibold text-slate-900">
-                      Recent activity
-                    </h3>
-                    <p class="text-sm text-slate-600">
-                      Track how your sessions are trending over time.
-                    </p>
-                  </div>
-                  <p
-                    class="text-xs font-semibold uppercase tracking-[0.32em] text-slate-400"
-                    data-role="history-summary"
+                <div>
+                  <h3 class="text-lg font-semibold text-slate-900">
+                    Plan Progress
+                  </h3>
+                  <p class="text-sm text-slate-500">Keep up the momentum</p>
+                </div>
+                <span
+                  class="stat-badge stat-badge--accent"
+                  data-role="hero-days-remaining"
+                  >Keep going!</span
+                >
+              </div>
+              <div class="progress-bar">
+                <div
+                  class="progress-bar__fill"
+                  style="width: 0%"
+                  data-role="hero-progress-bar"
+                ></div>
+              </div>
+              <p
+                class="mt-3 text-sm text-slate-500"
+                data-role="hero-progress-label"
+              >
+                We'll update this as you work through today's session.
+              </p>
+            </section>
+
+            <!-- Community Section -->
+            <section class="animate-fadeIn" style="animation-delay: 0.2s">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-slate-900">Community</h3>
+                <span class="text-xs text-slate-500"
+                  >Join the conversation</span
+                >
+              </div>
+              <div class="grid sm:grid-cols-2 gap-4">
+                <!-- WhatsApp Channel -->
+                <a
+                  href="https://whatsapp.com/channel/0029VaW2i4qJuyAIGj7CRb0W"
+                  target="_blank"
+                  rel="noopener"
+                  class="community-card group"
+                >
+                  <div
+                    class="community-card__icon community-card__icon--whatsapp"
                   >
-                    —
+                    <svg
+                      class="w-6 h-6"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path
+                        d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884"
+                      />
+                    </svg>
+                  </div>
+                  <h4
+                    class="font-semibold text-slate-900 group-hover:text-green-600 transition-colors"
+                  >
+                    WhatsApp Channel
+                  </h4>
+                  <p class="mt-1 text-sm text-slate-500">
+                    Get daily tips and updates
+                  </p>
+                  <div
+                    class="mt-3 flex items-center text-sm font-medium text-green-600"
+                  >
+                    Join now
+                    <svg
+                      class="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M5 12h14" />
+                      <path d="m12 5 7 7-7 7" />
+                    </svg>
+                  </div>
+                </a>
+
+                <!-- Telegram Channel -->
+                <a
+                  href="https://t.me/AcademicNightingale"
+                  target="_blank"
+                  rel="noopener"
+                  class="community-card group"
+                >
+                  <div
+                    class="community-card__icon community-card__icon--telegram"
+                  >
+                    <svg
+                      class="w-6 h-6"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path
+                        d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"
+                      />
+                    </svg>
+                  </div>
+                  <h4
+                    class="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors"
+                  >
+                    Telegram Channel
+                  </h4>
+                  <p class="mt-1 text-sm text-slate-500">
+                    Connect with fellow students
+                  </p>
+                  <div
+                    class="mt-3 flex items-center text-sm font-medium text-blue-600"
+                  >
+                    Join now
+                    <svg
+                      class="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M5 12h14" />
+                      <path d="m12 5 7 7-7 7" />
+                    </svg>
+                  </div>
+                </a>
+              </div>
+            </section>
+
+            <!-- Recent Activity -->
+            <section
+              class="card p-6 animate-fadeIn"
+              style="animation-delay: 0.25s"
+            >
+              <div
+                class="flex flex-wrap items-center justify-between gap-3 mb-6"
+              >
+                <div>
+                  <h3 class="text-lg font-semibold text-slate-900">
+                    Recent Activity
+                  </h3>
+                  <p class="text-sm text-slate-500">
+                    Track your learning journey
                   </p>
                 </div>
-                <div class="mt-6 space-y-4" data-role="history-cards"></div>
-                <div class="mt-6 overflow-x-auto">
-                  <table class="min-w-full divide-y divide-slate-200 text-sm">
-                    <thead>
-                      <tr
-                        class="text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
-                      >
-                        <th class="px-3 py-2">Session</th>
-                        <th class="px-3 py-2">Status</th>
-                        <th class="px-3 py-2">Score</th>
-                        <th class="px-3 py-2">Review</th>
-                      </tr>
-                    </thead>
-                    <tbody
-                      class="divide-y divide-slate-100"
-                      data-role="history-body"
-                    ></tbody>
-                  </table>
-                </div>
-              </section>
-            </div>
-          </section>
+                <p
+                  class="text-xs font-semibold uppercase tracking-wider text-slate-400"
+                  data-role="history-summary"
+                >
+                  —
+                </p>
+              </div>
 
-          <section data-view="plan" class="hidden space-y-6">
-            <header class="space-y-2">
-              <h2
-                class="text-2xl font-semibold text-slate-900"
-                data-role="plan-heading"
-              >
-                Your study plan
-              </h2>
-              <p class="text-sm text-slate-600" data-role="plan-subheading">
-                We’ll surface the plan we’re actively scheduling for you here.
-              </p>
-            </header>
-            <div
-              class="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm sm:p-7"
-              data-role="subscription-card"
-            ></div>
-            <div class="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                class="inline-flex items-center justify-center rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:border-cyan-200 hover:text-cyan-700"
-                data-role="plan-browse"
-              >
-                Browse other plans
-              </button>
-            </div>
-            <div class="grid gap-4" data-role="plan-collection"></div>
-          </section>
+              <!-- Activity Cards -->
+              <div class="space-y-3" data-role="history-cards"></div>
 
-          <section data-view="bonus" class="hidden space-y-6">
-            <header class="space-y-2">
-              <h2 class="text-2xl font-semibold text-slate-900">
-                Bonus question sets
-              </h2>
-              <p class="text-sm text-slate-600">
-                Explore extra practice curated for live classes, mock exams, and
-                advanced drills.
-              </p>
-            </header>
-            <div class="space-y-4" data-role="extra-sets-section">
-              <div
-                class="grid gap-4 md:grid-cols-2"
-                data-role="extra-sets-list"
-              ></div>
-            </div>
-          </section>
+              <!-- Activity Table -->
+              <div class="mt-6 overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr
+                      class="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 border-b border-slate-200"
+                    >
+                      <th class="pb-3 pl-3">Session</th>
+                      <th class="pb-3">Status</th>
+                      <th class="pb-3">Score</th>
+                      <th class="pb-3 pr-3">Review</th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    class="divide-y divide-slate-100"
+                    data-role="history-body"
+                  ></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
 
-          <section data-view="profile" class="hidden space-y-6">
-            <header class="space-y-2">
-              <h2 class="text-2xl font-semibold text-slate-900">
-                Profile & security
-              </h2>
-              <p class="text-sm text-slate-600">
-                Update the basics and keep your password fresh. Email changes
-                are handled by support.
-              </p>
-            </header>
-            <div
-              class="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm sm:p-8"
+        <!-- PLAN VIEW -->
+        <section data-view="plan" class="space-y-6">
+          <header class="space-y-2">
+            <h2
+              class="text-2xl font-bold text-slate-900"
+              data-role="plan-heading"
             >
-              <form class="space-y-5" data-role="profile-form">
-                <div class="space-y-1">
+              Your study plan
+            </h2>
+            <p class="text-slate-600" data-role="plan-subheading">
+              We'll surface the plan we're actively scheduling for you here.
+            </p>
+          </header>
+
+          <div class="card p-6 sm:p-8" data-role="subscription-card"></div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              data-role="plan-browse"
+              class="btn btn--secondary"
+            >
+              Browse other plans
+            </button>
+          </div>
+
+          <div class="grid gap-4" data-role="plan-collection"></div>
+        </section>
+
+        <!-- BONUS VIEW -->
+        <section data-view="bonus" class="space-y-6">
+          <header class="space-y-2">
+            <h2 class="text-2xl font-bold text-slate-900">
+              Bonus question sets
+            </h2>
+            <p class="text-slate-600">
+              Explore extra practice curated for live classes, mock exams, and
+              advanced drills.
+            </p>
+          </header>
+
+          <div data-role="extra-sets-section" class="space-y-4">
+            <div
+              class="grid gap-4 md:grid-cols-2"
+              data-role="extra-sets-list"
+            ></div>
+          </div>
+        </section>
+
+        <!-- PROFILE VIEW -->
+        <section data-view="profile" class="space-y-6">
+          <header class="space-y-2">
+            <h2 class="text-2xl font-bold text-slate-900">
+              Profile & security
+            </h2>
+            <p class="text-slate-600">
+              Update the basics and keep your password fresh.
+            </p>
+          </header>
+
+          <!-- Profile Form Card -->
+          <div class="card p-6 sm:p-8">
+            <form class="space-y-6" data-role="profile-form">
+              <div class="grid gap-6 sm:grid-cols-2">
+                <div class="space-y-2">
                   <label
-                    class="text-sm font-semibold text-slate-600"
+                    class="text-sm font-semibold text-slate-700"
                     for="profile-name"
                     >Full name</label
                   >
@@ -764,12 +1754,12 @@
                     type="text"
                     required
                     data-role="profile-name"
-                    class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                    class="input"
                   />
                 </div>
-                <div class="space-y-1">
+                <div class="space-y-2">
                   <label
-                    class="text-sm font-semibold text-slate-600"
+                    class="text-sm font-semibold text-slate-700"
                     for="profile-phone"
                     >WhatsApp number</label
                   >
@@ -779,191 +1769,203 @@
                     placeholder="e.g. 0803 123 4567"
                     data-role="profile-phone"
                     disabled
-                    class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                    class="input"
                   />
                   <p class="text-xs text-slate-500">
-                    To add or change your WhatsApp number, use the verification
-                    box below.
+                    Use the verification box below to update.
+                  </p>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <label
+                  class="text-sm font-semibold text-slate-700"
+                  for="profile-school"
+                  >School name</label
+                >
+                <input
+                  id="profile-school"
+                  type="text"
+                  placeholder="e.g. School of Nursing, Lagos"
+                  data-role="profile-school"
+                  class="input"
+                />
+              </div>
+
+              <div class="space-y-2">
+                <label class="text-sm font-semibold text-slate-700"
+                  >Email</label
+                >
+                <div
+                  class="input bg-slate-50 text-slate-500"
+                  data-role="profile-email"
+                >
+                  —
+                </div>
+              </div>
+
+              <!-- Sign-in Methods -->
+              <div class="pt-6 border-t border-slate-200 space-y-4">
+                <h3 class="text-lg font-semibold text-slate-900">
+                  Sign-in methods
+                </h3>
+
+                <div class="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    data-role="connect-google"
+                    class="btn btn--secondary"
+                  >
+                    <svg class="w-5 h-5" viewBox="0 0 24 24">
+                      <path
+                        fill="#4285F4"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                      />
+                    </svg>
+                    Connect Google
+                  </button>
+                  <p class="text-sm text-slate-500">
+                    Link Google for easier sign-in.
                   </p>
                 </div>
 
-                <div class="space-y-1">
-                  <label
-                    class="text-sm font-semibold text-slate-600"
-                    for="profile-school"
-                    >School name</label
-                  >
+                <div
+                  class="hidden rounded-xl border px-4 py-3 text-sm"
+                  data-role="auth-methods-feedback"
+                ></div>
+              </div>
+
+              <!-- WhatsApp Verification -->
+              <div class="pt-6 border-t border-slate-200 space-y-4">
+                <h3 class="text-lg font-semibold text-slate-900">
+                  WhatsApp sign-in
+                </h3>
+                <p class="text-sm text-slate-500">
+                  Verify your number to sign in with WhatsApp OTP.
+                </p>
+
+                <div class="flex flex-col sm:flex-row gap-3">
                   <input
-                    id="profile-school"
-                    type="text"
-                    placeholder="e.g. School of Nursing, Lagos"
-                    data-role="profile-school"
-                    class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                    type="tel"
+                    inputmode="tel"
+                    autocomplete="tel"
+                    placeholder="e.g. 08012345678"
+                    data-role="whatsapp-link-phone"
+                    class="input sm:flex-1"
                   />
-                </div>
-                <div class="space-y-1">
-                  <label class="text-sm font-semibold text-slate-600"
-                    >Email</label
+                  <button
+                    type="button"
+                    data-role="whatsapp-link-send"
+                    class="btn btn--primary sm:w-auto"
                   >
-                  <div
-                    class="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-500"
-                    data-role="profile-email"
-                  >
-                    —
-                  </div>
+                    Send code
+                  </button>
                 </div>
 
-                <div class="space-y-2">
-                  <label class="text-sm font-semibold text-slate-600"
-                    >Sign-in methods</label
+                <div
+                  class="hidden flex-col sm:flex-row gap-3"
+                  data-role="whatsapp-link-verify-row"
+                >
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="6"
+                    pattern="[0-9]{6}"
+                    placeholder="6-digit code"
+                    data-role="whatsapp-link-code"
+                    class="input sm:flex-1"
+                  />
+                  <button
+                    type="button"
+                    data-role="whatsapp-link-verify"
+                    class="btn btn--primary"
                   >
-                  <div class="flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:border-cyan-200 hover:text-cyan-700"
-                      data-role="connect-google"
-                    >
-                      Connect Google
-                    </button>
-                    <p class="text-xs text-slate-500">
-                      Link Google to this account so you can sign in with it
-                      next time.
-                    </p>
-                  </div>
-                  <div
-                    class="hidden rounded-xl border px-3.5 py-2.5 text-sm"
-                    data-role="auth-methods-feedback"
-                  ></div>
+                    Verify
+                  </button>
+                  <button
+                    type="button"
+                    data-role="whatsapp-link-resend"
+                    class="btn btn--ghost"
+                  >
+                    Resend
+                  </button>
                 </div>
 
-                <div class="space-y-2">
-                  <label class="text-sm font-semibold text-slate-600"
-                    >WhatsApp sign-in</label
-                  >
-                  <p class="text-xs text-slate-500">
-                    Verify your number once to sign in with WhatsApp OTP next
-                    time.
+                <div
+                  class="hidden rounded-xl border px-4 py-3 text-sm"
+                  data-role="whatsapp-link-feedback"
+                ></div>
+
+                <div
+                  class="hidden rounded-xl border border-slate-200 bg-slate-50 p-5"
+                  data-role="whatsapp-bio"
+                >
+                  <h4 class="font-semibold text-slate-900">
+                    Complete your profile
+                  </h4>
+                  <p class="mt-1 text-sm text-slate-500">
+                    Email cannot be edited.
                   </p>
-
-                  <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <input
-                      type="tel"
-                      inputmode="tel"
-                      autocomplete="tel"
-                      placeholder="e.g. 08012345678"
-                      data-role="whatsapp-link-phone"
-                      class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
-                    />
-                    <button
-                      type="button"
-                      data-role="whatsapp-link-send"
-                      class="inline-flex shrink-0 items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
-                    >
-                      Send code
-                    </button>
-                  </div>
-
-                  <div
-                    class="hidden flex-col gap-3 sm:flex-row sm:items-center"
-                    data-role="whatsapp-link-verify-row"
-                  >
-                    <input
-                      type="text"
-                      inputmode="numeric"
-                      maxlength="6"
-                      pattern="[0-9]{6}"
-                      placeholder="6-digit code"
-                      data-role="whatsapp-link-code"
-                      class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
-                    />
-                    <button
-                      type="button"
-                      data-role="whatsapp-link-verify"
-                      class="inline-flex shrink-0 items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-cyan-700"
-                    >
-                      Verify
-                    </button>
-                    <button
-                      type="button"
-                      data-role="whatsapp-link-resend"
-                      class="inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:border-cyan-200 hover:text-cyan-700"
-                    >
-                      Resend
-                    </button>
-                  </div>
-
-                  <div
-                    class="hidden rounded-xl border px-3.5 py-2.5 text-sm"
-                    data-role="whatsapp-link-feedback"
-                  ></div>
-
-                  <div
-                    class="hidden rounded-2xl border border-slate-200 bg-slate-50 p-4"
-                    data-role="whatsapp-bio"
-                  >
-                    <p class="text-sm font-semibold text-slate-800">
-                      Update your bio
-                    </p>
-                    <p class="mt-1 text-xs text-slate-500">
-                      Please confirm your details. Email cannot be edited.
-                    </p>
-                    <div class="mt-3 grid gap-3 sm:grid-cols-2">
-                      <div class="space-y-1">
-                        <label class="text-xs font-semibold text-slate-600"
-                          >First name</label
-                        >
-                        <input
-                          type="text"
-                          data-role="whatsapp-bio-first"
-                          class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
-                        />
-                      </div>
-                      <div class="space-y-1">
-                        <label class="text-xs font-semibold text-slate-600"
-                          >Last name</label
-                        >
-                        <input
-                          type="text"
-                          data-role="whatsapp-bio-last"
-                          class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
-                        />
-                      </div>
-                      <div class="space-y-1 sm:col-span-2">
-                        <label class="text-xs font-semibold text-slate-600"
-                          >School name</label
-                        >
-                        <input
-                          type="text"
-                          data-role="whatsapp-bio-school"
-                          class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
-                        />
-                      </div>
-                      <div class="space-y-1 sm:col-span-2">
-                        <label class="text-xs font-semibold text-slate-600"
-                          >Email</label
-                        >
-                        <div
-                          class="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-500"
-                          data-role="whatsapp-bio-email"
-                        >
-                          —
-                        </div>
-                      </div>
+                  <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div class="space-y-2">
+                      <label class="text-xs font-semibold text-slate-600"
+                        >First name</label
+                      >
+                      <input
+                        type="text"
+                        data-role="whatsapp-bio-first"
+                        class="input"
+                      />
                     </div>
-                    <button
-                      type="button"
-                      data-role="whatsapp-bio-save"
-                      class="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
-                    >
-                      Save bio
-                    </button>
+                    <div class="space-y-2">
+                      <label class="text-xs font-semibold text-slate-600"
+                        >Last name</label
+                      >
+                      <input
+                        type="text"
+                        data-role="whatsapp-bio-last"
+                        class="input"
+                      />
+                    </div>
+                    <div class="space-y-2 sm:col-span-2">
+                      <label class="text-xs font-semibold text-slate-600"
+                        >School name</label
+                      >
+                      <input
+                        type="text"
+                        data-role="whatsapp-bio-school"
+                        class="input"
+                      />
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    data-role="whatsapp-bio-save"
+                    class="btn btn--primary w-full mt-4"
+                  >
+                    Save profile
+                  </button>
                 </div>
+              </div>
 
+              <!-- Password Section -->
+              <div class="pt-6 border-t border-slate-200">
                 <div class="grid gap-4 sm:grid-cols-2">
-                  <div class="space-y-1">
+                  <div class="space-y-2">
                     <label
-                      class="text-sm font-semibold text-slate-600"
+                      class="text-sm font-semibold text-slate-700"
                       for="profile-password"
                       >New password</label
                     >
@@ -973,12 +1975,12 @@
                       minlength="8"
                       placeholder="Leave blank to keep current"
                       data-role="profile-password"
-                      class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                      class="input"
                     />
                   </div>
-                  <div class="space-y-1">
+                  <div class="space-y-2">
                     <label
-                      class="text-sm font-semibold text-slate-600"
+                      class="text-sm font-semibold text-slate-700"
                       for="profile-password-confirm"
                       >Confirm password</label
                     >
@@ -988,165 +1990,172 @@
                       minlength="8"
                       placeholder="Repeat new password"
                       data-role="profile-password-confirm"
-                      class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                      class="input"
                     />
                   </div>
                 </div>
-                <div
-                  class="hidden rounded-xl border px-3.5 py-2.5 text-sm"
-                  data-role="profile-feedback"
-                ></div>
-                <div class="flex flex-wrap items-center gap-3">
-                  <button
-                    type="submit"
-                    class="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-cyan-700"
-                  >
-                    Save changes
-                  </button>
-                  <a
-                    href="reset-password.html"
-                    class="text-sm font-semibold text-cyan-700 hover:text-cyan-600"
-                  >
-                    Forgot password?
-                  </a>
-                </div>
-              </form>
-            </div>
-
-            <!-- Account Actions -->
-            <div
-              class="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm sm:p-8"
-            >
-              <h3 class="text-lg font-semibold text-slate-900 mb-4">
-                Account actions
-              </h3>
-              <div class="space-y-3">
-                <a
-                  href="../index.html"
-                  class="inline-flex items-center justify-center w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 hover:border-cyan-200 hover:text-cyan-700 transition-colors"
-                >
-                  <svg
-                    class="w-4 h-4 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                    />
-                  </svg>
-                  Visit homepage
-                </a>
-                <button
-                  type="button"
-                  class="inline-flex items-center justify-center w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-red-700 transition-colors"
-                  data-role="logout"
-                >
-                  <svg
-                    class="w-4 h-4 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                    />
-                  </svg>
-                  Log out
-                </button>
               </div>
+
               <div
-                class="mt-4 p-3 rounded-xl border border-amber-200 bg-amber-50"
-              >
-                <p class="text-xs text-amber-800">
-                  <strong>Note:</strong> Logging out will end your current
-                  session. You'll need to sign in again to access your
-                  dashboard.
-                </p>
-              </div>
-            </div>
-          </section>
-        </div>
-      </main>
+                class="hidden rounded-xl border px-4 py-3 text-sm"
+                data-role="profile-feedback"
+              ></div>
 
-      <!-- Bottom Navigation Bar -->
-      <div
-        class="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200/50 bg-white/90 backdrop-blur-md safe-area-inset-bottom"
-      >
-        <div class="px-4 py-2 sm:px-6 sm:py-3 lg:px-8">
-          <div
-            class="grid grid-cols-4 gap-1 rounded-3xl bg-white/40 p-1 max-w-xl mx-auto"
-            data-role="nav-buttons"
-          >
-            <button
-              type="button"
-              data-nav-target="dashboard"
-              class="nav-button nav-button--active"
-              aria-current="page"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.6"
-                  d="M3 9.75 12 3l9 6.75V20.25a.75.75 0 0 1-.75.75h-5.25a.75.75 0 0 1-.75-.75V15a.75.75 0 0 0-.75-.75h-3A.75.75 0 0 0 10.5 15v5.25a.75.75 0 0 1-.75.75H3.75A.75.75 0 0 1 3 20.25z"
-                />
-              </svg>
-              <span>Dashboard</span>
-            </button>
-            <button type="button" data-nav-target="plan" class="nav-button">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.6"
-                  d="M5 7.5h14M5 12h14M5 16.5h9"
-                />
-              </svg>
-              <span>Plan</span>
-            </button>
-            <button
-              type="button"
-              data-nav-target="bonus"
-              data-nav-requires-active="true"
-              class="nav-button"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.6"
-                  d="M12 4.5 14.3 9l5.2.35-4 3.45 1.2 5.2L12 15.7l-4.7 2.3 1.2-5.2-4-3.45 5.2-.35z"
-                />
-              </svg>
-              <span
-                class="nav-button__badge"
-                data-role="bonus-notification"
-                aria-hidden="true"
-              ></span>
-              <span>Bonus</span>
-            </button>
-            <button type="button" data-nav-target="profile" class="nav-button">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.6"
-                  d="M12 11.5a3.75 3.75 0 1 0-3.75-3.75A3.75 3.75 0 0 0 12 11.5Zm0 2.25c-3.2 0-6 1.41-6 3.15 0 .6.45 1.1 1 1.1h10c.55 0 1-.5 1-1.1 0-1.74-2.8-3.15-6-3.15Z"
-                />
-              </svg>
-              <span>Profile</span>
-            </button>
+              <div class="flex flex-wrap items-center gap-3 pt-4">
+                <button type="submit" class="btn btn--primary">
+                  Save changes
+                </button>
+                <a
+                  href="reset-password.html"
+                  class="text-sm font-semibold text-teal-600 hover:text-teal-700"
+                >
+                  Forgot password?
+                </a>
+              </div>
+            </form>
           </div>
-        </div>
-      </div>
+
+          <!-- Account Actions -->
+          <div class="card p-6 sm:p-8">
+            <h3 class="text-lg font-semibold text-slate-900 mb-4">
+              Account actions
+            </h3>
+            <div class="space-y-3">
+              <a
+                href="../index.html"
+                class="btn btn--secondary w-full justify-start"
+              >
+                <svg
+                  class="w-5 h-5 mr-2"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  <polyline points="9 22 9 12 15 12 15 22" />
+                </svg>
+                Visit homepage
+              </a>
+              <button
+                type="button"
+                data-role="logout"
+                class="btn w-full justify-start bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+              >
+                <svg
+                  class="w-5 h-5 mr-2"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" x2="9" y1="12" y2="12" />
+                </svg>
+                Log out
+              </button>
+            </div>
+            <div
+              class="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-200"
+            >
+              <p class="text-sm text-amber-800">
+                <strong>Note:</strong> Logging out will end your current
+                session. You'll need to sign in again.
+              </p>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="bottom-nav lg:hidden">
+      <div class="bottom-nav__inner">
+        <button
+          type="button"
+          data-nav-target="dashboard"
+          class="bottom-nav__item is-active"
+          aria-current="page"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M3 9.75 12 3l9 6.75V20.25a.75.75 0 0 1-.75.75h-5.25a.75.75 0 0 1-.75-.75V15a.75.75 0 0 0-.75-.75h-3A.75.75 0 0 0 10.5 15v5.25a.75.75 0 0 1-.75.75H3.75A.75.75 0 0 1 3 20.25z"
+            />
+          </svg>
+          <span>Dashboard</span>
+        </button>
+        <button type="button" data-nav-target="plan" class="bottom-nav__item">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
+            />
+            <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
+            <path d="M9 12h.01" />
+            <path d="M13 12h.01" />
+            <path d="M17 12h.01" />
+          </svg>
+          <span>Plan</span>
+        </button>
+        <button
+          type="button"
+          data-nav-target="bonus"
+          data-nav-requires-active="true"
+          class="bottom-nav__item"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polygon
+              points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+            />
+          </svg>
+          <span class="bottom-nav__badge" data-role="bonus-notification"></span>
+          <span>Bonus</span>
+        </button>
+        <button
+          type="button"
+          data-nav-target="profile"
+          class="bottom-nav__item"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          <span>Profile</span>
+        </button>
+      </div>
+    </nav>
 
     <script>
       window.__SUPABASE_CONFIG__ = window.__SUPABASE_CONFIG__ || {
@@ -1154,6 +2163,82 @@
         anonKey:
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobmhmYWd5ZGN5bmhrZ2JhemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwMDM2MjQsImV4cCI6MjA3NDU3OTYyNH0.KHgZ_ESTneR0CqWBGfu-JOmI3eBBLCZr1XG-g2vpclw',
       };
+
+      // Navigation handling for new UI
+      document.addEventListener('DOMContentLoaded', function () {
+        const drawer = document.querySelector('[data-role="nav-drawer"]');
+        const overlay = document.querySelector('[data-role="nav-overlay"]');
+        const openDrawerBtn = document.querySelector(
+          '[data-role="open-drawer"]'
+        );
+        const closeDrawerBtn = document.querySelector(
+          '[data-role="close-drawer"]'
+        );
+
+        function openDrawer() {
+          drawer.classList.add('is-open');
+          overlay.classList.add('is-visible');
+          document.body.style.overflow = 'hidden';
+        }
+
+        function closeDrawer() {
+          drawer.classList.remove('is-open');
+          overlay.classList.remove('is-visible');
+          document.body.style.overflow = '';
+        }
+
+        openDrawerBtn?.addEventListener('click', openDrawer);
+        closeDrawerBtn?.addEventListener('click', closeDrawer);
+        overlay?.addEventListener('click', closeDrawer);
+
+        // Header scroll effect
+        const header = document.querySelector('.app-header');
+        let lastScroll = 0;
+
+        window.addEventListener(
+          'scroll',
+          function () {
+            const currentScroll = window.pageYOffset;
+            if (currentScroll > 10) {
+              header.classList.add('app-header--scrolled');
+            } else {
+              header.classList.remove('app-header--scrolled');
+            }
+            lastScroll = currentScroll;
+          },
+          { passive: true }
+        );
+
+        // Update active states for nav items
+        function updateActiveNav(target) {
+          document.querySelectorAll('[data-nav-target]').forEach((btn) => {
+            const isMatch = btn.getAttribute('data-nav-target') === target;
+            btn.classList.toggle('is-active', isMatch);
+            btn.classList.toggle('nav-button--active', isMatch);
+            if (isMatch) btn.setAttribute('aria-current', 'page');
+            else btn.removeAttribute('aria-current');
+          });
+
+          // Update view visibility
+          document.querySelectorAll('[data-view]').forEach((view) => {
+            const isMatch = view.getAttribute('data-view') === target;
+            view.classList.toggle('is-active', isMatch);
+          });
+        }
+
+        // Add click handlers to all nav items
+        document.querySelectorAll('[data-nav-target]').forEach((btn) => {
+          btn.addEventListener('click', function (e) {
+            const target = this.getAttribute('data-nav-target');
+            if (target) {
+              e.preventDefault();
+              updateActiveNav(target);
+              closeDrawer();
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+          });
+        });
+      });
     </script>
     <script type="module" src="./src/dashboard.js?v=20260208"></script>
     <script type="module" src="src/pwa-bootstrap.js?v=20260208"></script>
