@@ -178,6 +178,8 @@ const ALL_TONE_CLASSES = [
 ];
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const QUIZ_HISTORY_FETCH_LIMIT = 180; // aligns with DB cleanup window
+const QUIZ_HISTORY_SUMMARY_DAYS = 14;
 
 const PLAN_STATUS_STYLES = {
   active: {
@@ -2214,7 +2216,7 @@ function renderHistory() {
         </div>
       `;
     }
-    elements.historySummary.textContent = '0 completed this week';
+    elements.historySummary.textContent = `0 completed in last ${QUIZ_HISTORY_SUMMARY_DAYS} days`;
     if (elements.statStreak) {
       elements.statStreak.textContent = '0 days';
     }
@@ -2334,10 +2336,20 @@ function renderHistory() {
     elements.historyBody.innerHTML = rows;
   }
 
-  const completedThisWeek = state.history.filter(
-    (item) => item.status === 'completed'
-  ).length;
-  elements.historySummary.textContent = `${completedThisWeek} completed in last ${state.history.length} days`;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const summaryStart = new Date(
+    today.getTime() - (QUIZ_HISTORY_SUMMARY_DAYS - 1) * DAY_IN_MS
+  );
+
+  const completedRecently = state.history.filter((item) => {
+    if (item.status !== 'completed') return false;
+    const assigned = item.assigned_date ? new Date(item.assigned_date) : null;
+    if (!assigned || Number.isNaN(assigned.getTime())) return false;
+    return assigned >= summaryStart;
+  }).length;
+
+  elements.historySummary.textContent = `${completedRecently} completed in last ${QUIZ_HISTORY_SUMMARY_DAYS} days • showing ${state.history.length} sessions`;
 
   const streak = calculateStreak(state.history);
   if (elements.statStreak) {
@@ -3096,7 +3108,7 @@ async function refreshHistory() {
       )
       .eq('user_id', state.user.id)
       .order('assigned_date', { ascending: false })
-      .limit(14);
+      .limit(QUIZ_HISTORY_FETCH_LIMIT);
     if (error) throw error;
 
     state.history = data || [];

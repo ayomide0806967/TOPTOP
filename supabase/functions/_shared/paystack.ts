@@ -98,7 +98,7 @@ export async function upsertPaymentAndSubscription(options: {
   const { data: existingTransaction, error: existingTransactionError } =
     await admin
       .from('payment_transactions')
-      .select('id, amount, currency, user_id, plan_id, status')
+      .select('id, amount, currency, user_id, plan_id, status, subscription_id')
       .eq('provider', 'paystack')
       .eq('reference', reference)
       .maybeSingle();
@@ -108,6 +108,39 @@ export async function upsertPaymentAndSubscription(options: {
     existingTransactionError.code !== 'PGRST116'
   ) {
     throw existingTransactionError;
+  }
+
+  // Idempotency: if we've already linked this Paystack reference to a subscription,
+  // don't extend/stack time again (webhook + verify + reconciliation can all call this).
+  if (existingTransaction?.subscription_id) {
+    if (
+      (existingTransaction.user_id && existingTransaction.user_id !== userId) ||
+      (existingTransaction.plan_id && existingTransaction.plan_id !== planId)
+    ) {
+      throw new Error(
+        'Payment reference is already associated with a different user or plan.'
+      );
+    }
+
+    const subscriptionId = String(existingTransaction.subscription_id);
+    const transactionId = String(existingTransaction.id);
+
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('default_subscription_id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!profile?.default_subscription_id) {
+      await admin
+        .from('profiles')
+        .update({ default_subscription_id: subscriptionId })
+        .eq('id', userId);
+    }
+
+    await admin.rpc('refresh_profile_subscription_status', { p_user_id: userId });
+
+    return { subscriptionId, transactionId };
   }
 
   const { data: plan, error: planError } = await admin
@@ -167,7 +200,7 @@ export async function upsertPaymentAndSubscription(options: {
   const { data: transactionRows, error: transactionError } = await admin
     .from('payment_transactions')
     .upsert(upsertPayload, { onConflict: 'provider,reference' })
-    .select('id')
+    .select('id, subscription_id')
     .limit(1);
 
   if (transactionError) {
@@ -177,6 +210,75 @@ export async function upsertPaymentAndSubscription(options: {
   const transactionId = transactionRows?.[0]?.id;
   if (!transactionId) {
     throw new Error('Failed to record payment transaction.');
+  }
+
+  const existingLinkedSubscriptionId = transactionRows?.[0]?.subscription_id;
+  if (existingLinkedSubscriptionId) {
+    const subscriptionId = String(existingLinkedSubscriptionId);
+
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('default_subscription_id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!profile?.default_subscription_id) {
+      await admin
+        .from('profiles')
+        .update({ default_subscription_id: subscriptionId })
+        .eq('id', userId);
+    }
+
+    await admin.rpc('refresh_profile_subscription_status', { p_user_id: userId });
+
+    return {
+      subscriptionId,
+      transactionId,
+    };
+  }
+
+  // Secondary idempotency guard: if a previous run created/updated a subscription but
+  // failed before linking `payment_transactions.subscription_id`, detect via
+  // `user_subscriptions.payment_transaction_id`.
+  const { data: existingSubscriptionByTxn, error: existingSubError } =
+    await admin
+      .from('user_subscriptions')
+      .select('id')
+      .eq('payment_transaction_id', transactionId)
+      .maybeSingle();
+
+  if (existingSubError && existingSubError.code !== 'PGRST116') {
+    throw existingSubError;
+  }
+
+  if (existingSubscriptionByTxn?.id) {
+    const subscriptionId = String(existingSubscriptionByTxn.id);
+
+    await admin
+      .from('payment_transactions')
+      .update({ subscription_id: subscriptionId })
+      .eq('id', transactionId)
+      .is('subscription_id', null);
+
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('default_subscription_id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!profile?.default_subscription_id) {
+      await admin
+        .from('profiles')
+        .update({ default_subscription_id: subscriptionId })
+        .eq('id', userId);
+    }
+
+    await admin.rpc('refresh_profile_subscription_status', { p_user_id: userId });
+
+    return {
+      subscriptionId,
+      transactionId,
+    };
   }
 
   const { data: latestActive, error: latestError } = await admin
@@ -224,6 +326,10 @@ export async function upsertPaymentAndSubscription(options: {
       canceled_at: null,
       expires_at: newExpiresAt,
       quantity: newQuantity,
+      purchased_at: paidAt,
+      payment_transaction_id: transactionId,
+      price: amount,
+      currency: currency || plan.currency || 'NGN',
     };
 
     if (shouldResetStart) {
