@@ -15,6 +15,15 @@ const usernameInput = document.getElementById('username');
 const passwordInput = document.getElementById('password');
 const googleSignInBtn = document.getElementById('googleSignInBtn');
 const quickAuthOptionsEl = document.getElementById('quickAuthOptions');
+const authWhatsAppOptionEl = document.querySelector(
+  '[data-role="auth-whatsapp-option"]'
+);
+const authGoogleOptionEl = document.querySelector(
+  '[data-role="auth-google-option"]'
+);
+const authDividerEl = document.querySelector('[data-role="auth-divider"]');
+const authLoginFormEl = document.querySelector('[data-role="auth-login-form"]');
+const authShowAllBtn = document.querySelector('[data-role="auth-show-all"]');
 
 const whatsappRequestForm = document.getElementById('whatsappRequestForm');
 const whatsappVerifyForm = document.getElementById('whatsappVerifyForm');
@@ -143,6 +152,29 @@ function showWhatsAppCompletionForm({ profile, phone }) {
   pendingWhatsAppPhone = phone || pendingWhatsAppPhone || '';
   waFirstNameInput?.focus?.();
   return true;
+}
+
+function setAuthSurface(surface, { showSwitcher = false } = {}) {
+  const showAll = surface === 'all';
+  const showWhatsApp = surface === 'whatsapp';
+
+  if (authGoogleOptionEl) {
+    authGoogleOptionEl.classList.toggle('hidden', !showAll);
+  }
+  if (authDividerEl) {
+    authDividerEl.classList.toggle('hidden', !showAll);
+  }
+  if (authLoginFormEl) {
+    authLoginFormEl.classList.toggle('hidden', !showAll);
+  }
+
+  if (authWhatsAppOptionEl) {
+    authWhatsAppOptionEl.classList.toggle('hidden', !showAll && !showWhatsApp);
+  }
+
+  if (authShowAllBtn) {
+    authShowAllBtn.classList.toggle('hidden', !showSwitcher);
+  }
 }
 
 /**
@@ -776,6 +808,8 @@ async function handleWhatsAppRequest(event, supabase, { mode }) {
   event.preventDefault();
   clearFeedback();
 
+  setAuthSurface('whatsapp', { showSwitcher: mode !== 'signup' });
+
   const phone = normalizeNigeriaPhone(whatsappPhoneInput?.value);
   if (!phone || !isPlausibleE164(phone) || !phone.startsWith('+234')) {
     showFeedback('Enter a valid Nigerian WhatsApp number.');
@@ -816,6 +850,7 @@ async function handleWhatsAppVerify(event, supabase, { mode }) {
   clearFeedback();
 
   blockAutoRedirect = true;
+  setAuthSurface('whatsapp', { showSwitcher: mode !== 'signup' });
 
   const phone =
     pendingWhatsAppPhone || normalizeNigeriaPhone(whatsappPhoneInput?.value);
@@ -1168,6 +1203,9 @@ async function init() {
       params.get('error_description') || params.get('error') || null;
     const authAction = params.get('auth');
     const authMode = params.get('mode') === 'signup' ? 'signup' : 'login';
+    const shouldStartGoogle = authAction === 'google';
+    const shouldFocusWhatsApp =
+      authAction === 'whatsapp' || authMode === 'signup';
 
     if (impersonatedToken) {
       await handleImpersonation(supabase, impersonatedToken);
@@ -1193,7 +1231,7 @@ async function init() {
       return;
     }
 
-    if (authAction === 'google') {
+    if (shouldStartGoogle) {
       try {
         // Remove the auth action from the URL to avoid retrigger loops.
         params.delete('auth');
@@ -1203,8 +1241,6 @@ async function init() {
       } catch (error) {
         console.warn('[Auth] Unable to clean auth action from URL', error);
       }
-      await handleGoogleSignIn(supabase);
-      return;
     }
 
     // Check if user was logged out for a specific reason
@@ -1303,7 +1339,15 @@ async function init() {
       });
     }
 
-    if (authAction === 'whatsapp') {
+    if (authShowAllBtn) {
+      authShowAllBtn.addEventListener('click', () => {
+        setAuthSurface('all');
+        clearFeedback();
+      });
+    }
+
+    if (shouldFocusWhatsApp) {
+      setAuthSurface('whatsapp', { showSwitcher: authMode !== 'signup' });
       try {
         whatsappPhoneInput?.focus();
         whatsappPhoneInput?.scrollIntoView?.({
@@ -1313,6 +1357,10 @@ async function init() {
       } catch (error) {
         console.warn('[Auth] Unable to focus WhatsApp sign-in', error);
       }
+    }
+
+    if (shouldStartGoogle) {
+      await handleGoogleSignIn(supabase);
     }
   } catch (error) {
     console.error('[Auth] Initialization failed:', error);

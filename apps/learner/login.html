@@ -94,6 +94,17 @@
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(14, 116, 144, 0.4);
       }
+
+      .btn-whatsapp {
+        background: linear-gradient(135deg, #25d366, #128c7e);
+        color: #ffffff;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(18, 140, 126, 0.35);
+      }
+      .btn-whatsapp:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(18, 140, 126, 0.45);
+      }
     </style>
   </head>
   <body class="antialiased text-gray-900">
@@ -117,14 +128,6 @@
             <h2 class="mt-4 text-2xl font-extrabold text-gray-800">
               Sign in to your account
             </h2>
-            <p class="mt-2 text-sm text-gray-600">
-              Don't have an account?
-              <a
-                href="subscription-plans.html"
-                class="font-medium text-cyan-600 hover:text-cyan-500"
-                >Register here</a
-              >
-            </p>
           </div>
 
           <!-- Form -->
@@ -136,44 +139,36 @@
 
           <!-- Quick sign-in options -->
           <div id="quickAuthOptions" class="mt-6 space-y-4">
-            <button
-              type="button"
-              id="googleSignInBtn"
-              class="w-full inline-flex items-center justify-center gap-3 rounded-md border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2"
+            <div
+              class="rounded-md border border-gray-200 bg-white p-4"
+              data-role="auth-whatsapp-option"
             >
-              <svg class="h-5 w-5" viewBox="0 0 48 48" aria-hidden="true">
-                <path
-                  fill="#FFC107"
-                  d="M43.611 20.083H42V20H24v8h11.303C33.928 32.659 29.384 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.053 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
-                />
-                <path
-                  fill="#FF3D00"
-                  d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.053 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"
-                />
-                <path
-                  fill="#4CAF50"
-                  d="M24 44c5.166 0 9.86-1.977 13.409-5.197l-6.191-5.238C29.162 35.091 26.715 36 24 36c-5.362 0-9.89-3.317-11.277-7.946l-6.522 5.025C9.518 39.556 16.227 44 24 44z"
-                />
-                <path
-                  fill="#1976D2"
-                  d="M43.611 20.083H42V20H24v8h11.303c-.66 1.78-1.907 3.29-3.555 4.565l.003-.002 6.191 5.238C37.499 38.205 44 33.5 44 24c0-1.341-.138-2.65-.389-3.917z"
-                />
-              </svg>
-              <span>Continue with Google</span>
-            </button>
-
-            <div class="rounded-md border border-gray-200 bg-white p-4">
               <div class="flex items-start justify-between gap-3">
-                <div>
+                <div class="flex items-start gap-2">
+                  <svg
+                    class="mt-0.5 h-5 w-5"
+                    viewBox="0 0 32 32"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill="#25D366"
+                      d="M19.11 17.716c-.262-.13-1.55-.764-1.79-.85-.24-.087-.414-.13-.588.13-.173.26-.674.85-.826 1.025-.152.173-.304.195-.566.065-.262-.13-1.104-.406-2.102-1.295-.777-.692-1.302-1.547-1.455-1.81-.152-.26-.016-.4.114-.53.117-.116.262-.304.392-.456.13-.152.174-.26.262-.435.087-.173.043-.326-.022-.456-.065-.13-.588-1.416-.806-1.94-.212-.51-.427-.44-.588-.45-.152-.007-.326-.01-.5-.01s-.456.065-.695.326c-.24.26-.913.89-.913 2.17 0 1.282.935 2.522 1.064 2.696.13.173 1.84 2.808 4.456 3.936.622.268 1.108.428 1.487.548.625.2 1.194.17 1.644.104.5-.074 1.55-.633 1.77-1.244.217-.61.217-1.134.152-1.244-.065-.11-.24-.173-.5-.304z"
+                    />
+                    <path
+                      fill="#25D366"
+                      d="M16.01 3C9.38 3 4 8.38 4 15.01c0 2.11.55 4.17 1.6 5.99L4 29l8.18-1.55a11.94 11.94 0 0 0 3.83.62c6.63 0 12.01-5.38 12.01-12.01C28.02 8.38 22.64 3 16.01 3zm0 21.82c-1.24 0-2.45-.24-3.58-.71l-.26-.11-4.86.92.92-4.74-.12-.27a9.79 9.79 0 0 1-1.02-4.4c0-5.4 4.4-9.8 9.8-9.8 5.4 0 9.8 4.4 9.8 9.8 0 5.4-4.4 9.31-9.68 9.31z"
+                    />
+                  </svg>
                   <p class="text-sm font-semibold text-gray-800">
-                    Continue with WhatsApp (OTP)
-                  </p>
-                  <p class="mt-1 text-xs text-gray-500">
-                    We’ll send a 6-digit code to your WhatsApp number (Nigeria
-                    only).
+                    Continue with WhatsApp
                   </p>
                 </div>
               </div>
+              <p class="mt-1 text-xs text-gray-500">
+                We’ll send a 6-digit code to your WhatsApp number (Nigeria
+                only).
+              </p>
 
               <form id="whatsappRequestForm" class="mt-4 flex gap-2">
                 <label for="whatsappPhone" class="sr-only"
@@ -192,7 +187,7 @@
                 <button
                   type="submit"
                   id="whatsappSendBtn"
-                  class="btn-primary inline-flex shrink-0 items-center justify-center rounded-md px-4 py-3 text-sm font-semibold"
+                  class="btn-whatsapp inline-flex shrink-0 items-center justify-center rounded-md px-4 py-3 text-sm font-semibold"
                 >
                   Send code
                 </button>
@@ -213,24 +208,59 @@
                 <button
                   type="submit"
                   id="whatsappVerifyBtn"
-                  class="btn-primary inline-flex shrink-0 items-center justify-center rounded-md px-4 py-3 text-sm font-semibold"
+                  class="btn-whatsapp inline-flex shrink-0 items-center justify-center rounded-md px-4 py-3 text-sm font-semibold"
                 >
                   Verify
                 </button>
               </form>
 
-              <div class="mt-3">
+              <div class="mt-3 flex items-center justify-between gap-3">
                 <button
                   type="button"
                   id="whatsappResendBtn"
-                  class="hidden text-xs font-semibold text-cyan-700 hover:text-cyan-600"
+                  class="hidden text-xs font-semibold text-emerald-700 hover:text-emerald-600"
                 >
                   Resend code
+                </button>
+                <button
+                  type="button"
+                  class="hidden text-xs font-semibold text-slate-600 hover:text-slate-700"
+                  data-role="auth-show-all"
+                >
+                  Use another sign-in method
                 </button>
               </div>
             </div>
 
-            <div class="relative">
+            <div data-role="auth-google-option">
+              <button
+                type="button"
+                id="googleSignInBtn"
+                class="w-full inline-flex items-center justify-center gap-3 rounded-md border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2"
+              >
+                <svg class="h-5 w-5" viewBox="0 0 48 48" aria-hidden="true">
+                  <path
+                    fill="#FFC107"
+                    d="M43.611 20.083H42V20H24v8h11.303C33.928 32.659 29.384 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.053 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
+                  />
+                  <path
+                    fill="#FF3D00"
+                    d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.053 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"
+                  />
+                  <path
+                    fill="#4CAF50"
+                    d="M24 44c5.166 0 9.86-1.977 13.409-5.197l-6.191-5.238C29.162 35.091 26.715 36 24 36c-5.362 0-9.89-3.317-11.277-7.946l-6.522 5.025C9.518 39.556 16.227 44 24 44z"
+                  />
+                  <path
+                    fill="#1976D2"
+                    d="M43.611 20.083H42V20H24v8h11.303c-.66 1.78-1.907 3.29-3.555 4.565l.003-.002 6.191 5.238C37.499 38.205 44 33.5 44 24c0-1.341-.138-2.65-.389-3.917z"
+                  />
+                </svg>
+                <span>Continue with Google</span>
+              </button>
+            </div>
+
+            <div class="relative" data-role="auth-divider">
               <div
                 class="absolute inset-0 flex items-center"
                 aria-hidden="true"
@@ -246,7 +276,11 @@
             </div>
           </div>
 
-          <form id="loginForm" class="mt-6 space-y-6">
+          <form
+            id="loginForm"
+            class="mt-6 space-y-6"
+            data-role="auth-login-form"
+          >
             <div class="rounded-md shadow-sm -space-y-px">
               <div>
                 <label for="username" class="sr-only">Username</label>
