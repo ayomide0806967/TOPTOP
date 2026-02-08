@@ -135,7 +135,7 @@
           ></div>
 
           <!-- Quick sign-in options -->
-          <div class="mt-6 space-y-4">
+          <div id="quickAuthOptions" class="mt-6 space-y-4">
             <button
               type="button"
               id="googleSignInBtn"
@@ -166,40 +166,43 @@
               <div class="flex items-start justify-between gap-3">
                 <div>
                   <p class="text-sm font-semibold text-gray-800">
-                    Continue with Email (OTP)
+                    Continue with WhatsApp (OTP)
                   </p>
                   <p class="mt-1 text-xs text-gray-500">
-                    We’ll send a 6-digit code. You can also click the sign-in
-                    link in the email.
+                    We’ll send a 6-digit code to your WhatsApp number (Nigeria
+                    only).
                   </p>
                 </div>
               </div>
 
-              <form id="otpRequestForm" class="mt-4 flex gap-2">
-                <label for="otpEmail" class="sr-only">Email address</label>
+              <form id="whatsappRequestForm" class="mt-4 flex gap-2">
+                <label for="whatsappPhone" class="sr-only"
+                  >WhatsApp number</label
+                >
                 <input
-                  id="otpEmail"
-                  name="otpEmail"
-                  type="email"
-                  autocomplete="email"
+                  id="whatsappPhone"
+                  name="whatsappPhone"
+                  type="tel"
+                  inputmode="tel"
+                  autocomplete="tel"
                   class="form-input block w-full rounded-md px-3 py-3 text-sm text-gray-900 placeholder-gray-500 focus:z-10 sm:text-sm"
-                  placeholder="Email address"
+                  placeholder="e.g. 08012345678"
                   required
                 />
                 <button
                   type="submit"
-                  id="sendOtpBtn"
+                  id="whatsappSendBtn"
                   class="btn-primary inline-flex shrink-0 items-center justify-center rounded-md px-4 py-3 text-sm font-semibold"
                 >
                   Send code
                 </button>
               </form>
 
-              <form id="otpVerifyForm" class="mt-3 hidden flex gap-2">
-                <label for="otpCode" class="sr-only">6-digit code</label>
+              <form id="whatsappVerifyForm" class="mt-3 hidden flex gap-2">
+                <label for="whatsappCode" class="sr-only">6-digit code</label>
                 <input
-                  id="otpCode"
-                  name="otpCode"
+                  id="whatsappCode"
+                  name="whatsappCode"
                   inputmode="numeric"
                   pattern="[0-9]{6}"
                   maxlength="6"
@@ -209,7 +212,7 @@
                 />
                 <button
                   type="submit"
-                  id="verifyOtpBtn"
+                  id="whatsappVerifyBtn"
                   class="btn-primary inline-flex shrink-0 items-center justify-center rounded-md px-4 py-3 text-sm font-semibold"
                 >
                   Verify
@@ -219,7 +222,7 @@
               <div class="mt-3">
                 <button
                   type="button"
-                  id="resendOtpBtn"
+                  id="whatsappResendBtn"
                   class="hidden text-xs font-semibold text-cyan-700 hover:text-cyan-600"
                 >
                   Resend code
@@ -359,6 +362,100 @@
               </button>
             </div>
           </form>
+
+          <!-- WhatsApp post-OTP completion (shown only when needed) -->
+          <section
+            id="whatsappCompleteSection"
+            class="hidden mt-8 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+            aria-hidden="true"
+          >
+            <h3 class="text-sm font-semibold text-gray-800">
+              Finish setting up your account
+            </h3>
+            <p class="mt-1 text-xs text-gray-500">
+              Please enter your details once. After this, you can continue to
+              checkout.
+            </p>
+
+            <form id="whatsappCompleteForm" class="mt-4 space-y-3">
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label
+                    for="waFirstName"
+                    class="block text-xs font-semibold text-gray-600"
+                    >First name</label
+                  >
+                  <input
+                    id="waFirstName"
+                    name="waFirstName"
+                    type="text"
+                    autocomplete="given-name"
+                    class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-gray-900"
+                    required
+                  />
+                </div>
+                <div>
+                  <label
+                    for="waLastName"
+                    class="block text-xs font-semibold text-gray-600"
+                    >Last name</label
+                  >
+                  <input
+                    id="waLastName"
+                    name="waLastName"
+                    type="text"
+                    autocomplete="family-name"
+                    class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-gray-900"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  for="waSchoolName"
+                  class="block text-xs font-semibold text-gray-600"
+                  >School name</label
+                >
+                <input
+                  id="waSchoolName"
+                  name="waSchoolName"
+                  type="text"
+                  class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-gray-900"
+                  placeholder="e.g. School of Nursing, Lagos"
+                  required
+                />
+              </div>
+
+              <div>
+                <label
+                  for="waEmail"
+                  class="block text-xs font-semibold text-gray-600"
+                  >Email</label
+                >
+                <input
+                  id="waEmail"
+                  name="waEmail"
+                  type="email"
+                  autocomplete="email"
+                  class="form-input mt-1 block w-full rounded-md px-3 py-3 text-sm text-gray-900"
+                  placeholder="e.g. you@example.com"
+                  required
+                />
+                <p id="waEmailHelp" class="mt-1 hidden text-xs text-gray-500">
+                  Email cannot be changed on this account.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                id="waCompleteBtn"
+                class="btn-primary w-full inline-flex items-center justify-center rounded-md px-4 py-3 text-sm font-semibold"
+              >
+                Save and continue
+              </button>
+            </form>
+          </section>
         </div>
       </div>
 

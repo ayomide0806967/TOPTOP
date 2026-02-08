@@ -14,13 +14,33 @@ const submitText = submitBtn?.querySelector('[data-role="submit-text"]');
 const usernameInput = document.getElementById('username');
 const passwordInput = document.getElementById('password');
 const googleSignInBtn = document.getElementById('googleSignInBtn');
+const quickAuthOptionsEl = document.getElementById('quickAuthOptions');
+
+const whatsappRequestForm = document.getElementById('whatsappRequestForm');
+const whatsappVerifyForm = document.getElementById('whatsappVerifyForm');
+const whatsappPhoneInput = document.getElementById('whatsappPhone');
+const whatsappCodeInput = document.getElementById('whatsappCode');
+const whatsappSendBtn = document.getElementById('whatsappSendBtn');
+const whatsappVerifyBtn = document.getElementById('whatsappVerifyBtn');
+const whatsappResendBtn = document.getElementById('whatsappResendBtn');
+
+// Email OTP elements (currently hidden/unused, kept for backwards compatibility)
 const otpRequestForm = document.getElementById('otpRequestForm');
 const otpVerifyForm = document.getElementById('otpVerifyForm');
 const otpEmailInput = document.getElementById('otpEmail');
 const otpCodeInput = document.getElementById('otpCode');
-const sendOtpBtn = document.getElementById('sendOtpBtn');
-const verifyOtpBtn = document.getElementById('verifyOtpBtn');
 const resendOtpBtn = document.getElementById('resendOtpBtn');
+
+const whatsappCompleteSection = document.getElementById(
+  'whatsappCompleteSection'
+);
+const whatsappCompleteForm = document.getElementById('whatsappCompleteForm');
+const waFirstNameInput = document.getElementById('waFirstName');
+const waLastNameInput = document.getElementById('waLastName');
+const waSchoolNameInput = document.getElementById('waSchoolName');
+const waEmailInput = document.getElementById('waEmail');
+const waEmailHelp = document.getElementById('waEmailHelp');
+const waCompleteBtn = document.getElementById('waCompleteBtn');
 
 // ============================================================================
 // CONSTANTS
@@ -31,6 +51,10 @@ const MIN_PASSWORD_LENGTH = 6;
 const USERNAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const OTP_CODE_PATTERN = /^[0-9]{6}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NIGERIA_COUNTRY_CODE = '+234';
+
+let pendingWhatsAppPhone = '';
+let blockAutoRedirect = false;
 
 // ============================================================================
 // UI FEEDBACK FUNCTIONS
@@ -83,6 +107,44 @@ function clearFeedback() {
   feedbackEl.classList.add('hidden');
 }
 
+function showWhatsAppCompletionForm({ profile, phone }) {
+  if (!whatsappCompleteSection || !whatsappCompleteForm) return false;
+
+  blockAutoRedirect = true;
+
+  try {
+    quickAuthOptionsEl?.classList.add('hidden');
+    loginForm?.classList.add('hidden');
+    whatsappCompleteSection.classList.remove('hidden');
+    whatsappCompleteSection.setAttribute('aria-hidden', 'false');
+  } catch (error) {
+    console.warn('[Auth] Unable to reveal WhatsApp completion form', error);
+  }
+
+  const existingEmail = String(profile?.email || '').trim();
+
+  if (waFirstNameInput) waFirstNameInput.value = profile?.first_name || '';
+  if (waLastNameInput) waLastNameInput.value = profile?.last_name || '';
+  if (waSchoolNameInput) waSchoolNameInput.value = profile?.school_name || '';
+
+  if (waEmailInput) {
+    waEmailInput.value = existingEmail || '';
+    const lockEmail = !!existingEmail;
+    waEmailInput.disabled = lockEmail;
+    if (waEmailInput.dataset) {
+      waEmailInput.dataset.locked = lockEmail ? 'true' : 'false';
+    }
+    waEmailInput.required = !lockEmail;
+    if (waEmailHelp) {
+      waEmailHelp.classList.toggle('hidden', !lockEmail);
+    }
+  }
+
+  pendingWhatsAppPhone = phone || pendingWhatsAppPhone || '';
+  waFirstNameInput?.focus?.();
+  return true;
+}
+
 /**
  * Set loading state for submit button
  * @param {boolean} isLoading - Whether form is in loading state
@@ -100,23 +162,39 @@ function setLoading(isLoading) {
 }
 
 function setOtpLoading(isLoading, { phase = 'request' } = {}) {
-  const buttons = [sendOtpBtn, verifyOtpBtn, resendOtpBtn].filter(Boolean);
+  const buttons = [
+    googleSignInBtn,
+    whatsappSendBtn,
+    whatsappVerifyBtn,
+    whatsappResendBtn,
+    waCompleteBtn,
+  ].filter(Boolean);
   buttons.forEach((btn) => {
     btn.disabled = isLoading;
     btn.classList.toggle('opacity-60', isLoading);
   });
 
-  if (otpEmailInput) otpEmailInput.disabled = isLoading;
-  if (otpCodeInput) otpCodeInput.disabled = isLoading;
+  if (whatsappPhoneInput) whatsappPhoneInput.disabled = isLoading;
+  if (whatsappCodeInput) whatsappCodeInput.disabled = isLoading;
+  if (waFirstNameInput) waFirstNameInput.disabled = isLoading;
+  if (waLastNameInput) waLastNameInput.disabled = isLoading;
+  if (waSchoolNameInput) waSchoolNameInput.disabled = isLoading;
+  if (waEmailInput) {
+    const locked = waEmailInput.dataset?.locked === 'true';
+    waEmailInput.disabled = locked || isLoading;
+  }
 
-  if (sendOtpBtn && phase === 'request') {
-    sendOtpBtn.textContent = isLoading ? 'Sending…' : 'Send code';
+  if (whatsappSendBtn && phase === 'request') {
+    whatsappSendBtn.textContent = isLoading ? 'Sending…' : 'Send code';
   }
-  if (verifyOtpBtn && phase === 'verify') {
-    verifyOtpBtn.textContent = isLoading ? 'Verifying…' : 'Verify';
+  if (whatsappVerifyBtn && phase === 'verify') {
+    whatsappVerifyBtn.textContent = isLoading ? 'Verifying…' : 'Verify';
   }
-  if (resendOtpBtn && phase === 'resend') {
-    resendOtpBtn.textContent = isLoading ? 'Resending…' : 'Resend code';
+  if (whatsappResendBtn && phase === 'resend') {
+    whatsappResendBtn.textContent = isLoading ? 'Resending…' : 'Resend code';
+  }
+  if (waCompleteBtn && phase === 'complete') {
+    waCompleteBtn.textContent = isLoading ? 'Saving…' : 'Save and continue';
   }
 }
 
@@ -239,6 +317,36 @@ function splitName(fullName) {
   return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
 }
 
+function normalizeNigeriaPhone(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  // Keep a leading +, strip everything else to digits.
+  let cleaned = raw.replace(/[^\d+]/g, '');
+  if (cleaned.startsWith('00')) {
+    cleaned = `+${cleaned.slice(2)}`;
+  }
+
+  if (cleaned.startsWith('+')) {
+    const digits = cleaned.slice(1).replace(/\D/g, '');
+    return `+${digits}`;
+  }
+
+  const digits = cleaned.replace(/\D/g, '');
+  if (!digits) return '';
+
+  if (digits.startsWith('234')) return `+${digits}`;
+  if (digits.startsWith('0'))
+    return `${NIGERIA_COUNTRY_CODE}${digits.slice(1)}`;
+  if (digits.length === 10) return `${NIGERIA_COUNTRY_CODE}${digits}`;
+
+  return `${NIGERIA_COUNTRY_CODE}${digits}`;
+}
+
+function isPlausibleE164(phone) {
+  return /^\+[1-9][0-9]{8,14}$/.test(String(phone || ''));
+}
+
 async function ensureLearnerProfile(supabase, user) {
   if (!supabase || !user?.id) return;
   const fallbackName = user.email?.split('@')[0] ?? 'Learner';
@@ -250,13 +358,15 @@ async function ensureLearnerProfile(supabase, user) {
   const updates = {
     id: user.id,
     role: 'learner',
-    email: user.email ?? null,
     full_name: fullName || null,
     first_name: metadata.first_name || firstName || null,
     last_name: metadata.last_name || lastName || null,
     phone: metadata.phone || null,
     last_seen_at: new Date().toISOString(),
   };
+  if (user.email) {
+    updates.email = user.email;
+  }
 
   try {
     const { error } = await supabase.from('profiles').upsert(updates, {
@@ -618,7 +728,7 @@ async function handleGoogleSignIn(supabase) {
       error?.message?.includes('already registered') ||
       error?.message?.includes('already exists') ||
       error?.message?.includes('Email address already')
-        ? 'This email already has an account. Use Email OTP to sign in, then connect Google from Profile & security.'
+        ? 'This email already has an account. Sign in with username + password (or WhatsApp OTP), then connect Google from Profile & security.'
         : error?.message || 'Unable to start Google sign-in. Please try again.';
     showFeedback(msg);
   } finally {
@@ -627,20 +737,273 @@ async function handleGoogleSignIn(supabase) {
 }
 
 function showOtpVerification() {
-  otpVerifyForm?.classList.remove('hidden');
-  resendOtpBtn?.classList.remove('hidden');
-  otpCodeInput?.focus();
+  whatsappVerifyForm?.classList.remove('hidden');
+  whatsappResendBtn?.classList.remove('hidden');
+  whatsappCodeInput?.focus();
 }
 
 function normalizeOtpCode(value) {
-  return String(value || '').replace(/\D/g, '').slice(0, 6);
+  return String(value || '')
+    .replace(/\D/g, '')
+    .slice(0, 6);
+}
+
+async function fetchOwnProfile(supabase, userId) {
+  if (!supabase || !userId) return null;
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, first_name, last_name, full_name, phone, school_name')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.warn('[Auth] Unable to load profile', error);
+    return null;
+  }
+}
+
+function needsWhatsAppCompletion(profile) {
+  const email = String(profile?.email || '').trim();
+  const first = String(profile?.first_name || '').trim();
+  const last = String(profile?.last_name || '').trim();
+  const school = String(profile?.school_name || '').trim();
+  return !email || !first || !last || !school;
+}
+
+async function handleWhatsAppRequest(event, supabase, { mode }) {
+  event.preventDefault();
+  clearFeedback();
+
+  const phone = normalizeNigeriaPhone(whatsappPhoneInput?.value);
+  if (!phone || !isPlausibleE164(phone) || !phone.startsWith('+234')) {
+    showFeedback('Enter a valid Nigerian WhatsApp number.');
+    whatsappPhoneInput?.focus();
+    return;
+  }
+
+  pendingWhatsAppPhone = phone;
+  setOtpLoading(true, { phase: 'request' });
+
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      phone,
+      options: {
+        channel: 'whatsapp',
+        shouldCreateUser: mode === 'signup',
+      },
+    });
+
+    if (error) throw error;
+
+    showFeedback('We sent a 6-digit code to your WhatsApp.', 'info');
+    showOtpVerification();
+  } catch (error) {
+    console.error('[Auth] WhatsApp OTP send failed', error);
+    const msg =
+      mode === 'signup'
+        ? 'Unable to send code. Please try again.'
+        : 'This number is not linked yet. Sign in with username/password or Google, then add WhatsApp in your profile.';
+    showFeedback(error?.message || msg);
+  } finally {
+    setOtpLoading(false, { phase: 'request' });
+  }
+}
+
+async function handleWhatsAppVerify(event, supabase, { mode }) {
+  event.preventDefault();
+  clearFeedback();
+
+  blockAutoRedirect = true;
+
+  const phone =
+    pendingWhatsAppPhone || normalizeNigeriaPhone(whatsappPhoneInput?.value);
+  const token = normalizeOtpCode(whatsappCodeInput?.value);
+
+  if (!phone || !isPlausibleE164(phone)) {
+    showFeedback('Enter your WhatsApp number again.');
+    whatsappPhoneInput?.focus();
+    return;
+  }
+
+  if (!OTP_CODE_PATTERN.test(token)) {
+    showFeedback('Enter the 6-digit code from WhatsApp.');
+    whatsappCodeInput?.focus();
+    return;
+  }
+
+  setOtpLoading(true, { phase: 'verify' });
+  try {
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone,
+      token,
+      type: 'sms',
+    });
+
+    if (error) throw error;
+
+    await ensureLearnerProfile(supabase, data?.user || null);
+
+    // Store verified phone on profile (Supabase Auth phone may not be set for all users).
+    try {
+      await supabase
+        .from('profiles')
+        .update({ phone, phone_verified_at: new Date().toISOString() })
+        .eq('id', data?.user?.id);
+    } catch (profilePhoneError) {
+      console.warn(
+        '[Auth] Unable to persist phone on profile',
+        profilePhoneError
+      );
+    }
+
+    const profile = await fetchOwnProfile(supabase, data?.user?.id);
+    const shouldComplete =
+      mode === 'signup' ? true : needsWhatsAppCompletion(profile);
+
+    if (shouldComplete) {
+      showFeedback('Almost done. Please complete your details.', 'info');
+      showWhatsAppCompletionForm({ profile, phone });
+      return;
+    }
+
+    showFeedback('Signed in successfully. Redirecting…', 'success');
+    window.setTimeout(() => {
+      window.location.replace(getRedirectTarget());
+    }, 350);
+  } catch (error) {
+    console.error('[Auth] WhatsApp OTP verification failed', error);
+    showFeedback(
+      error?.message ||
+        'Unable to verify the code. Please request a new code and try again.'
+    );
+  } finally {
+    setOtpLoading(false, { phase: 'verify' });
+  }
+}
+
+async function handleWhatsAppResend(supabase, { mode }) {
+  clearFeedback();
+  setOtpLoading(true, { phase: 'resend' });
+  try {
+    const phone =
+      pendingWhatsAppPhone || normalizeNigeriaPhone(whatsappPhoneInput?.value);
+    if (!phone || !isPlausibleE164(phone) || !phone.startsWith('+234')) {
+      showFeedback('Enter your Nigerian WhatsApp number first.');
+      whatsappPhoneInput?.focus();
+      return;
+    }
+
+    pendingWhatsAppPhone = phone;
+    const { error } = await supabase.auth.signInWithOtp({
+      phone,
+      options: {
+        channel: 'whatsapp',
+        shouldCreateUser: mode === 'signup',
+      },
+    });
+    if (error) throw error;
+    showFeedback('A new code has been sent to WhatsApp.', 'info');
+  } catch (error) {
+    console.error('[Auth] WhatsApp OTP resend failed', error);
+    showFeedback(
+      error?.message || 'Unable to resend the code right now. Please try again.'
+    );
+  } finally {
+    setOtpLoading(false, { phase: 'resend' });
+  }
+}
+
+async function handleWhatsAppCompletionSubmit(
+  event,
+  supabase,
+  { mode: _mode }
+) {
+  event.preventDefault();
+  clearFeedback();
+
+  blockAutoRedirect = true;
+
+  const firstName = String(waFirstNameInput?.value || '').trim();
+  const lastName = String(waLastNameInput?.value || '').trim();
+  const schoolName = String(waSchoolNameInput?.value || '').trim();
+  const email = String(waEmailInput?.value || '')
+    .trim()
+    .toLowerCase();
+  const phone =
+    pendingWhatsAppPhone || normalizeNigeriaPhone(whatsappPhoneInput?.value);
+  const emailLocked = waEmailInput?.dataset?.locked === 'true';
+
+  if (!firstName) {
+    showFeedback('Enter your first name.');
+    waFirstNameInput?.focus();
+    return;
+  }
+  if (!lastName) {
+    showFeedback('Enter your last name.');
+    waLastNameInput?.focus();
+    return;
+  }
+  if (!schoolName) {
+    showFeedback('Enter your school name.');
+    waSchoolNameInput?.focus();
+    return;
+  }
+
+  if (!emailLocked) {
+    if (!email || !EMAIL_PATTERN.test(email)) {
+      showFeedback('Enter a valid email address.');
+      waEmailInput?.focus();
+      return;
+    }
+  }
+
+  setOtpLoading(true, { phase: 'complete' });
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    if (!userId) {
+      throw new Error('Session expired. Please sign in again.');
+    }
+
+    const fullName = `${firstName} ${lastName}`.trim();
+    const payload = {
+      full_name: fullName,
+      first_name: firstName,
+      last_name: lastName,
+      school_name: schoolName,
+      ...(emailLocked ? {} : { email }),
+      ...(phone && isPlausibleE164(phone) ? { phone } : {}),
+    };
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(payload)
+      .eq('id', userId);
+    if (error) throw error;
+
+    showFeedback('Saved. Redirecting…', 'success');
+    window.setTimeout(() => {
+      window.location.replace(getRedirectTarget());
+    }, 350);
+  } catch (error) {
+    console.error('[Auth] WhatsApp completion submit failed', error);
+    showFeedback(
+      error?.message || 'Unable to save right now. Please try again.'
+    );
+  } finally {
+    setOtpLoading(false, { phase: 'complete' });
+  }
 }
 
 async function handleOtpRequest(event, supabase) {
   event.preventDefault();
   clearFeedback();
 
-  const email = String(otpEmailInput?.value || '').trim().toLowerCase();
+  const email = String(otpEmailInput?.value || '')
+    .trim()
+    .toLowerCase();
   if (!email || !EMAIL_PATTERN.test(email)) {
     showFeedback('Enter a valid email address.');
     otpEmailInput?.focus();
@@ -682,7 +1045,9 @@ async function handleOtpVerify(event, supabase) {
   event.preventDefault();
   clearFeedback();
 
-  const email = String(otpEmailInput?.value || '').trim().toLowerCase();
+  const email = String(otpEmailInput?.value || '')
+    .trim()
+    .toLowerCase();
   const token = normalizeOtpCode(otpCodeInput?.value);
   if (!email || !EMAIL_PATTERN.test(email)) {
     showFeedback('Enter the email you used to request the code.');
@@ -725,7 +1090,9 @@ async function handleOtpResend(supabase) {
   clearFeedback();
   setOtpLoading(true, { phase: 'resend' });
   try {
-    const email = String(otpEmailInput?.value || '').trim().toLowerCase();
+    const email = String(otpEmailInput?.value || '')
+      .trim()
+      .toLowerCase();
     if (!email || !EMAIL_PATTERN.test(email)) {
       showFeedback('Enter your email address first.');
       otpEmailInput?.focus();
@@ -800,6 +1167,7 @@ async function init() {
     const oauthError =
       params.get('error_description') || params.get('error') || null;
     const authAction = params.get('auth');
+    const authMode = params.get('mode') === 'signup' ? 'signup' : 'login';
 
     if (impersonatedToken) {
       await handleImpersonation(supabase, impersonatedToken);
@@ -861,6 +1229,7 @@ async function init() {
     supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         ensureLearnerProfile(supabase, session.user).finally(() => {
+          if (blockAutoRedirect) return;
           window.location.replace(getRedirectTarget());
         });
       }
@@ -877,7 +1246,39 @@ async function init() {
     }
 
     if (googleSignInBtn) {
-      googleSignInBtn.addEventListener('click', () => handleGoogleSignIn(supabase));
+      googleSignInBtn.addEventListener('click', () =>
+        handleGoogleSignIn(supabase)
+      );
+    }
+
+    if (whatsappRequestForm) {
+      whatsappRequestForm.addEventListener('submit', (event) =>
+        handleWhatsAppRequest(event, supabase, { mode: authMode })
+      );
+    }
+
+    if (whatsappVerifyForm) {
+      whatsappVerifyForm.addEventListener('submit', (event) =>
+        handleWhatsAppVerify(event, supabase, { mode: authMode })
+      );
+    }
+
+    if (whatsappResendBtn) {
+      whatsappResendBtn.addEventListener('click', () =>
+        handleWhatsAppResend(supabase, { mode: authMode })
+      );
+    }
+
+    if (whatsappCodeInput) {
+      whatsappCodeInput.addEventListener('input', () => {
+        whatsappCodeInput.value = normalizeOtpCode(whatsappCodeInput.value);
+      });
+    }
+
+    if (whatsappCompleteForm) {
+      whatsappCompleteForm.addEventListener('submit', (event) =>
+        handleWhatsAppCompletionSubmit(event, supabase, { mode: authMode })
+      );
     }
 
     if (otpRequestForm) {
@@ -900,6 +1301,18 @@ async function init() {
       otpCodeInput.addEventListener('input', () => {
         otpCodeInput.value = normalizeOtpCode(otpCodeInput.value);
       });
+    }
+
+    if (authAction === 'whatsapp') {
+      try {
+        whatsappPhoneInput?.focus();
+        whatsappPhoneInput?.scrollIntoView?.({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      } catch (error) {
+        console.warn('[Auth] Unable to focus WhatsApp sign-in', error);
+      }
     }
   } catch (error) {
     console.error('[Auth] Initialization failed:', error);

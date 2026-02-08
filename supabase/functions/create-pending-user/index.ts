@@ -81,6 +81,16 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // Manual registration is deprecated. New learners must use Google or WhatsApp.
+  if (req.method === 'POST') {
+    return jsonResponse(410, origin, {
+      error:
+        'Manual registration is disabled. Please use Google sign-in or WhatsApp OTP.',
+    });
+  }
+
+  return jsonResponse(405, origin, { error: 'Method Not Allowed' });
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');

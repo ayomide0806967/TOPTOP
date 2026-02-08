@@ -26,8 +26,8 @@ const authChoiceCloseBtn = document.querySelector(
 const authChoiceGoogleBtn = document.querySelector(
   '[data-role="auth-choice-google"]'
 );
-const authChoiceManualBtn = document.querySelector(
-  '[data-role="auth-choice-manual"]'
+const authChoiceWhatsAppBtn = document.querySelector(
+  '[data-role="auth-choice-whatsapp"]'
 );
 const authLoadingOverlay = document.querySelector(
   '[data-role="auth-loading-overlay"]'
@@ -202,7 +202,7 @@ function sleep(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-function buildLoginRedirectUrl(planId, { auth } = {}) {
+function buildLoginRedirectUrl(planId, { auth, mode } = {}) {
   const url = new URL('login.html', window.location.href);
   url.searchParams.set('next', 'subscription-plans.html');
   if (planId) {
@@ -210,6 +210,9 @@ function buildLoginRedirectUrl(planId, { auth } = {}) {
   }
   if (auth) {
     url.searchParams.set('auth', auth);
+  }
+  if (mode) {
+    url.searchParams.set('mode', mode);
   }
   return url.toString();
 }
@@ -221,10 +224,10 @@ function setAuthChoiceBusy(isBusy) {
     authChoiceGoogleBtn.classList.toggle('opacity-60', isBusy);
     authChoiceGoogleBtn.classList.toggle('cursor-wait', isBusy);
   }
-  if (authChoiceManualBtn) {
-    authChoiceManualBtn.disabled = isBusy;
-    authChoiceManualBtn.classList.toggle('opacity-60', isBusy);
-    authChoiceManualBtn.classList.toggle('cursor-wait', isBusy);
+  if (authChoiceWhatsAppBtn) {
+    authChoiceWhatsAppBtn.disabled = isBusy;
+    authChoiceWhatsAppBtn.classList.toggle('opacity-60', isBusy);
+    authChoiceWhatsAppBtn.classList.toggle('cursor-wait', isBusy);
   }
   if (authChoiceCloseBtn) {
     authChoiceCloseBtn.disabled = isBusy;
@@ -315,7 +318,7 @@ function openAuthChoiceModal(planId) {
   authChoiceModal.setAttribute('aria-hidden', 'false');
 
   window.setTimeout(() => {
-    (authChoiceGoogleBtn || authChoiceManualBtn)?.focus?.();
+    (authChoiceGoogleBtn || authChoiceWhatsAppBtn)?.focus?.();
   }, 50);
 }
 
@@ -332,16 +335,17 @@ function bindAuthChoiceModalHandlers() {
 
   authChoiceCloseBtn?.addEventListener('click', closeAuthChoiceModal);
 
-  authChoiceManualBtn?.addEventListener('click', () => {
+  authChoiceWhatsAppBtn?.addEventListener('click', () => {
     if (authChoiceBusy) return;
     const planId = pendingAuthChoicePlanId;
     closeAuthChoiceModal();
     if (!planId) return;
-    showBanner(
-      'Tell us who is subscribing so we can tailor your practice sets.',
-      'info'
-    );
-    redirectToRegistration(planId);
+    persistRegistrationPlan(planId);
+    window.localStorage.setItem('pendingPlanId', planId);
+    window.location.href = buildLoginRedirectUrl(planId, {
+      auth: 'whatsapp',
+      mode: 'signup',
+    });
   });
 
   authChoiceGoogleBtn?.addEventListener('click', () => {
@@ -1433,12 +1437,10 @@ function persistRegistrationPlan(planId) {
 function redirectToRegistration(planId) {
   persistRegistrationPlan(planId);
   window.localStorage.setItem('pendingPlanId', planId);
-  const currentPath = window.location.pathname;
-  const newPath = currentPath.replace(
-    'subscription-plans.html',
-    'registration-before-payment.html'
-  );
-  window.location.href = newPath + '?planId=' + planId;
+  window.location.href = buildLoginRedirectUrl(planId, {
+    auth: 'whatsapp',
+    mode: 'signup',
+  });
 }
 
 function redirectToResume(planId) {

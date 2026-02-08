@@ -133,6 +133,28 @@
     </style>
   </head>
   <body class="antialiased text-gray-900">
+    <script>
+      (function () {
+        try {
+          var params = new URLSearchParams(window.location.search);
+          var planId = params.get('planId');
+          var url = new URL('login.html', window.location.href);
+          url.searchParams.set('next', 'subscription-plans.html');
+          url.searchParams.set('auth', 'whatsapp');
+          url.searchParams.set('mode', 'signup');
+          if (planId) url.searchParams.set('planId', planId);
+          window.location.replace(url.toString());
+        } catch (e) {
+          // If anything fails, let the page render a fallback message.
+        }
+      })();
+    </script>
+    <noscript>
+      <div style="padding: 16px; font-family: sans-serif">
+        Registration has changed. Please go to <a href="login.html">Sign in</a>
+        and continue with WhatsApp or Google.
+      </div>
+    </noscript>
     <div class="min-h-screen flex md:grid md:grid-cols-2">
       <div class="w-full flex items-center justify-center p-6 sm:p-12">
         <div class="w-full max-w-md" id="registration-container">

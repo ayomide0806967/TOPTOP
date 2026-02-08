@@ -171,7 +171,12 @@
       }
 
       .card--primary {
-        background: linear-gradient(145deg, #e0ecff 0%, #eef3ff 40%, #f4f6fb 100%);
+        background: linear-gradient(
+          145deg,
+          #e0ecff 0%,
+          #eef3ff 40%,
+          #f4f6fb 100%
+        );
         border-color: rgba(148, 163, 184, 0.3);
       }
 
@@ -384,7 +389,9 @@
       <div class="bg-white border-b border-slate-200/50">
         <div class="px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
           <div class="flex items-center gap-3">
-            <div class="h-10 w-10 overflow-hidden rounded-full border border-cyan-700 shadow-sm">
+            <div
+              class="h-10 w-10 overflow-hidden rounded-full border border-cyan-700 shadow-sm"
+            >
               <img
                 src="../assets/academicnightingale-logo.jpg"
                 alt="Academic Nightingale logo"
@@ -464,7 +471,10 @@
               >
                 <div class="flex flex-1 items-start gap-3">
                   <span class="mt-0.5 text-base">📣</span>
-                  <p class="flex-1 leading-snug" data-role="global-notice-text"></p>
+                  <p
+                    class="flex-1 leading-snug"
+                    data-role="global-notice-text"
+                  ></p>
                 </div>
                 <button
                   type="button"
@@ -761,13 +771,33 @@
                   <label
                     class="text-sm font-semibold text-slate-600"
                     for="profile-phone"
-                    >Phone number</label
+                    >WhatsApp number</label
                   >
                   <input
                     id="profile-phone"
                     type="tel"
                     placeholder="e.g. 0803 123 4567"
                     data-role="profile-phone"
+                    disabled
+                    class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                  />
+                  <p class="text-xs text-slate-500">
+                    To add or change your WhatsApp number, use the verification
+                    box below.
+                  </p>
+                </div>
+
+                <div class="space-y-1">
+                  <label
+                    class="text-sm font-semibold text-slate-600"
+                    for="profile-school"
+                    >School name</label
+                  >
+                  <input
+                    id="profile-school"
+                    type="text"
+                    placeholder="e.g. School of Nursing, Lagos"
+                    data-role="profile-school"
                     class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
                   />
                 </div>
@@ -804,6 +834,130 @@
                     class="hidden rounded-xl border px-3.5 py-2.5 text-sm"
                     data-role="auth-methods-feedback"
                   ></div>
+                </div>
+
+                <div class="space-y-2">
+                  <label class="text-sm font-semibold text-slate-600"
+                    >WhatsApp sign-in</label
+                  >
+                  <p class="text-xs text-slate-500">
+                    Verify your number once to sign in with WhatsApp OTP next
+                    time.
+                  </p>
+
+                  <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <input
+                      type="tel"
+                      inputmode="tel"
+                      autocomplete="tel"
+                      placeholder="e.g. 08012345678"
+                      data-role="whatsapp-link-phone"
+                      class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                    />
+                    <button
+                      type="button"
+                      data-role="whatsapp-link-send"
+                      class="inline-flex shrink-0 items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+                    >
+                      Send code
+                    </button>
+                  </div>
+
+                  <div
+                    class="hidden flex-col gap-3 sm:flex-row sm:items-center"
+                    data-role="whatsapp-link-verify-row"
+                  >
+                    <input
+                      type="text"
+                      inputmode="numeric"
+                      maxlength="6"
+                      pattern="[0-9]{6}"
+                      placeholder="6-digit code"
+                      data-role="whatsapp-link-code"
+                      class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                    />
+                    <button
+                      type="button"
+                      data-role="whatsapp-link-verify"
+                      class="inline-flex shrink-0 items-center justify-center rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-cyan-700"
+                    >
+                      Verify
+                    </button>
+                    <button
+                      type="button"
+                      data-role="whatsapp-link-resend"
+                      class="inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:border-cyan-200 hover:text-cyan-700"
+                    >
+                      Resend
+                    </button>
+                  </div>
+
+                  <div
+                    class="hidden rounded-xl border px-3.5 py-2.5 text-sm"
+                    data-role="whatsapp-link-feedback"
+                  ></div>
+
+                  <div
+                    class="hidden rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                    data-role="whatsapp-bio"
+                  >
+                    <p class="text-sm font-semibold text-slate-800">
+                      Update your bio
+                    </p>
+                    <p class="mt-1 text-xs text-slate-500">
+                      Please confirm your details. Email cannot be edited.
+                    </p>
+                    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                      <div class="space-y-1">
+                        <label class="text-xs font-semibold text-slate-600"
+                          >First name</label
+                        >
+                        <input
+                          type="text"
+                          data-role="whatsapp-bio-first"
+                          class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                        />
+                      </div>
+                      <div class="space-y-1">
+                        <label class="text-xs font-semibold text-slate-600"
+                          >Last name</label
+                        >
+                        <input
+                          type="text"
+                          data-role="whatsapp-bio-last"
+                          class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                        />
+                      </div>
+                      <div class="space-y-1 sm:col-span-2">
+                        <label class="text-xs font-semibold text-slate-600"
+                          >School name</label
+                        >
+                        <input
+                          type="text"
+                          data-role="whatsapp-bio-school"
+                          class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                        />
+                      </div>
+                      <div class="space-y-1 sm:col-span-2">
+                        <label class="text-xs font-semibold text-slate-600"
+                          >Email</label
+                        >
+                        <div
+                          class="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-500"
+                          data-role="whatsapp-bio-email"
+                        >
+                          —
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      data-role="whatsapp-bio-save"
+                      class="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+                    >
+                      Save bio
+                    </button>
+                  </div>
                 </div>
 
                 <div class="grid gap-4 sm:grid-cols-2">

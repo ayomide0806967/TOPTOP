@@ -122,6 +122,7 @@ const elements = {
   profileForm: document.querySelector('[data-role="profile-form"]'),
   profileNameInput: document.querySelector('[data-role="profile-name"]'),
   profilePhoneInput: document.querySelector('[data-role="profile-phone"]'),
+  profileSchoolInput: document.querySelector('[data-role="profile-school"]'),
   profilePasswordInput: document.querySelector(
     '[data-role="profile-password"]'
   ),
@@ -134,6 +135,39 @@ const elements = {
   authMethodsFeedback: document.querySelector(
     '[data-role="auth-methods-feedback"]'
   ),
+  whatsappLinkPhoneInput: document.querySelector(
+    '[data-role="whatsapp-link-phone"]'
+  ),
+  whatsappLinkSendBtn: document.querySelector(
+    '[data-role="whatsapp-link-send"]'
+  ),
+  whatsappLinkVerifyRow: document.querySelector(
+    '[data-role="whatsapp-link-verify-row"]'
+  ),
+  whatsappLinkCodeInput: document.querySelector(
+    '[data-role="whatsapp-link-code"]'
+  ),
+  whatsappLinkVerifyBtn: document.querySelector(
+    '[data-role="whatsapp-link-verify"]'
+  ),
+  whatsappLinkResendBtn: document.querySelector(
+    '[data-role="whatsapp-link-resend"]'
+  ),
+  whatsappLinkFeedback: document.querySelector(
+    '[data-role="whatsapp-link-feedback"]'
+  ),
+  whatsappBioSection: document.querySelector('[data-role="whatsapp-bio"]'),
+  whatsappBioFirstInput: document.querySelector(
+    '[data-role="whatsapp-bio-first"]'
+  ),
+  whatsappBioLastInput: document.querySelector(
+    '[data-role="whatsapp-bio-last"]'
+  ),
+  whatsappBioSchoolInput: document.querySelector(
+    '[data-role="whatsapp-bio-school"]'
+  ),
+  whatsappBioEmail: document.querySelector('[data-role="whatsapp-bio-email"]'),
+  whatsappBioSaveBtn: document.querySelector('[data-role="whatsapp-bio-save"]'),
 };
 
 const state = {
@@ -1581,11 +1615,12 @@ function updateHeader() {
     }
   }
 
-  if (emailEl && state.user?.email) {
-    emailEl.textContent = state.user.email;
+  const emailText = state.user?.email || state.profile?.email || '—';
+  if (emailEl) {
+    emailEl.textContent = emailText;
   }
-  if (elements.profileEmail && state.user?.email) {
-    elements.profileEmail.textContent = state.user.email;
+  if (elements.profileEmail) {
+    elements.profileEmail.textContent = emailText;
   }
 }
 
@@ -1853,6 +1888,9 @@ function populateProfileForm() {
   if (elements.profilePhoneInput) {
     elements.profilePhoneInput.value = state.profile?.phone || '';
   }
+  if (elements.profileSchoolInput) {
+    elements.profileSchoolInput.value = state.profile?.school_name || '';
+  }
   if (elements.profilePasswordInput) {
     elements.profilePasswordInput.value = '';
   }
@@ -1870,13 +1908,13 @@ async function handleProfileSubmit(event) {
   if (!elements.profileForm) return;
 
   const nameInput = elements.profileNameInput;
-  const phoneInput = elements.profilePhoneInput;
+  const schoolInput = elements.profileSchoolInput;
   const passwordInput = elements.profilePasswordInput;
   const confirmInput = elements.profilePasswordConfirmInput;
   const feedback = elements.profileFeedback;
 
   const fullName = nameInput?.value?.trim() || '';
-  const phone = phoneInput?.value?.trim() || '';
+  const schoolName = schoolInput?.value?.trim() || '';
   const newPassword = passwordInput?.value?.trim() || '';
   const confirmPassword = confirmInput?.value?.trim() || '';
 
@@ -1923,8 +1961,8 @@ async function handleProfileSubmit(event) {
       updates.first_name = firstName || null;
       updates.last_name = rest.join(' ').trim() || null;
     }
-    if (phone) {
-      updates.phone = phone;
+    if (schoolName) {
+      updates.school_name = schoolName;
     }
 
     if (Object.keys(updates).length) {
@@ -1988,6 +2026,267 @@ function setAuthMethodsFeedback(message, type = 'info') {
   } else {
     target.className =
       'rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-600';
+  }
+}
+
+const OTP_CODE_PATTERN = /^[0-9]{6}$/;
+const NIGERIA_COUNTRY_CODE = '+234';
+
+function normalizeNigeriaPhone(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  let cleaned = raw.replace(/[^\d+]/g, '');
+  if (cleaned.startsWith('00')) {
+    cleaned = `+${cleaned.slice(2)}`;
+  }
+  if (cleaned.startsWith('+')) {
+    const digits = cleaned.slice(1).replace(/\D/g, '');
+    return `+${digits}`;
+  }
+  const digits = cleaned.replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('234')) return `+${digits}`;
+  if (digits.startsWith('0'))
+    return `${NIGERIA_COUNTRY_CODE}${digits.slice(1)}`;
+  if (digits.length === 10) return `${NIGERIA_COUNTRY_CODE}${digits}`;
+  return `${NIGERIA_COUNTRY_CODE}${digits}`;
+}
+
+function isPlausibleE164(phone) {
+  return /^\+[1-9][0-9]{8,14}$/.test(String(phone || ''));
+}
+
+function setWhatsAppLinkFeedback(message, type = 'info') {
+  const target = elements.whatsappLinkFeedback;
+  if (!target) return;
+  target.textContent = message;
+  target.classList.remove('hidden');
+  target.className = 'rounded-xl border px-3.5 py-2.5 text-sm';
+  if (type === 'success') {
+    target.className =
+      'rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-700';
+  } else if (type === 'error') {
+    target.className =
+      'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
+  } else {
+    target.className =
+      'rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-600';
+  }
+}
+
+async function extractEdgeFunctionError(error, fallbackMessage) {
+  if (error?.context instanceof Response) {
+    try {
+      const cloned = error.context.clone();
+      const contentType = cloned.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const json = await cloned.json();
+        if (json?.error) return json.error;
+        if (json?.message) return json.message;
+      }
+      const text = await cloned.text();
+      if (text) return text;
+    } catch (parseError) {
+      console.warn(
+        '[Dashboard] Failed to parse function error response',
+        parseError
+      );
+    }
+  }
+
+  if (
+    error?.message &&
+    error.message !== 'Edge Function returned a non-2xx status code'
+  ) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+}
+
+function showWhatsAppVerifyRow() {
+  elements.whatsappLinkVerifyRow?.classList.remove('hidden');
+  elements.whatsappLinkVerifyRow?.classList.add('flex');
+}
+
+function showWhatsAppBioEditor() {
+  const bio = elements.whatsappBioSection;
+  if (!bio) return;
+  bio.classList.remove('hidden');
+
+  if (elements.whatsappBioFirstInput) {
+    elements.whatsappBioFirstInput.value = state.profile?.first_name || '';
+  }
+  if (elements.whatsappBioLastInput) {
+    elements.whatsappBioLastInput.value = state.profile?.last_name || '';
+  }
+  if (elements.whatsappBioSchoolInput) {
+    elements.whatsappBioSchoolInput.value = state.profile?.school_name || '';
+  }
+  if (elements.whatsappBioEmail) {
+    elements.whatsappBioEmail.textContent =
+      state.user?.email || state.profile?.email || '—';
+  }
+}
+
+async function handleWhatsAppLinkSend() {
+  if (!state.supabase) return;
+  setWhatsAppLinkFeedback('', 'info');
+
+  const phone = normalizeNigeriaPhone(elements.whatsappLinkPhoneInput?.value);
+  if (!phone || !isPlausibleE164(phone) || !phone.startsWith('+234')) {
+    setWhatsAppLinkFeedback('Enter a valid Nigerian WhatsApp number.', 'error');
+    elements.whatsappLinkPhoneInput?.focus();
+    return;
+  }
+
+  try {
+    if (elements.whatsappLinkSendBtn)
+      elements.whatsappLinkSendBtn.disabled = true;
+
+    const { data, error } = await state.supabase.functions.invoke(
+      'whatsapp-link-request',
+      { body: { phone } }
+    );
+    if (error) {
+      const message = await extractEdgeFunctionError(
+        error,
+        'Unable to send code right now. Please try again.'
+      );
+      throw new Error(message);
+    }
+    if (data?.error) throw new Error(data.error);
+
+    showWhatsAppVerifyRow();
+    setWhatsAppLinkFeedback('Code sent to WhatsApp. Enter it below.', 'info');
+    elements.whatsappLinkCodeInput?.focus();
+  } catch (error) {
+    console.error('[Dashboard] WhatsApp link send failed', error);
+    setWhatsAppLinkFeedback(
+      error?.message || 'Unable to send code right now. Please try again.',
+      'error'
+    );
+  } finally {
+    if (elements.whatsappLinkSendBtn)
+      elements.whatsappLinkSendBtn.disabled = false;
+  }
+}
+
+async function handleWhatsAppLinkVerify() {
+  if (!state.supabase) return;
+  const phone = normalizeNigeriaPhone(elements.whatsappLinkPhoneInput?.value);
+  const code = String(elements.whatsappLinkCodeInput?.value || '')
+    .replace(/\D/g, '')
+    .slice(0, 6);
+
+  if (!phone || !isPlausibleE164(phone)) {
+    setWhatsAppLinkFeedback('Enter your WhatsApp number again.', 'error');
+    elements.whatsappLinkPhoneInput?.focus();
+    return;
+  }
+  if (!OTP_CODE_PATTERN.test(code)) {
+    setWhatsAppLinkFeedback('Enter the 6-digit code.', 'error');
+    elements.whatsappLinkCodeInput?.focus();
+    return;
+  }
+
+  try {
+    if (elements.whatsappLinkVerifyBtn)
+      elements.whatsappLinkVerifyBtn.disabled = true;
+    if (elements.whatsappLinkResendBtn)
+      elements.whatsappLinkResendBtn.disabled = true;
+
+    const { data, error } = await state.supabase.functions.invoke(
+      'whatsapp-link-confirm',
+      { body: { phone, code } }
+    );
+    if (error) {
+      const message = await extractEdgeFunctionError(
+        error,
+        'Unable to verify the code. Please try again.'
+      );
+      throw new Error(message);
+    }
+    if (data?.error) throw new Error(data.error);
+
+    setWhatsAppLinkFeedback('WhatsApp login enabled successfully.', 'success');
+
+    // Refresh profile to reflect new phone.
+    await ensureProfile();
+    populateProfileForm();
+
+    showWhatsAppBioEditor();
+  } catch (error) {
+    console.error('[Dashboard] WhatsApp link verify failed', error);
+    setWhatsAppLinkFeedback(
+      error?.message || 'Unable to verify the code. Please try again.',
+      'error'
+    );
+  } finally {
+    if (elements.whatsappLinkVerifyBtn)
+      elements.whatsappLinkVerifyBtn.disabled = false;
+    if (elements.whatsappLinkResendBtn)
+      elements.whatsappLinkResendBtn.disabled = false;
+  }
+}
+
+async function handleWhatsAppLinkResend() {
+  await handleWhatsAppLinkSend();
+}
+
+async function handleWhatsAppBioSave() {
+  if (!state.supabase || !state.user) return;
+
+  const firstName = String(elements.whatsappBioFirstInput?.value || '').trim();
+  const lastName = String(elements.whatsappBioLastInput?.value || '').trim();
+  const schoolName = String(
+    elements.whatsappBioSchoolInput?.value || ''
+  ).trim();
+
+  if (!firstName) {
+    setWhatsAppLinkFeedback('Enter your first name.', 'error');
+    elements.whatsappBioFirstInput?.focus();
+    return;
+  }
+  if (!lastName) {
+    setWhatsAppLinkFeedback('Enter your last name.', 'error');
+    elements.whatsappBioLastInput?.focus();
+    return;
+  }
+  if (!schoolName) {
+    setWhatsAppLinkFeedback('Enter your school name.', 'error');
+    elements.whatsappBioSchoolInput?.focus();
+    return;
+  }
+
+  try {
+    if (elements.whatsappBioSaveBtn)
+      elements.whatsappBioSaveBtn.disabled = true;
+
+    const fullName = `${firstName} ${lastName}`.trim();
+    const { error } = await state.supabase
+      .from('profiles')
+      .update({
+        first_name: firstName,
+        last_name: lastName,
+        full_name: fullName,
+        school_name: schoolName,
+      })
+      .eq('id', state.user.id);
+    if (error) throw error;
+
+    setWhatsAppLinkFeedback('Bio saved.', 'success');
+    await ensureProfile();
+    populateProfileForm();
+  } catch (error) {
+    console.error('[Dashboard] WhatsApp bio save failed', error);
+    setWhatsAppLinkFeedback(
+      error?.message || 'Unable to save right now. Please try again.',
+      'error'
+    );
+  } finally {
+    if (elements.whatsappBioSaveBtn)
+      elements.whatsappBioSaveBtn.disabled = false;
   }
 }
 
@@ -3192,7 +3491,7 @@ async function ensureProfile() {
     const { data, error } = await state.supabase
       .from('profiles')
       .select(
-        'id, full_name, role, last_seen_at, subscription_status, default_subscription_id, registration_stage, pending_plan_id, pending_plan_snapshot, phone'
+        'id, full_name, role, last_seen_at, subscription_status, default_subscription_id, registration_stage, pending_plan_id, pending_plan_snapshot, phone, email, first_name, last_name, school_name'
       )
       .eq('id', state.user.id)
       .maybeSingle();
@@ -3229,7 +3528,7 @@ async function ensureProfile() {
           last_seen_at: new Date().toISOString(),
         })
         .select(
-          'id, full_name, role, last_seen_at, subscription_status, default_subscription_id, registration_stage, pending_plan_id, pending_plan_snapshot, phone'
+          'id, full_name, role, last_seen_at, subscription_status, default_subscription_id, registration_stage, pending_plan_id, pending_plan_snapshot, phone, email, first_name, last_name, school_name'
         )
         .single();
       if (insertError) throw insertError;
@@ -3244,7 +3543,7 @@ async function ensureProfile() {
         .update(patch)
         .eq('id', state.user.id)
         .select(
-          'id, full_name, role, last_seen_at, subscription_status, default_subscription_id, registration_stage, pending_plan_id, pending_plan_snapshot, phone'
+          'id, full_name, role, last_seen_at, subscription_status, default_subscription_id, registration_stage, pending_plan_id, pending_plan_snapshot, phone, email, first_name, last_name, school_name'
         )
         .single();
       if (!updateError && updated) {
@@ -3328,6 +3627,30 @@ async function initialise() {
     elements.extraSetsList?.addEventListener('click', handleExtraSetsClick);
     elements.profileForm?.addEventListener('submit', handleProfileSubmit);
     elements.connectGoogleBtn?.addEventListener('click', handleConnectGoogle);
+    elements.whatsappLinkSendBtn?.addEventListener(
+      'click',
+      handleWhatsAppLinkSend
+    );
+    elements.whatsappLinkVerifyBtn?.addEventListener(
+      'click',
+      handleWhatsAppLinkVerify
+    );
+    elements.whatsappLinkResendBtn?.addEventListener(
+      'click',
+      handleWhatsAppLinkResend
+    );
+    elements.whatsappBioSaveBtn?.addEventListener(
+      'click',
+      handleWhatsAppBioSave
+    );
+    elements.whatsappLinkCodeInput?.addEventListener('input', () => {
+      if (!elements.whatsappLinkCodeInput) return;
+      elements.whatsappLinkCodeInput.value = String(
+        elements.whatsappLinkCodeInput.value || ''
+      )
+        .replace(/\D/g, '')
+        .slice(0, 6);
+    });
     document.addEventListener('visibilitychange', handleVisibilityChange);
     elements.globalNoticeDismiss?.addEventListener(
       'click',
@@ -3360,6 +3683,22 @@ function cleanup() {
   elements.extraSetsList?.removeEventListener('click', handleExtraSetsClick);
   elements.profileForm?.removeEventListener('submit', handleProfileSubmit);
   elements.connectGoogleBtn?.removeEventListener('click', handleConnectGoogle);
+  elements.whatsappLinkSendBtn?.removeEventListener(
+    'click',
+    handleWhatsAppLinkSend
+  );
+  elements.whatsappLinkVerifyBtn?.removeEventListener(
+    'click',
+    handleWhatsAppLinkVerify
+  );
+  elements.whatsappLinkResendBtn?.removeEventListener(
+    'click',
+    handleWhatsAppLinkResend
+  );
+  elements.whatsappBioSaveBtn?.removeEventListener(
+    'click',
+    handleWhatsAppBioSave
+  );
   document.removeEventListener('visibilitychange', handleVisibilityChange);
   elements.globalNoticeDismiss?.removeEventListener(
     'click',
