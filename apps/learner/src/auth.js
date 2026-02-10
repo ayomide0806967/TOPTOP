@@ -214,9 +214,18 @@ function getButtonLabelEl(button) {
   return button?.querySelector?.('[data-role="btn-label"]') || null;
 }
 
+function getButtonDynamicEl(button) {
+  return button?.querySelector?.('[data-role="btn-dynamic"]') || null;
+}
+
 function getButtonLabel(button) {
   const labelEl = getButtonLabelEl(button);
-  return labelEl ? labelEl.textContent : button?.textContent || '';
+  return (
+    (labelEl ? labelEl.textContent : null) ||
+    button?.getAttribute?.('aria-label') ||
+    button?.textContent ||
+    ''
+  );
 }
 
 function setButtonLabel(button, text) {
@@ -224,8 +233,27 @@ function setButtonLabel(button, text) {
   const labelEl = getButtonLabelEl(button);
   if (labelEl) {
     labelEl.textContent = text;
+  }
+
+  const dynamicEl = getButtonDynamicEl(button);
+  if (dynamicEl) {
+    const match = String(text || '').match(/\b(\d+s)\b/);
+    if (match) {
+      dynamicEl.textContent = match[1];
+      dynamicEl.classList.remove('hidden');
+    } else {
+      dynamicEl.textContent = '';
+      dynamicEl.classList.add('hidden');
+    }
     return;
   }
+
+  // Fallback: never wipe out child nodes (e.g. <img>) if present.
+  if (button.children?.length) {
+    button.setAttribute('aria-label', text);
+    return;
+  }
+
   button.textContent = text;
 }
 
@@ -460,6 +488,11 @@ function startCooldown(button, seconds, { doneText, prefixText } = {}) {
   const prefix = prefixText || 'Send again in';
 
   const tick = () => {
+    // If we have a dynamic label span, always keep it visible during cooldown.
+    // (It will be hidden automatically when the label doesn't include digits.)
+    const dynamicEl = getButtonDynamicEl(button);
+    if (dynamicEl) dynamicEl.classList.remove('hidden');
+
     const remaining = Math.ceil((cooldownUntil - Date.now()) / 1000);
     if (remaining <= 0) {
       if (button.dataset) {
@@ -467,6 +500,10 @@ function startCooldown(button, seconds, { doneText, prefixText } = {}) {
       }
       button.disabled = false;
       button.classList.remove('opacity-60');
+      if (dynamicEl) {
+        dynamicEl.textContent = '';
+        dynamicEl.classList.add('hidden');
+      }
       setButtonLabel(button, original);
       return false;
     }
