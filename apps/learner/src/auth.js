@@ -61,6 +61,8 @@ const USERNAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const OTP_CODE_PATTERN = /^[0-9]{6}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NIGERIA_COUNTRY_CODE = '+234';
+const WHATSAPP_SEND_COOLDOWN_SECONDS = 30;
+const COOLDOWN_TIMER_PROP = '__cooldownTimerId';
 
 let pendingWhatsAppPhone = '';
 let blockAutoRedirect = false;
@@ -202,8 +204,12 @@ function setOtpLoading(isLoading, { phase = 'request' } = {}) {
     waCompleteBtn,
   ].filter(Boolean);
   buttons.forEach((btn) => {
-    btn.disabled = isLoading;
-    btn.classList.toggle('opacity-60', isLoading);
+    const cooldown =
+      btn === whatsappSendBtn || btn === whatsappResendBtn
+        ? isCooldownActive(btn)
+        : false;
+    btn.disabled = isLoading || cooldown;
+    btn.classList.toggle('opacity-60', isLoading || cooldown);
   });
 
   if (whatsappPhoneInput) whatsappPhoneInput.disabled = isLoading;
@@ -216,13 +222,21 @@ function setOtpLoading(isLoading, { phase = 'request' } = {}) {
     waEmailInput.disabled = locked || isLoading;
   }
 
-  if (whatsappSendBtn && phase === 'request') {
+  if (
+    whatsappSendBtn &&
+    phase === 'request' &&
+    !isCooldownActive(whatsappSendBtn)
+  ) {
     whatsappSendBtn.textContent = isLoading ? 'Sending…' : 'Send code';
   }
   if (whatsappVerifyBtn && phase === 'verify') {
     whatsappVerifyBtn.textContent = isLoading ? 'Verifying…' : 'Verify';
   }
-  if (whatsappResendBtn && phase === 'resend') {
+  if (
+    whatsappResendBtn &&
+    phase === 'resend' &&
+    !isCooldownActive(whatsappResendBtn)
+  ) {
     whatsappResendBtn.textContent = isLoading ? 'Resending…' : 'Resend code';
   }
   if (waCompleteBtn && phase === 'complete') {
@@ -377,6 +391,73 @@ function normalizeNigeriaPhone(value) {
 
 function isPlausibleE164(phone) {
   return /^\+[1-9][0-9]{8,14}$/.test(String(phone || ''));
+}
+
+function isCooldownActive(button) {
+  const until = Number(button?.dataset?.cooldownUntil || 0);
+  return Number.isFinite(until) && until > Date.now();
+}
+
+function startCooldown(button, seconds, { doneText, prefixText } = {}) {
+  if (!button) return;
+
+  if (button[COOLDOWN_TIMER_PROP]) {
+    window.clearInterval(button[COOLDOWN_TIMER_PROP]);
+    button[COOLDOWN_TIMER_PROP] = null;
+  }
+
+  const original =
+    button.dataset?.originalText || button.textContent || doneText || 'Send';
+  if (button.dataset && !button.dataset.originalText) {
+    button.dataset.originalText = original;
+  }
+
+  const cooldownUntil = Date.now() + seconds * 1000;
+  if (button.dataset) {
+    button.dataset.cooldownUntil = String(cooldownUntil);
+  }
+
+  const prefix = prefixText || 'Send again in';
+
+  const tick = () => {
+    const remaining = Math.ceil((cooldownUntil - Date.now()) / 1000);
+    if (remaining <= 0) {
+      if (button.dataset) {
+        delete button.dataset.cooldownUntil;
+      }
+      button.disabled = false;
+      button.classList.remove('opacity-60');
+      button.textContent = original;
+      return false;
+    }
+    button.disabled = true;
+    button.classList.add('opacity-60');
+    button.textContent = `${prefix} ${remaining}s`;
+    return true;
+  };
+
+  tick();
+  const timer = window.setInterval(() => {
+    const keep = tick();
+    if (!keep) {
+      window.clearInterval(timer);
+      if (button[COOLDOWN_TIMER_PROP] === timer) {
+        button[COOLDOWN_TIMER_PROP] = null;
+      }
+    }
+  }, 1000);
+  button[COOLDOWN_TIMER_PROP] = timer;
+}
+
+function startWhatsAppOtpCooldown(seconds = WHATSAPP_SEND_COOLDOWN_SECONDS) {
+  startCooldown(whatsappSendBtn, seconds, {
+    doneText: 'Send code',
+    prefixText: 'Send again in',
+  });
+  startCooldown(whatsappResendBtn, seconds, {
+    doneText: 'Resend code',
+    prefixText: 'Resend in',
+  });
 }
 
 async function ensureLearnerProfile(supabase, user) {
@@ -831,6 +912,8 @@ async function handleWhatsAppRequest(event, supabase, { mode }) {
 
     if (error) throw error;
 
+    startWhatsAppOtpCooldown();
+
     showFeedback('We sent a 6-digit code to your WhatsApp.', 'info');
     showOtpVerification();
   } catch (error) {
@@ -939,6 +1022,9 @@ async function handleWhatsAppResend(supabase, { mode }) {
       },
     });
     if (error) throw error;
+
+    startWhatsAppOtpCooldown();
+
     showFeedback('A new code has been sent to WhatsApp.', 'info');
   } catch (error) {
     console.error('[Auth] WhatsApp OTP resend failed', error);

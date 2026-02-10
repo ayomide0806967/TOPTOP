@@ -2083,6 +2083,8 @@ function setAuthMethodsFeedback(message, type = 'info') {
 
 const OTP_CODE_PATTERN = /^[0-9]{6}$/;
 const NIGERIA_COUNTRY_CODE = '+234';
+const WHATSAPP_SEND_COOLDOWN_SECONDS = 30;
+const COOLDOWN_TIMER_PROP = '__cooldownTimerId';
 
 function normalizeNigeriaPhone(value) {
   const raw = String(value || '').trim();
@@ -2106,6 +2108,71 @@ function normalizeNigeriaPhone(value) {
 
 function isPlausibleE164(phone) {
   return /^\+[1-9][0-9]{8,14}$/.test(String(phone || ''));
+}
+
+function isCooldownActive(button) {
+  const until = Number(button?.dataset?.cooldownUntil || 0);
+  return Number.isFinite(until) && until > Date.now();
+}
+
+function startCooldown(button, seconds, { doneText, prefixText } = {}) {
+  if (!button) return;
+
+  if (button[COOLDOWN_TIMER_PROP]) {
+    window.clearInterval(button[COOLDOWN_TIMER_PROP]);
+    button[COOLDOWN_TIMER_PROP] = null;
+  }
+
+  const original =
+    button.dataset?.originalText || button.textContent || doneText || 'Send';
+  if (button.dataset && !button.dataset.originalText) {
+    button.dataset.originalText = original;
+  }
+
+  const cooldownUntil = Date.now() + seconds * 1000;
+  if (button.dataset) {
+    button.dataset.cooldownUntil = String(cooldownUntil);
+  }
+
+  const prefix = prefixText || 'Send again in';
+
+  const tick = () => {
+    const remaining = Math.ceil((cooldownUntil - Date.now()) / 1000);
+    if (remaining <= 0) {
+      if (button.dataset) delete button.dataset.cooldownUntil;
+      button.disabled = false;
+      button.classList.remove('opacity-60');
+      button.textContent = original;
+      return false;
+    }
+    button.disabled = true;
+    button.classList.add('opacity-60');
+    button.textContent = `${prefix} ${remaining}s`;
+    return true;
+  };
+
+  tick();
+  const timer = window.setInterval(() => {
+    const keep = tick();
+    if (!keep) {
+      window.clearInterval(timer);
+      if (button[COOLDOWN_TIMER_PROP] === timer) {
+        button[COOLDOWN_TIMER_PROP] = null;
+      }
+    }
+  }, 1000);
+  button[COOLDOWN_TIMER_PROP] = timer;
+}
+
+function startWhatsAppLinkCooldown(seconds = WHATSAPP_SEND_COOLDOWN_SECONDS) {
+  startCooldown(elements.whatsappLinkSendBtn, seconds, {
+    doneText: 'Send code',
+    prefixText: 'Send again in',
+  });
+  startCooldown(elements.whatsappLinkResendBtn, seconds, {
+    doneText: 'Resend code',
+    prefixText: 'Resend in',
+  });
 }
 
 function setWhatsAppLinkFeedback(message, type = 'info') {
@@ -2209,6 +2276,8 @@ async function handleWhatsAppLinkSend() {
     }
     if (data?.error) throw new Error(data.error);
 
+    startWhatsAppLinkCooldown();
+
     showWhatsAppVerifyRow();
     setWhatsAppLinkFeedback('Code sent to WhatsApp. Enter it below.', 'info');
     elements.whatsappLinkCodeInput?.focus();
@@ -2219,8 +2288,12 @@ async function handleWhatsAppLinkSend() {
       'error'
     );
   } finally {
-    if (elements.whatsappLinkSendBtn)
+    if (
+      elements.whatsappLinkSendBtn &&
+      !isCooldownActive(elements.whatsappLinkSendBtn)
+    ) {
       elements.whatsappLinkSendBtn.disabled = false;
+    }
   }
 }
 
@@ -2277,8 +2350,12 @@ async function handleWhatsAppLinkVerify() {
   } finally {
     if (elements.whatsappLinkVerifyBtn)
       elements.whatsappLinkVerifyBtn.disabled = false;
-    if (elements.whatsappLinkResendBtn)
+    if (
+      elements.whatsappLinkResendBtn &&
+      !isCooldownActive(elements.whatsappLinkResendBtn)
+    ) {
       elements.whatsappLinkResendBtn.disabled = false;
+    }
   }
 }
 
