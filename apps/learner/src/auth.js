@@ -15,6 +15,15 @@ const usernameInput = document.getElementById('username');
 const passwordInput = document.getElementById('password');
 const googleSignInBtn = document.getElementById('googleSignInBtn');
 const quickAuthOptionsEl = document.getElementById('quickAuthOptions');
+const authChooserEl = document.getElementById('authChooser');
+const authBackBtn = document.querySelector('[data-role="auth-back"]');
+const chooseWhatsAppBtn = document.querySelector(
+  '[data-role="choose-whatsapp"]'
+);
+const chooseGoogleBtn = document.querySelector('[data-role="choose-google"]');
+const choosePasswordBtn = document.querySelector(
+  '[data-role="choose-password"]'
+);
 const authWhatsAppOptionEl = document.querySelector(
   '[data-role="auth-whatsapp-option"]'
 );
@@ -23,7 +32,6 @@ const authGoogleOptionEl = document.querySelector(
 );
 const authDividerEl = document.querySelector('[data-role="auth-divider"]');
 const authLoginFormEl = document.querySelector('[data-role="auth-login-form"]');
-const authShowAllBtn = document.querySelector('[data-role="auth-show-all"]');
 
 const whatsappRequestForm = document.getElementById('whatsappRequestForm');
 const whatsappVerifyForm = document.getElementById('whatsappVerifyForm');
@@ -124,6 +132,8 @@ function showWhatsAppCompletionForm({ profile, phone }) {
   blockAutoRedirect = true;
 
   try {
+    authChooserEl?.classList.add('hidden');
+    authBackBtn?.classList.add('hidden');
     quickAuthOptionsEl?.classList.add('hidden');
     loginForm?.classList.add('hidden');
     whatsappCompleteSection.classList.remove('hidden');
@@ -156,27 +166,32 @@ function showWhatsAppCompletionForm({ profile, phone }) {
   return true;
 }
 
-function setAuthSurface(surface, { showSwitcher = false } = {}) {
-  const showAll = surface === 'all';
-  const showWhatsApp = surface === 'whatsapp';
+function setAuthSurface(surface, { authMode = 'login' } = {}) {
+  const isSignup = authMode === 'signup';
+  const normalizedSurface =
+    isSignup && surface === 'password' ? 'chooser' : surface;
 
-  if (authGoogleOptionEl) {
-    authGoogleOptionEl.classList.toggle('hidden', !showAll);
-  }
-  if (authDividerEl) {
-    authDividerEl.classList.toggle('hidden', !showAll);
-  }
-  if (authLoginFormEl) {
-    authLoginFormEl.classList.toggle('hidden', !showAll);
+  choosePasswordBtn?.classList.toggle('hidden', isSignup);
+
+  const showChooser = normalizedSurface === 'chooser';
+  const showWhatsApp = normalizedSurface === 'whatsapp';
+  const showGoogle = normalizedSurface === 'google';
+  const showPassword = normalizedSurface === 'password';
+
+  authChooserEl?.classList.toggle('hidden', !showChooser);
+  authBackBtn?.classList.toggle('hidden', showChooser);
+
+  if (authDividerEl) authDividerEl.classList.add('hidden');
+
+  if (quickAuthOptionsEl) {
+    // For password, the flow is the form below, so hide this container.
+    const showQuickOptions = !showChooser && !showPassword;
+    quickAuthOptionsEl.classList.toggle('hidden', !showQuickOptions);
   }
 
-  if (authWhatsAppOptionEl) {
-    authWhatsAppOptionEl.classList.toggle('hidden', !showAll && !showWhatsApp);
-  }
-
-  if (authShowAllBtn) {
-    authShowAllBtn.classList.toggle('hidden', !showSwitcher);
-  }
+  authWhatsAppOptionEl?.classList.toggle('hidden', !showWhatsApp);
+  authGoogleOptionEl?.classList.toggle('hidden', !showGoogle);
+  authLoginFormEl?.classList.toggle('hidden', !showPassword);
 }
 
 /**
@@ -197,6 +212,9 @@ function setLoading(isLoading) {
 
 function setOtpLoading(isLoading, { phase = 'request' } = {}) {
   const buttons = [
+    chooseWhatsAppBtn,
+    chooseGoogleBtn,
+    choosePasswordBtn,
     googleSignInBtn,
     whatsappSendBtn,
     whatsappVerifyBtn,
@@ -1289,9 +1307,17 @@ async function init() {
       params.get('error_description') || params.get('error') || null;
     const authAction = params.get('auth');
     const authMode = params.get('mode') === 'signup' ? 'signup' : 'login';
+    const requestedSurface =
+      authAction === 'whatsapp' ||
+      authAction === 'google' ||
+      authAction === 'password'
+        ? authAction
+        : 'chooser';
+    const initialSurface =
+      authMode === 'signup' && requestedSurface === 'password'
+        ? 'chooser'
+        : requestedSurface;
     const shouldStartGoogle = authAction === 'google';
-    const shouldFocusWhatsApp =
-      authAction === 'whatsapp' || authMode === 'signup';
 
     if (impersonatedToken) {
       await handleImpersonation(supabase, impersonatedToken);
@@ -1343,9 +1369,11 @@ async function init() {
           );
         }
       }
-    } catch (e) {
-      console.warn('[Auth] Unable to check logout reason', e);
+    } catch (error) {
+      console.warn('[Auth] Unable to check logout reason', error);
     }
+
+    setAuthSurface(initialSurface, { authMode });
 
     // Set up auth state listener
     supabase.auth.onAuthStateChange((_event, session) => {
@@ -1372,6 +1400,45 @@ async function init() {
         handleGoogleSignIn(supabase)
       );
     }
+
+    chooseWhatsAppBtn?.addEventListener('click', () => {
+      clearFeedback();
+      setAuthSurface('whatsapp', { authMode });
+      try {
+        whatsappPhoneInput?.focus();
+        whatsappPhoneInput?.scrollIntoView?.({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      } catch (error) {
+        console.warn('[Auth] Unable to focus WhatsApp sign-in', error);
+      }
+    });
+
+    choosePasswordBtn?.addEventListener('click', () => {
+      clearFeedback();
+      setAuthSurface('password', { authMode });
+      try {
+        usernameInput?.focus();
+        usernameInput?.scrollIntoView?.({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      } catch (error) {
+        console.warn('[Auth] Unable to focus password sign-in', error);
+      }
+    });
+
+    chooseGoogleBtn?.addEventListener('click', async () => {
+      clearFeedback();
+      setAuthSurface('google', { authMode });
+      await handleGoogleSignIn(supabase);
+    });
+
+    authBackBtn?.addEventListener('click', () => {
+      clearFeedback();
+      setAuthSurface('chooser', { authMode });
+    });
 
     if (whatsappRequestForm) {
       whatsappRequestForm.addEventListener('submit', (event) =>
@@ -1425,15 +1492,7 @@ async function init() {
       });
     }
 
-    if (authShowAllBtn) {
-      authShowAllBtn.addEventListener('click', () => {
-        setAuthSurface('all');
-        clearFeedback();
-      });
-    }
-
-    if (shouldFocusWhatsApp) {
-      setAuthSurface('whatsapp', { showSwitcher: authMode !== 'signup' });
+    if (initialSurface === 'whatsapp') {
       try {
         whatsappPhoneInput?.focus();
         whatsappPhoneInput?.scrollIntoView?.({
@@ -1442,6 +1501,14 @@ async function init() {
         });
       } catch (error) {
         console.warn('[Auth] Unable to focus WhatsApp sign-in', error);
+      }
+    }
+
+    if (initialSurface === 'password') {
+      try {
+        usernameInput?.focus();
+      } catch (error) {
+        console.warn('[Auth] Unable to focus password sign-in', error);
       }
     }
 
