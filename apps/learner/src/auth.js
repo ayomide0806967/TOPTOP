@@ -210,6 +210,25 @@ function setLoading(isLoading) {
   if (passwordInput) passwordInput.disabled = isLoading;
 }
 
+function getButtonLabelEl(button) {
+  return button?.querySelector?.('[data-role="btn-label"]') || null;
+}
+
+function getButtonLabel(button) {
+  const labelEl = getButtonLabelEl(button);
+  return labelEl ? labelEl.textContent : button?.textContent || '';
+}
+
+function setButtonLabel(button, text) {
+  if (!button) return;
+  const labelEl = getButtonLabelEl(button);
+  if (labelEl) {
+    labelEl.textContent = text;
+    return;
+  }
+  button.textContent = text;
+}
+
 function setOtpLoading(isLoading, { phase = 'request' } = {}) {
   const buttons = [
     chooseWhatsAppBtn,
@@ -245,20 +264,20 @@ function setOtpLoading(isLoading, { phase = 'request' } = {}) {
     phase === 'request' &&
     !isCooldownActive(whatsappSendBtn)
   ) {
-    whatsappSendBtn.textContent = isLoading ? 'Sending…' : 'Send code';
+    setButtonLabel(whatsappSendBtn, isLoading ? 'Sending…' : 'Send code');
   }
   if (whatsappVerifyBtn && phase === 'verify') {
-    whatsappVerifyBtn.textContent = isLoading ? 'Verifying…' : 'Verify';
+    setButtonLabel(whatsappVerifyBtn, isLoading ? 'Verifying…' : 'Verify');
   }
   if (
     whatsappResendBtn &&
     phase === 'resend' &&
     !isCooldownActive(whatsappResendBtn)
   ) {
-    whatsappResendBtn.textContent = isLoading ? 'Resending…' : 'Resend code';
+    setButtonLabel(whatsappResendBtn, isLoading ? 'Resending…' : 'Resend code');
   }
   if (waCompleteBtn && phase === 'complete') {
-    waCompleteBtn.textContent = isLoading ? 'Saving…' : 'Save and continue';
+    setButtonLabel(waCompleteBtn, isLoading ? 'Saving…' : 'Save and continue');
   }
 }
 
@@ -425,7 +444,10 @@ function startCooldown(button, seconds, { doneText, prefixText } = {}) {
   }
 
   const original =
-    button.dataset?.originalText || button.textContent || doneText || 'Send';
+    button.dataset?.originalText ||
+    getButtonLabel(button) ||
+    doneText ||
+    'Send';
   if (button.dataset && !button.dataset.originalText) {
     button.dataset.originalText = original;
   }
@@ -445,12 +467,12 @@ function startCooldown(button, seconds, { doneText, prefixText } = {}) {
       }
       button.disabled = false;
       button.classList.remove('opacity-60');
-      button.textContent = original;
+      setButtonLabel(button, original);
       return false;
     }
     button.disabled = true;
     button.classList.add('opacity-60');
-    button.textContent = `${prefix} ${remaining}s`;
+    setButtonLabel(button, `${prefix} ${remaining}s`);
     return true;
   };
 

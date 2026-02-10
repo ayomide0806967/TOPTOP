@@ -2115,6 +2115,25 @@ function isCooldownActive(button) {
   return Number.isFinite(until) && until > Date.now();
 }
 
+function getButtonLabelEl(button) {
+  return button?.querySelector?.('[data-role="btn-label"]') || null;
+}
+
+function getButtonLabel(button) {
+  const labelEl = getButtonLabelEl(button);
+  return labelEl ? labelEl.textContent : button?.textContent || '';
+}
+
+function setButtonLabel(button, text) {
+  if (!button) return;
+  const labelEl = getButtonLabelEl(button);
+  if (labelEl) {
+    labelEl.textContent = text;
+    return;
+  }
+  button.textContent = text;
+}
+
 function startCooldown(button, seconds, { doneText, prefixText } = {}) {
   if (!button) return;
 
@@ -2124,7 +2143,10 @@ function startCooldown(button, seconds, { doneText, prefixText } = {}) {
   }
 
   const original =
-    button.dataset?.originalText || button.textContent || doneText || 'Send';
+    button.dataset?.originalText ||
+    getButtonLabel(button) ||
+    doneText ||
+    'Send';
   if (button.dataset && !button.dataset.originalText) {
     button.dataset.originalText = original;
   }
@@ -2142,12 +2164,12 @@ function startCooldown(button, seconds, { doneText, prefixText } = {}) {
       if (button.dataset) delete button.dataset.cooldownUntil;
       button.disabled = false;
       button.classList.remove('opacity-60');
-      button.textContent = original;
+      setButtonLabel(button, original);
       return false;
     }
     button.disabled = true;
     button.classList.add('opacity-60');
-    button.textContent = `${prefix} ${remaining}s`;
+    setButtonLabel(button, `${prefix} ${remaining}s`);
     return true;
   };
 
