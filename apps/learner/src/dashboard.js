@@ -774,7 +774,15 @@ function getSelectedSubscription(subscriptions = state.subscriptions || []) {
   const explicit = subscriptions.find(
     (entry) => entry.id === state.defaultSubscriptionId
   );
-  if (explicit) return explicit;
+  const hasAnyActive = subscriptions.some(isSubscriptionActive);
+  if (explicit) {
+    // If the saved default plan has expired but the user has another active plan
+    // (e.g. they renewed and a new subscription record was created), don't keep
+    // the UI "stuck" on the expired default.
+    if (isSubscriptionActive(explicit) || !hasAnyActive) {
+      return explicit;
+    }
+  }
 
   const activeSubs = subscriptions
     .filter(isSubscriptionActive)

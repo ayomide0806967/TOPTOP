@@ -34,6 +34,71 @@ interface SubscriptionResult {
 
 let serviceClient: SupabaseClient | null = null;
 
+function isSubscriptionActiveNow(subscription: {
+  status?: string | null;
+  started_at?: string | null;
+  expires_at?: string | null;
+}): boolean {
+  const statusKey = String(subscription?.status || '').toLowerCase();
+  if (!['active', 'trialing', 'past_due'].includes(statusKey)) {
+    return false;
+  }
+  const now = new Date();
+  const startsAt = subscription?.started_at
+    ? new Date(subscription.started_at)
+    : null;
+  if (startsAt && !Number.isNaN(startsAt.getTime()) && startsAt > now) {
+    return false;
+  }
+  const expiresAt = subscription?.expires_at
+    ? new Date(subscription.expires_at)
+    : null;
+  if (expiresAt && !Number.isNaN(expiresAt.getTime()) && expiresAt < now) {
+    return false;
+  }
+  return true;
+}
+
+async function ensureDefaultSubscription(
+  admin: SupabaseClient,
+  userId: string,
+  subscriptionId: string
+): Promise<void> {
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('default_subscription_id')
+    .eq('id', userId)
+    .maybeSingle();
+
+  const currentDefault = profile?.default_subscription_id
+    ? String(profile.default_subscription_id)
+    : null;
+
+  if (!currentDefault) {
+    await admin
+      .from('profiles')
+      .update({ default_subscription_id: subscriptionId })
+      .eq('id', userId);
+    return;
+  }
+
+  // If the current default is no longer active (common after renewals that create
+  // a new subscription record), switch the default to the newly activated plan.
+  const { data: defaultSub } = await admin
+    .from('user_subscriptions')
+    .select('id, status, started_at, expires_at')
+    .eq('id', currentDefault)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (!defaultSub || !isSubscriptionActiveNow(defaultSub)) {
+    await admin
+      .from('profiles')
+      .update({ default_subscription_id: subscriptionId })
+      .eq('id', userId);
+  }
+}
+
 export function getServiceClient(): SupabaseClient {
   if (serviceClient) return serviceClient;
   serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -124,21 +189,11 @@ export async function upsertPaymentAndSubscription(options: {
 
     const subscriptionId = String(existingTransaction.subscription_id);
     const transactionId = String(existingTransaction.id);
+    await ensureDefaultSubscription(admin, userId, subscriptionId);
 
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('default_subscription_id')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (!profile?.default_subscription_id) {
-      await admin
-        .from('profiles')
-        .update({ default_subscription_id: subscriptionId })
-        .eq('id', userId);
-    }
-
-    await admin.rpc('refresh_profile_subscription_status', { p_user_id: userId });
+    await admin.rpc('refresh_profile_subscription_status', {
+      p_user_id: userId,
+    });
 
     return { subscriptionId, transactionId };
   }
@@ -215,21 +270,11 @@ export async function upsertPaymentAndSubscription(options: {
   const existingLinkedSubscriptionId = transactionRows?.[0]?.subscription_id;
   if (existingLinkedSubscriptionId) {
     const subscriptionId = String(existingLinkedSubscriptionId);
+    await ensureDefaultSubscription(admin, userId, subscriptionId);
 
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('default_subscription_id')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (!profile?.default_subscription_id) {
-      await admin
-        .from('profiles')
-        .update({ default_subscription_id: subscriptionId })
-        .eq('id', userId);
-    }
-
-    await admin.rpc('refresh_profile_subscription_status', { p_user_id: userId });
+    await admin.rpc('refresh_profile_subscription_status', {
+      p_user_id: userId,
+    });
 
     return {
       subscriptionId,
@@ -260,20 +305,11 @@ export async function upsertPaymentAndSubscription(options: {
       .eq('id', transactionId)
       .is('subscription_id', null);
 
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('default_subscription_id')
-      .eq('id', userId)
-      .maybeSingle();
+    await ensureDefaultSubscription(admin, userId, subscriptionId);
 
-    if (!profile?.default_subscription_id) {
-      await admin
-        .from('profiles')
-        .update({ default_subscription_id: subscriptionId })
-        .eq('id', userId);
-    }
-
-    await admin.rpc('refresh_profile_subscription_status', { p_user_id: userId });
+    await admin.rpc('refresh_profile_subscription_status', {
+      p_user_id: userId,
+    });
 
     return {
       subscriptionId,
@@ -382,19 +418,7 @@ export async function upsertPaymentAndSubscription(options: {
   if (transactionLinkError && transactionLinkError.code !== 'PGRST116') {
     throw transactionLinkError;
   }
-
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('default_subscription_id')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (!profile?.default_subscription_id) {
-    await admin
-      .from('profiles')
-      .update({ default_subscription_id: subscriptionId })
-      .eq('id', userId);
-  }
+  await ensureDefaultSubscription(admin, userId, subscriptionId);
 
   await admin.rpc('refresh_profile_subscription_status', { p_user_id: userId });
 
