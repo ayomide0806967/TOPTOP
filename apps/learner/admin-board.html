@@ -292,23 +292,21 @@
         background: var(--color-surface);
         border-radius: var(--radius-xl);
         border: 1px solid var(--color-border);
-        box-shadow: var(--shadow-md);
+        box-shadow: none;
         transition: all var(--transition-base);
       }
 
       .card:hover {
-        box-shadow: var(--shadow-lg);
         border-color: var(--color-border-strong);
       }
 
       .card--hero {
         background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
         border: 1px solid rgba(13, 148, 136, 0.12);
-        box-shadow: var(--shadow-lg), var(--shadow-glow);
+        box-shadow: none;
       }
 
       .card--hero:hover {
-        box-shadow: var(--shadow-xl), var(--shadow-glow);
         transform: translateY(-2px);
       }
 
@@ -319,7 +317,7 @@
 
       .card--minimal {
         border: 1px solid var(--color-border);
-        box-shadow: var(--shadow-sm);
+        box-shadow: none;
       }
 
       /* Stat Badge */
@@ -561,8 +559,12 @@
         background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
         border: 1px solid var(--color-border);
         border-radius: var(--radius-xl);
-        padding: var(--space-4);
+        padding: var(--space-5);
         transition: all var(--transition-base);
+        min-height: 11rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
       }
 
       .community-card:hover {
@@ -588,6 +590,15 @@
       .community-card__icon--telegram {
         background: rgba(0, 136, 204, 0.1);
         color: var(--color-telegram);
+      }
+
+      .community-card h4 {
+        font-size: 0.875rem;
+      }
+
+      .community-card p,
+      .community-card .text-sm {
+        font-size: 0.75rem;
       }
 
       /* Desktop Layout */
@@ -1457,6 +1468,54 @@
               </p>
             </section>
 
+            <!-- Recent Activity -->
+            <section
+              class="card p-4 animate-fadeIn"
+              style="animation-delay: 0.25s"
+            >
+              <div
+                class="flex flex-wrap items-center justify-between gap-3 mb-4"
+              >
+                <div>
+                  <h3 class="text-base font-semibold text-slate-900">
+                    Recent Activity
+                  </h3>
+                  <p class="text-xs text-slate-500">
+                    Track your learning journey
+                  </p>
+                </div>
+                <p
+                  class="text-xs font-semibold uppercase tracking-wider text-slate-400"
+                  data-role="history-summary"
+                >
+                  —
+                </p>
+              </div>
+
+              <!-- Activity Cards -->
+              <div class="space-y-3" data-role="history-cards"></div>
+
+              <!-- Activity Table -->
+              <div class="mt-6 overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr
+                      class="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 border-b border-slate-200"
+                    >
+                      <th class="pb-3 pl-3">Session</th>
+                      <th class="pb-3">Status</th>
+                      <th class="pb-3">Score</th>
+                      <th class="pb-3 pr-3">Review</th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    class="divide-y divide-slate-100"
+                    data-role="history-body"
+                  ></tbody>
+                </table>
+              </div>
+            </section>
+
             <!-- Community Section -->
             <section class="animate-fadeIn" style="animation-delay: 0.2s">
               <div class="flex items-center justify-between mb-3">
@@ -1561,54 +1620,6 @@
                     </svg>
                   </div>
                 </a>
-              </div>
-            </section>
-
-            <!-- Recent Activity -->
-            <section
-              class="card p-4 animate-fadeIn"
-              style="animation-delay: 0.25s"
-            >
-              <div
-                class="flex flex-wrap items-center justify-between gap-3 mb-4"
-              >
-                <div>
-                  <h3 class="text-base font-semibold text-slate-900">
-                    Recent Activity
-                  </h3>
-                  <p class="text-xs text-slate-500">
-                    Track your learning journey
-                  </p>
-                </div>
-                <p
-                  class="text-xs font-semibold uppercase tracking-wider text-slate-400"
-                  data-role="history-summary"
-                >
-                  —
-                </p>
-              </div>
-
-              <!-- Activity Cards -->
-              <div class="space-y-3" data-role="history-cards"></div>
-
-              <!-- Activity Table -->
-              <div class="mt-6 overflow-x-auto">
-                <table class="w-full text-sm">
-                  <thead>
-                    <tr
-                      class="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 border-b border-slate-200"
-                    >
-                      <th class="pb-3 pl-3">Session</th>
-                      <th class="pb-3">Status</th>
-                      <th class="pb-3">Score</th>
-                      <th class="pb-3 pr-3">Review</th>
-                    </tr>
-                  </thead>
-                  <tbody
-                    class="divide-y divide-slate-100"
-                    data-role="history-body"
-                  ></tbody>
-                </table>
               </div>
             </section>
           </div>
