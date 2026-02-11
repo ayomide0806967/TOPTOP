@@ -243,7 +243,7 @@ class AuthService extends EventTarget {
       console.log('[AuthService] Checking if profiles table exists...');
       const { data: profile, error: profileError } = await this.client
         .from('profiles')
-        .select('id, full_name, role, status')
+        .select('id, full_name, role, subscription_status')
         .eq('id', supabaseUser.id)
         .maybeSingle();
 
@@ -279,7 +279,7 @@ class AuthService extends EventTarget {
         return this.state;
       }
 
-      if (profile.status === 'suspended') {
+      if ((profile.subscription_status || '').toLowerCase() === 'suspended') {
         this._setState({
           status: 'unauthorised',
           user: supabaseUser,

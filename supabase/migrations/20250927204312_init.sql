@@ -543,21 +543,25 @@ left join public.subscription_plans pl on pl.product_id = p.id
 where p.is_active;
 
 drop view if exists public.admin_dashboard_stats;
-create view public.admin_dashboard_stats as
-select
-  coalesce((select count(*) from public.profiles), 0) as total_users,
-  coalesce((select count(*) from public.user_subscriptions us where us.status = 'active'), 0) as active_subscriptions,
-  coalesce((select count(*) from public.questions), 0) as total_questions,
-  coalesce(
-    (
-      select sum(coalesce(us.price, sp.price))
-      from public.user_subscriptions us
-      join public.subscription_plans sp on sp.id = us.plan_id
-      where us.status = 'active'
-        and date_trunc('month', us.started_at) = date_trunc('month', timezone('utc', now()))
-    ),
-    0
-  ) as monthly_revenue;
+create view public.admin_dashboard_stats
+with (security_invoker = true) as
+	select
+	  coalesce((select count(*) from public.profiles), 0) as total_users,
+	  coalesce((select count(*) from public.user_subscriptions us where us.status = 'active'), 0) as active_subscriptions,
+	  coalesce((select count(*) from public.questions), 0) as total_questions,
+	  coalesce(
+	    (
+	      select sum(coalesce(us.price, sp.price))
+	      from public.user_subscriptions us
+	      join public.subscription_plans sp on sp.id = us.plan_id
+	      where us.status = 'active'
+	        and date_trunc('month', us.started_at) = date_trunc('month', timezone('utc', now()))
+	    ),
+	    0
+	  ) as monthly_revenue
+	where public.is_admin();
+
+grant select on table public.admin_dashboard_stats to authenticated;
 
 -------------------------------------------------------------------------------
 -- Daily quiz generation helper
