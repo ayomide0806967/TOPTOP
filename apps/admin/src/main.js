@@ -270,11 +270,11 @@ function showUnauthorised(state) {
   }
   if (authMetaEl) {
     const email = state?.user?.email || 'Unknown account';
-    authMetaEl.textContent = `Signed in as ${email}. Update the profile role to "admin" in Supabase to continue.`;
+    const role = state?.profile?.role || 'unknown';
+    authMetaEl.textContent = `Signed in as ${email} (role: ${role}). Update the profile role to "admin" in Supabase to continue.`;
   }
-  showAuthError(
-    'Admin role required. Contact the workspace owner to elevate this account.'
-  );
+  const role = state?.profile?.role || 'unknown';
+  showAuthError(`Admin role required. Current role is "${role}".`);
 }
 
 function showAuthErrorState(error) {

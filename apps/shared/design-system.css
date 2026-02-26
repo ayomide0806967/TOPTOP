@@ -144,8 +144,12 @@
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   :root {
+    color-scheme: dark;
     --bg-primary: #0f172a;
     --bg-secondary: #1e293b;
+    --bg-card: #111827;
+    --bg-subtle: linear-gradient(180deg, #0b1220 0%, #0f172a 55%, #0b1220 100%);
+    --bg-overlay: rgba(0, 0, 0, 0.55);
     --text-primary: #f8fafc;
     --text-secondary: #cbd5e1;
     --text-muted: #94a3b8;

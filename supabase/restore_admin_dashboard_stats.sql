@@ -23,4 +23,7 @@ with (security_invoker = true) as
 	  ) as monthly_revenue
 	where public.is_admin();
 
+-- Defensive: ensure the view remains security-invoker even if defaults differ.
+alter view public.admin_dashboard_stats set (security_invoker = true);
+
 grant select on table public.admin_dashboard_stats to authenticated;

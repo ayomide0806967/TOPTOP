@@ -290,6 +290,10 @@ class AuthService extends EventTarget {
       }
 
       if (profile.role !== 'admin') {
+        const roleLabel =
+          typeof profile.role === 'string' && profile.role.trim()
+            ? profile.role.trim()
+            : 'unknown';
         console.error(
           '[AuthService] User has role:',
           profile.role,
@@ -300,7 +304,7 @@ class AuthService extends EventTarget {
           user: supabaseUser,
           profile,
           error: new AuthServiceError(
-            'This account does not have admin permissions.'
+            `Admin role required. Current role is "${roleLabel}".`
           ),
         });
         return this.state;
