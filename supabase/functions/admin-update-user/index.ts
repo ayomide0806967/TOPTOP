@@ -51,6 +51,17 @@ function resolvePlanExpiry(plan: any, override?: string | null): string | null {
   return null;
 }
 
+function jsonResponse(payload: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+function errorResponse(message: string, status = 400) {
+  return jsonResponse({ error: message }, status);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -68,13 +79,31 @@ serve(async (req) => {
     const userId = String(body.userId || '').trim();
 
     if (!userId) {
-      return new Response(JSON.stringify({ error: 'userId is required.' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('userId is required.', 400);
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+    const { data: authUserLookup, error: authLookupError } =
+      await supabaseAdmin.auth.admin.getUserById(userId);
+    if (authLookupError) {
+      const lookupMessage = String(authLookupError.message || '').toLowerCase();
+      if (
+        authLookupError.status === 404 ||
+        lookupMessage.includes('not found')
+      ) {
+        return errorResponse(
+          'This user no longer exists in authentication records.',
+          404
+        );
+      }
+      throw authLookupError;
+    }
+    if (!authUserLookup?.user) {
+      return errorResponse(
+        'This user no longer exists in authentication records.',
+        404
+      );
+    }
 
     const updates: {
       email?: string;
@@ -85,13 +114,7 @@ serve(async (req) => {
     if (body.email) {
       const email = String(body.email).trim().toLowerCase();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-        return new Response(
-          JSON.stringify({ error: 'Invalid email address.' }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
+        return errorResponse('Invalid email address.', 400);
       }
       updates.email = email;
     }
@@ -100,13 +123,7 @@ serve(async (req) => {
     try {
       normalizedUsername = normaliseUsername(body.username);
     } catch (validationError) {
-      return new Response(
-        JSON.stringify({ error: (validationError as Error).message }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      return errorResponse((validationError as Error).message, 400);
     }
 
     if (normalizedUsername) {
@@ -119,23 +136,31 @@ serve(async (req) => {
     if (body.password) {
       const password = String(body.password);
       if (password.length < 8) {
-        return new Response(
-          JSON.stringify({
-            error: 'Password must be at least 8 characters long.',
-          }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
+        return errorResponse(
+          'Password must be at least 8 characters long.',
+          400
         );
       }
       updates.password = password;
     }
 
-    if (Object.keys(updates).length > 0) {
-      const { error: updateError } =
-        await supabaseAdmin.auth.admin.updateUserById(userId, updates);
-      if (updateError) throw updateError;
+    if (updates.email) {
+      const { data: existingEmail, error: emailLookupError } =
+        await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .eq('email', updates.email)
+          .neq('id', userId)
+          .maybeSingle();
+      if (emailLookupError && emailLookupError.code !== 'PGRST116') {
+        throw emailLookupError;
+      }
+      if (existingEmail) {
+        return errorResponse(
+          'This email is already in use by another account.',
+          409
+        );
+      }
     }
 
     // Ensure username uniqueness if provided
@@ -151,16 +176,17 @@ serve(async (req) => {
         throw usernameError;
       }
       if (existing) {
-        return new Response(
-          JSON.stringify({
-            error: 'This username is already in use by another account.',
-          }),
-          {
-            status: 409,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
+        return errorResponse(
+          'This username is already in use by another account.',
+          409
         );
       }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      const { error: updateError } =
+        await supabaseAdmin.auth.admin.updateUserById(userId, updates);
+      if (updateError) throw updateError;
     }
 
     const profilePayload: Record<string, unknown> = {};
@@ -196,13 +222,7 @@ serve(async (req) => {
         .maybeSingle();
       if (planError) throw planError;
       if (!plan) {
-        return new Response(
-          JSON.stringify({ error: 'Selected plan not found.' }),
-          {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
+        return errorResponse('Selected plan not found.', 404);
       }
 
       // Cancel existing active subscriptions
@@ -276,13 +296,7 @@ serve(async (req) => {
     } else if (body.planExpiresAt) {
       const overrideDate = new Date(body.planExpiresAt);
       if (Number.isNaN(overrideDate.getTime())) {
-        return new Response(
-          JSON.stringify({ error: 'Invalid plan expiry date provided.' }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
+        return errorResponse('Invalid plan expiry date provided.', 400);
       }
 
       const overrideIso = overrideDate.toISOString();
@@ -300,14 +314,9 @@ serve(async (req) => {
         !Array.isArray(activeSubscriptions) ||
         activeSubscriptions.length === 0
       ) {
-        return new Response(
-          JSON.stringify({
-            error: 'No active subscription to update. Assign a plan first.',
-          }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
+        return errorResponse(
+          'No active subscription to update. Assign a plan first.',
+          400
         );
       }
 
@@ -357,25 +366,36 @@ serve(async (req) => {
 
     if (profileFetchError) throw profileFetchError;
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        profile,
-        subscription: planResult,
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return jsonResponse({
+      success: true,
+      profile,
+      subscription: planResult,
+    });
   } catch (error) {
     console.error('[admin-update-user] Error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message || 'Unexpected error occurred.' }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    const message =
+      typeof error?.message === 'string' && error.message.trim()
+        ? error.message.trim()
+        : 'Unexpected error occurred.';
+    const code = typeof error?.code === 'string' ? error.code : '';
+    const status =
+      typeof error?.status === 'number' && Number.isFinite(error.status)
+        ? error.status
+        : null;
+
+    if (status && status >= 400 && status < 500) {
+      return errorResponse(message, status);
+    }
+    if (code === '23505') {
+      return errorResponse(
+        'Duplicate value conflict while updating this user.',
+        409
+      );
+    }
+    if (code === '23503') {
+      return errorResponse('Referenced record was not found.', 400);
+    }
+
+    return errorResponse(message, 500);
   }
 });

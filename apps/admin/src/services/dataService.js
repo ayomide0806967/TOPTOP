@@ -1408,6 +1408,28 @@ function wrapError(message, cause, context) {
   return new DataServiceError(composed, { cause, context });
 }
 
+async function extractEdgeFunctionErrorMessage(error) {
+  if (typeof Response === 'undefined') return '';
+  if (!(error?.context instanceof Response)) return '';
+  try {
+    const cloned = error.context.clone();
+    const contentType = cloned.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const json = await cloned.json();
+      if (typeof json?.error === 'string' && json.error.trim()) {
+        return json.error.trim();
+      }
+      if (typeof json?.message === 'string' && json.message.trim()) {
+        return json.message.trim();
+      }
+    }
+    const text = (await cloned.text()) || '';
+    return text.trim();
+  } catch {
+    return '';
+  }
+}
+
 function isStatementTimeout(error) {
   if (!error) return false;
   const extract = (value) => (typeof value === 'string' ? value : '');
@@ -5096,6 +5118,16 @@ class DataService {
       if (error) throw error;
       return data;
     } catch (error) {
+      const functionMessage = await extractEdgeFunctionErrorMessage(error);
+      if (functionMessage) {
+        throw new DataServiceError(
+          `Failed to update user account. (${functionMessage})`,
+          {
+            cause: error,
+            context: { userId, planId },
+          }
+        );
+      }
       throw wrapError('Failed to update user account.', error, {
         userId,
         planId,
