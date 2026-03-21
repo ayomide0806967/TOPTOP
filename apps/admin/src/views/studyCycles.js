@@ -181,6 +181,14 @@ function renderTimelineSection(cycle) {
   `;
 }
 
+function isPreviousCycle(cycle) {
+  const startDate = parseDate(cycle?.start_date);
+  if (!startDate) return false;
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  return startDate < currentMonthStart;
+}
+
 function renderScheduleHealthSummary(entries) {
   if (!Array.isArray(entries) || !entries.length) {
     return '';
@@ -255,6 +263,7 @@ function renderScheduleHealthSummary(entries) {
 }
 
 function cycleCard(cycle) {
+  const compact = isPreviousCycle(cycle);
   const subslots = (cycle.subslots || [])
     .slice()
     .sort(
@@ -284,9 +293,40 @@ function cycleCard(cycle) {
       })()
     : '';
   const timelineSection = renderTimelineSection(cycle);
+  const cardClasses = compact
+    ? 'bg-white rounded-lg shadow-sm border border-slate-200 space-y-4 p-5 self-start'
+    : 'bg-white rounded-lg shadow space-y-4 p-6 lg:col-span-2 xl:col-span-3';
+  const subslotGridClasses = compact
+    ? 'grid grid-cols-1 gap-3'
+    : 'grid grid-cols-1 md:grid-cols-2 gap-4';
+  const actionsClasses = compact
+    ? 'flex flex-wrap items-center gap-x-3 gap-y-2 text-sm'
+    : 'flex flex-wrap items-center gap-3 text-sm';
+  const detailsSection = compact
+    ? `
+      <details class="group rounded-lg border border-slate-200 bg-slate-50/80">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-700">
+          <span>Open full slot</span>
+          <span class="text-xs font-medium text-slate-500 group-open:hidden">Expand</span>
+          <span class="hidden text-xs font-medium text-slate-500 group-open:inline">Collapse</span>
+        </summary>
+        <div class="space-y-4 border-t border-slate-200 px-4 py-4">
+          <div class="${subslotGridClasses}">
+            ${subslots || '<p class="text-sm text-gray-500">No subslots configured yet.</p>'}
+          </div>
+          ${timelineSection}
+        </div>
+      </details>
+    `
+    : `
+      <div class="${subslotGridClasses}">
+        ${subslots || '<p class="text-sm text-gray-500">No subslots configured yet.</p>'}
+      </div>
+      ${timelineSection}
+    `;
 
   return `
-    <article class="bg-white rounded-lg shadow space-y-4 p-6" data-cycle-id="${cycle.id}" data-cycle-title="${encodeURIComponent(cycle.title)}" data-cycle-date="${cycle.start_date}">
+    <article class="${cardClasses}" data-cycle-id="${cycle.id}" data-cycle-title="${encodeURIComponent(cycle.title)}" data-cycle-date="${cycle.start_date}">
       <header class="flex items-start justify-between gap-3">
         <div>
           <h3 class="text-lg font-semibold text-gray-900">${cycle.title}</h3>
@@ -294,16 +334,13 @@ function cycleCard(cycle) {
           <p class="text-xs text-gray-500 mt-1">${cycle.questions_per_day} questions/day · cap ${cycle.question_cap}</p>
           ${timelineSummary}
         </div>
-        <div class="flex items-center gap-3 text-sm">
+        <div class="${actionsClasses}">
           <button type="button" class="text-slate-900 hover:underline" data-role="edit-cycle">Edit</button>
           <button type="button" class="text-red-600 hover:text-red-700" data-role="delete-cycle">Delete</button>
           <button type="button" class="text-slate-600 hover:text-slate-900" data-role="rebuild-schedule">Rebuild Schedule</button>
         </div>
       </header>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        ${subslots || '<p class="text-sm text-gray-500">No subslots configured yet.</p>'}
-      </div>
-      ${timelineSection}
+      ${detailsSection}
     </article>
   `;
 }
@@ -1121,7 +1158,7 @@ export async function studyCyclesView(state, actions) {
         ${scheduleHealthError ? `<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">${scheduleHealthError}</div>` : ''}
         ${healthSummary}
         ${readinessAlerts.length ? renderReadinessBanner(readinessAlerts) : ''}
-        <section class="space-y-6" data-role="cycle-grid">
+        <section class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3" data-role="cycle-grid">
           ${
             cycleLoadError
               ? `<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">${cycleLoadError}</div>`
