@@ -296,22 +296,23 @@ function cycleCard(cycle) {
   const cardClasses = compact
     ? 'bg-white rounded-lg shadow-sm border border-slate-200 space-y-4 p-5 self-start'
     : 'bg-white rounded-lg shadow space-y-4 p-6 lg:col-span-2 xl:col-span-3';
-  const subslotGridClasses = compact
+  const compactSubslotGridClasses = compact
     ? 'grid grid-cols-1 gap-3'
     : 'grid grid-cols-1 md:grid-cols-2 gap-4';
+  const expandedSubslotGridClasses = 'grid grid-cols-1 md:grid-cols-2 gap-4';
   const actionsClasses = compact
     ? 'flex flex-wrap items-center gap-x-3 gap-y-2 text-sm'
     : 'flex flex-wrap items-center gap-3 text-sm';
   const detailsSection = compact
     ? `
-      <details class="group rounded-lg border border-slate-200 bg-slate-50/80">
+      <details class="group rounded-lg border border-slate-200 bg-slate-50/80" data-role="cycle-details">
         <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-700">
           <span>Open full slot</span>
           <span class="text-xs font-medium text-slate-500 group-open:hidden">Expand</span>
           <span class="hidden text-xs font-medium text-slate-500 group-open:inline">Collapse</span>
         </summary>
         <div class="space-y-4 border-t border-slate-200 px-4 py-4">
-          <div class="${subslotGridClasses}">
+          <div class="${compactSubslotGridClasses}" data-role="cycle-subslot-grid" data-compact-classes="${compactSubslotGridClasses}" data-expanded-classes="${expandedSubslotGridClasses}">
             ${subslots || '<p class="text-sm text-gray-500">No subslots configured yet.</p>'}
           </div>
           ${timelineSection}
@@ -319,14 +320,14 @@ function cycleCard(cycle) {
       </details>
     `
     : `
-      <div class="${subslotGridClasses}">
+      <div class="${expandedSubslotGridClasses}">
         ${subslots || '<p class="text-sm text-gray-500">No subslots configured yet.</p>'}
       </div>
       ${timelineSection}
     `;
 
   return `
-    <article class="${cardClasses}" data-cycle-id="${cycle.id}" data-cycle-title="${encodeURIComponent(cycle.title)}" data-cycle-date="${cycle.start_date}">
+    <article class="${cardClasses}" data-cycle-id="${cycle.id}" data-cycle-title="${encodeURIComponent(cycle.title)}" data-cycle-date="${cycle.start_date}" ${compact ? 'data-compact-card="true"' : ''}>
       <header class="flex items-start justify-between gap-3">
         <div>
           <h3 class="text-lg font-semibold text-gray-900">${cycle.title}</h3>
@@ -1203,6 +1204,41 @@ export async function studyCyclesView(state, actions) {
       if (typeof flatpickr === 'function') {
         flatpickr('#study-cycle-start-date', { dateFormat: 'Y-m-d' });
       }
+
+      container
+        .querySelectorAll('article[data-compact-card="true"]')
+        .forEach((article) => {
+          const details = article.querySelector('[data-role="cycle-details"]');
+          const subslotGrid = article.querySelector(
+            '[data-role="cycle-subslot-grid"]'
+          );
+          if (!details || !subslotGrid) return;
+
+          const compactClasses =
+            subslotGrid.dataset.compactClasses?.split(' ').filter(Boolean) ||
+            [];
+          const expandedClasses =
+            subslotGrid.dataset.expandedClasses?.split(' ').filter(Boolean) ||
+            [];
+
+          const syncExpandedState = () => {
+            const isOpen = details.open;
+            article.classList.toggle('lg:col-span-2', isOpen);
+            article.classList.toggle('xl:col-span-3', isOpen);
+            article.classList.toggle('shadow', isOpen);
+            article.classList.toggle('shadow-sm', !isOpen);
+
+            compactClasses.forEach((className) => {
+              subslotGrid.classList.toggle(className, !isOpen);
+            });
+            expandedClasses.forEach((className) => {
+              subslotGrid.classList.toggle(className, isOpen);
+            });
+          };
+
+          syncExpandedState();
+          details.addEventListener('toggle', syncExpandedState);
+        });
 
       container
         .querySelectorAll('[data-role="edit-cycle"]')
