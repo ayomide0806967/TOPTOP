@@ -507,10 +507,34 @@ async function ensureLearnerProfile(supabase, user) {
   const fullName =
     metadata.full_name || metadata.name || metadata.fullName || fallbackName;
   const { firstName, lastName } = splitName(fullName);
+  let existingRole = null;
+
+  try {
+    const { data: existingProfile, error: existingProfileError } =
+      await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    if (existingProfileError) {
+      console.warn(
+        '[Auth] Failed to load existing profile role for user',
+        existingProfileError
+      );
+    } else {
+      existingRole = existingProfile?.role || null;
+    }
+  } catch (error) {
+    console.warn(
+      '[Auth] Unexpected error while loading existing profile',
+      error
+    );
+  }
 
   const updates = {
     id: user.id,
-    role: 'learner',
+    role: existingRole || 'learner',
     full_name: fullName || null,
     first_name: metadata.first_name || firstName || null,
     last_name: metadata.last_name || lastName || null,
