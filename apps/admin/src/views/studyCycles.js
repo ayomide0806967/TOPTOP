@@ -1225,6 +1225,8 @@ export async function studyCyclesView(state, actions) {
             const isOpen = details.open;
             article.classList.toggle('lg:col-span-2', isOpen);
             article.classList.toggle('xl:col-span-3', isOpen);
+            article.classList.toggle('lg:col-start-1', isOpen);
+            article.classList.toggle('xl:col-start-1', isOpen);
             article.classList.toggle('shadow', isOpen);
             article.classList.toggle('shadow-sm', !isOpen);
 
