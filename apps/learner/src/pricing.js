@@ -1,4 +1,7 @@
 import { getSupabaseClient } from '../../shared/supabaseClient.js';
+import { installWhatsAppLogoFallbacks } from '../../shared/whatsappLogoFallback.js';
+
+installWhatsAppLogoFallbacks();
 
 const grid = document.querySelector('[data-role="pricing-grid"]');
 const errorEl = document.querySelector('[data-role="pricing-error"]');

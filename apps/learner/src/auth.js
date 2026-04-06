@@ -3,6 +3,9 @@ import {
   deriveSessionFingerprint,
   storeSessionFingerprint,
 } from '../../shared/sessionFingerprint.js';
+import { installWhatsAppLogoFallbacks } from '../../shared/whatsappLogoFallback.js';
+
+installWhatsAppLogoFallbacks();
 
 // ============================================================================
 // DOM ELEMENTS

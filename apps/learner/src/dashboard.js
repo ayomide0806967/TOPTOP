@@ -4,6 +4,9 @@ import {
   getQuizSnapshot,
   listQuizSnapshots,
 } from '../../shared/quizSnapshotStore.js';
+import { installWhatsAppLogoFallbacks } from '../../shared/whatsappLogoFallback.js';
+
+installWhatsAppLogoFallbacks();
 
 const CARD_PALETTES = {
   default: {
