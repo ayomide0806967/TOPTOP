@@ -2091,7 +2091,7 @@ function setAuthMethodsFeedback(message, type = 'info') {
 
 const OTP_CODE_PATTERN = /^[0-9]{6}$/;
 const NIGERIA_COUNTRY_CODE = '+234';
-const WHATSAPP_SEND_COOLDOWN_SECONDS = 30;
+const WHATSAPP_SEND_COOLDOWN_SECONDS = 600;
 const COOLDOWN_TIMER_PROP = '__cooldownTimerId';
 
 function normalizeNigeriaPhone(value) {
@@ -2121,6 +2121,13 @@ function isPlausibleE164(phone) {
 function isCooldownActive(button) {
   const until = Number(button?.dataset?.cooldownUntil || 0);
   return Number.isFinite(until) && until > Date.now();
+}
+
+function formatCooldownLabel(seconds) {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
 }
 
 function getButtonLabelEl(button) {
@@ -2177,7 +2184,7 @@ function startCooldown(button, seconds, { doneText, prefixText } = {}) {
     }
     button.disabled = true;
     button.classList.add('opacity-60');
-    setButtonLabel(button, `${prefix} ${remaining}s`);
+    setButtonLabel(button, `${prefix} ${formatCooldownLabel(remaining)}`);
     return true;
   };
 
