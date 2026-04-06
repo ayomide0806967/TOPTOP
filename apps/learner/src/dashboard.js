@@ -2309,7 +2309,10 @@ async function handleWhatsAppLinkSend() {
     startWhatsAppLinkCooldown();
 
     showWhatsAppVerifyRow();
-    setWhatsAppLinkFeedback('Code sent to WhatsApp. Enter it below.', 'info');
+    setWhatsAppLinkFeedback(
+      'Code sent to WhatsApp. Enter it below. The code expires after 10 minutes.',
+      'info'
+    );
     elements.whatsappLinkCodeInput?.focus();
   } catch (error) {
     console.error('[Dashboard] WhatsApp link send failed', error);

@@ -978,7 +978,10 @@ async function handleWhatsAppRequest(event, supabase, { mode }) {
 
     startWhatsAppOtpCooldown();
 
-    showFeedback('We sent a 6-digit code to your WhatsApp.', 'info');
+    showFeedback(
+      'We sent a 6-digit code to your WhatsApp. The code expires after 10 minutes.',
+      'info'
+    );
     showOtpVerification();
   } catch (error) {
     console.error('[Auth] WhatsApp OTP send failed', error);
@@ -1089,7 +1092,10 @@ async function handleWhatsAppResend(supabase, { mode }) {
 
     startWhatsAppOtpCooldown();
 
-    showFeedback('A new code has been sent to WhatsApp.', 'info');
+    showFeedback(
+      'A new code has been sent to WhatsApp. The code expires after 10 minutes.',
+      'info'
+    );
   } catch (error) {
     console.error('[Auth] WhatsApp OTP resend failed', error);
     showFeedback(
