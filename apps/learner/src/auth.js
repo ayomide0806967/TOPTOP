@@ -74,9 +74,53 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NIGERIA_COUNTRY_CODE = '+234';
 const WHATSAPP_SEND_COOLDOWN_SECONDS = 600;
 const COOLDOWN_TIMER_PROP = '__cooldownTimerId';
+const WHATSAPP_OTP_STATE_KEY = 'an.auth.whatsapp_otp_state';
 
 let pendingWhatsAppPhone = '';
 let blockAutoRedirect = false;
+
+function readWhatsAppOtpState() {
+  try {
+    const raw = window.localStorage.getItem(WHATSAPP_OTP_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (error) {
+    console.warn('[Auth] Unable to read WhatsApp OTP state', error);
+    return null;
+  }
+}
+
+function clearWhatsAppOtpState() {
+  pendingWhatsAppPhone = '';
+  try {
+    window.localStorage.removeItem(WHATSAPP_OTP_STATE_KEY);
+  } catch (error) {
+    console.warn('[Auth] Unable to clear WhatsApp OTP state', error);
+  }
+}
+
+function persistWhatsAppOtpState(phone, { mode, cooldownSeconds } = {}) {
+  if (!phone || !isPlausibleE164(phone)) return;
+
+  const now = Date.now();
+  const nextState = {
+    phone,
+    mode: mode === 'signup' ? 'signup' : 'login',
+    cooldownUntil:
+      now + (cooldownSeconds || WHATSAPP_SEND_COOLDOWN_SECONDS) * 1000,
+    requestedAt: now,
+  };
+
+  try {
+    window.localStorage.setItem(
+      WHATSAPP_OTP_STATE_KEY,
+      JSON.stringify(nextState)
+    );
+  } catch (error) {
+    console.warn('[Auth] Unable to persist WhatsApp OTP state', error);
+  }
+}
 
 // ============================================================================
 // UI FEEDBACK FUNCTIONS
@@ -445,7 +489,11 @@ function formatCooldownLabel(seconds) {
   return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
 }
 
-function startCooldown(button, seconds, { doneText, prefixText } = {}) {
+function startCooldown(
+  button,
+  seconds,
+  { doneText, prefixText, onComplete } = {}
+) {
   if (!button) return;
 
   if (button[COOLDOWN_TIMER_PROP]) {
@@ -478,6 +526,9 @@ function startCooldown(button, seconds, { doneText, prefixText } = {}) {
       button.disabled = false;
       button.classList.remove('opacity-60');
       setButtonLabel(button, original);
+      if (typeof onComplete === 'function') {
+        onComplete();
+      }
       return false;
     }
     button.disabled = true;
@@ -503,11 +554,42 @@ function startWhatsAppOtpCooldown(seconds = WHATSAPP_SEND_COOLDOWN_SECONDS) {
   startCooldown(whatsappSendBtn, seconds, {
     doneText: 'Send code',
     prefixText: 'Send again in',
+    onComplete: clearWhatsAppOtpState,
   });
   startCooldown(whatsappResendBtn, seconds, {
     doneText: 'Resend code',
     prefixText: 'Resend in',
+    onComplete: clearWhatsAppOtpState,
   });
+}
+
+function restorePersistedWhatsAppOtpState({ authMode } = {}) {
+  const state = readWhatsAppOtpState();
+  if (!state) return false;
+
+  const phone = normalizeNigeriaPhone(state.phone);
+  const cooldownUntil = Number(state.cooldownUntil || 0);
+  if (!phone || !isPlausibleE164(phone) || cooldownUntil <= Date.now()) {
+    clearWhatsAppOtpState();
+    hideOtpVerification();
+    return false;
+  }
+
+  pendingWhatsAppPhone = phone;
+  if (whatsappPhoneInput) {
+    whatsappPhoneInput.value = phone;
+  }
+
+  setAuthSurface('whatsapp', { authMode: authMode || state.mode || 'login' });
+  showOtpVerification();
+  startWhatsAppOtpCooldown(
+    Math.max(1, Math.ceil((cooldownUntil - Date.now()) / 1000))
+  );
+  showFeedback(
+    'Your previous WhatsApp code is still active. Enter it below before it expires.',
+    'info'
+  );
+  return true;
 }
 
 async function ensureLearnerProfile(supabase, user) {
@@ -929,6 +1011,14 @@ function showOtpVerification() {
   whatsappCodeInput?.focus();
 }
 
+function hideOtpVerification() {
+  whatsappVerifyForm?.classList.add('hidden');
+  whatsappResendBtn?.classList.add('hidden');
+  if (whatsappCodeInput) {
+    whatsappCodeInput.value = '';
+  }
+}
+
 function normalizeOtpCode(value) {
   return String(value || '')
     .replace(/\D/g, '')
@@ -986,6 +1076,7 @@ async function handleWhatsAppRequest(event, supabase, { mode }) {
 
     if (error) throw error;
 
+    persistWhatsAppOtpState(phone, { mode });
     startWhatsAppOtpCooldown();
 
     showFeedback(
@@ -1038,6 +1129,7 @@ async function handleWhatsAppVerify(event, supabase, { mode }) {
 
     if (error) throw error;
 
+    clearWhatsAppOtpState();
     await ensureLearnerProfile(supabase, data?.user || null);
 
     // Store verified phone on profile (Supabase Auth phone may not be set for all users).
@@ -1069,6 +1161,13 @@ async function handleWhatsAppVerify(event, supabase, { mode }) {
     }, 350);
   } catch (error) {
     console.error('[Auth] WhatsApp OTP verification failed', error);
+    if (
+      String(error?.message || '')
+        .toLowerCase()
+        .includes('expired')
+    ) {
+      clearWhatsAppOtpState();
+    }
     showFeedback(
       error?.message ||
         'Unable to verify the code. Please request a new code and try again.'
@@ -1100,6 +1199,7 @@ async function handleWhatsAppResend(supabase, { mode }) {
     });
     if (error) throw error;
 
+    persistWhatsAppOtpState(phone, { mode });
     startWhatsAppOtpCooldown();
 
     showFeedback(
@@ -1499,6 +1599,8 @@ async function init() {
 
     authBackBtn?.addEventListener('click', () => {
       clearFeedback();
+      clearWhatsAppOtpState();
+      hideOtpVerification();
       setAuthSurface('chooser', { authMode });
     });
 
@@ -1523,6 +1625,17 @@ async function init() {
     if (whatsappCodeInput) {
       whatsappCodeInput.addEventListener('input', () => {
         whatsappCodeInput.value = normalizeOtpCode(whatsappCodeInput.value);
+      });
+    }
+
+    if (whatsappPhoneInput) {
+      whatsappPhoneInput.addEventListener('input', () => {
+        const currentPhone = normalizeNigeriaPhone(whatsappPhoneInput.value);
+        if (!pendingWhatsAppPhone || currentPhone === pendingWhatsAppPhone) {
+          return;
+        }
+        clearWhatsAppOtpState();
+        hideOtpVerification();
       });
     }
 
@@ -1554,7 +1667,11 @@ async function init() {
       });
     }
 
-    if (initialSurface === 'whatsapp') {
+    const restoredWhatsAppState = restorePersistedWhatsAppOtpState({
+      authMode,
+    });
+
+    if (!restoredWhatsAppState && initialSurface === 'whatsapp') {
       try {
         whatsappPhoneInput?.focus();
         whatsappPhoneInput?.scrollIntoView?.({
