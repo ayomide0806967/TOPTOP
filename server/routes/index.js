@@ -14,6 +14,7 @@ export function createApiRoutes() {
   const api = new Hono();
 
   api.route('/', healthRoutes);
+  api.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw));
   api.route('/', adminRoutes);
   api.route('/', catalogRoutes);
   api.route('/', dashboardRoutes);
@@ -22,7 +23,6 @@ export function createApiRoutes() {
   api.route('/', quizRoutes);
   api.route('/', registrationRoutes);
   api.route('/', usersRoutes);
-  api.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw));
   api.use('/*', async (c) =>
     c.json({ error: { code: 'NOT_FOUND', message: 'Not found.' } }, 404)
   );
