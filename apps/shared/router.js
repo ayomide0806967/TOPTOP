@@ -51,18 +51,6 @@ export class Router {
       meta: { public: true },
     });
 
-    this.defineRoute('/forgot-password', 'ForgotPasswordPage', {
-      title: 'Forgot Password',
-      requiresAuth: false,
-      meta: { public: true },
-    });
-
-    this.defineRoute('/reset-password', 'ResetPasswordPage', {
-      title: 'Reset Password',
-      requiresAuth: false,
-      meta: { public: true },
-    });
-
     this.defineRoute('/pricing', 'PricingPage', {
       title: 'Pricing',
       requiresAuth: false,
@@ -419,8 +407,6 @@ export class Router {
         LoginPage: () => import('../learner/login.html'),
         RegisterPage: () =>
           import('../learner/registration-before-payment.html'),
-        ForgotPasswordPage: () => import('../learner/forgot-password.html'),
-        ResetPasswordPage: () => import('../learner/reset-password.html'),
         PricingPage: () => import('../learner/subscription-plans.html'),
 
         // Super Admin components

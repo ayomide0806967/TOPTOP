@@ -78,15 +78,6 @@ const actions = {
   clearDepartmentSelection() {
     appState.clearDepartmentSelection();
   },
-  openExtraQuestions() {
-    appState.setView('extraquestions', { extraQuestionSetId: null });
-  },
-  selectExtraQuestionSet(setId) {
-    appState.setView('extraquestions', { extraQuestionSetId: setId });
-  },
-  clearExtraQuestionSelection() {
-    appState.setView('extraquestions', { extraQuestionSetId: null });
-  },
   refresh() {
     render();
   },
@@ -98,16 +89,8 @@ function breadcrumbForView(view) {
       return 'Dashboard';
     case 'departments':
       return 'Departments';
-    case 'slots':
-      return 'Study Cycles';
     case 'subscriptions':
       return 'Subscriptions';
-    case 'freequizzes':
-      return 'Free Quiz';
-    case 'examinationhall':
-      return 'Examination Hall';
-    case 'extraquestions':
-      return 'Extra Questions';
     case 'users':
       return 'Users';
     default:
@@ -256,7 +239,7 @@ function showLoginForm() {
   }
   if (authMetaEl) {
     authMetaEl.textContent =
-      'Admin access is controlled via Supabase Auth and the profiles table.';
+      'Admin access is controlled via Better Auth and the profiles table.';
   }
 }
 
@@ -271,7 +254,7 @@ function showUnauthorised(state) {
   if (authMetaEl) {
     const email = state?.user?.email || 'Unknown account';
     const role = state?.profile?.role || 'unknown';
-    authMetaEl.textContent = `Signed in as ${email} (role: ${role}). Update the profile role to "admin" in Supabase to continue.`;
+    authMetaEl.textContent = `Signed in as ${email} (role: ${role}). Set this profile role to "admin" to continue.`;
   }
   const role = state?.profile?.role || 'unknown';
   showAuthError(`Admin role required. Current role is "${role}".`);
@@ -283,7 +266,7 @@ function showAuthErrorState(error) {
     authFormEl.classList.add('hidden');
   }
   if (authMessageEl) {
-    authMessageEl.textContent = 'Unable to connect to Supabase.';
+    authMessageEl.textContent = 'Unable to connect to the admin API.';
   }
   if (authMetaEl) {
     authMetaEl.textContent = 'Check your configuration, reload, and try again.';
@@ -312,7 +295,7 @@ function updateAuthUI(state) {
       showAuthOverlay();
       if (authFormEl) authFormEl.classList.add('hidden');
       if (authMessageEl)
-        authMessageEl.textContent = 'Connecting to Supabase...';
+        authMessageEl.textContent = 'Connecting to admin API...';
       if (authMetaEl) authMetaEl.textContent = '';
       clearAuthError();
       break;

@@ -60,7 +60,6 @@ self.addEventListener('activate', (event) => {
 });
 
 const JSDELIVR_HOST = 'cdn.jsdelivr.net';
-const SUPABASE_HOST_FRAGMENT = 'supabase.co';
 
 function staleWhileRevalidate(request) {
   return caches.match(request).then((cached) => {
@@ -92,19 +91,6 @@ function cacheFirst(request) {
       })
       .catch(() => cached);
   });
-}
-
-function networkFirst(request) {
-  return fetch(request)
-    .then((response) => {
-      const clone = response.clone();
-      caches
-        .open(RUNTIME_CACHE)
-        .then((cache) => cache.put(request, clone))
-        .catch(() => {});
-      return response;
-    })
-    .catch(() => caches.match(request));
 }
 
 self.addEventListener('fetch', (event) => {
@@ -164,11 +150,6 @@ self.addEventListener('fetch', (event) => {
 
   if (url.hostname.includes(JSDELIVR_HOST)) {
     event.respondWith(staleWhileRevalidate(request));
-    return;
-  }
-
-  if (url.hostname.includes(SUPABASE_HOST_FRAGMENT)) {
-    event.respondWith(networkFirst(request));
     return;
   }
 

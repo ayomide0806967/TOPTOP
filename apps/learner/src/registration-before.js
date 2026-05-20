@@ -1,5 +1,5 @@
-import { getSupabaseClient } from '../../shared/supabaseClient.js';
 import { clearSessionFingerprint } from '../../shared/sessionFingerprint.js';
+import { apiFetch } from '../../shared/apiClient.js';
 
 const STORAGE_PLAN = 'registrationPlan';
 const STORAGE_CONTACT = 'registrationContact';
@@ -74,7 +74,6 @@ const existingAccountLink = document.querySelector(
 );
 const fastAuthLink = document.querySelector('[data-role="auth-fast-link"]');
 
-let supabasePromise = null;
 let activeReference = null;
 let lastReference = null;
 let lastEmailAvailability = { value: '', result: null };
@@ -268,43 +267,6 @@ function notifyUsernameGeneration() {
   }
 }
 
-function ensureSupabaseClient() {
-  if (!supabasePromise) {
-    supabasePromise = getSupabaseClient();
-  }
-  return supabasePromise;
-}
-
-async function extractEdgeFunctionError(error, fallbackMessage) {
-  if (error?.context instanceof Response) {
-    try {
-      const cloned = error.context.clone();
-      const contentType = cloned.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        const json = await cloned.json();
-        if (json?.error) return json.error;
-        if (json?.message) return json.message;
-      }
-      const text = await cloned.text();
-      if (text) return text;
-    } catch (parseError) {
-      console.warn(
-        '[Registration] Failed to parse edge error response',
-        parseError
-      );
-    }
-  }
-
-  if (
-    error?.message &&
-    error.message !== 'Edge Function returned a non-2xx status code'
-  ) {
-    return error.message;
-  }
-
-  return fallbackMessage;
-}
-
 function formatCurrency(value, currency = 'NGN') {
   const formatter = new Intl.NumberFormat('en-NG', {
     style: 'currency',
@@ -403,60 +365,9 @@ function readStoredPlan(planId) {
   return null;
 }
 
-async function fetchPlanFromSupabase(planId) {
+async function fetchPlanFromApi(planId) {
   try {
-    const supabase = await ensureSupabaseClient();
-    const { data, error } = await supabase
-      .from('subscription_plans')
-      .select(
-        `
-          id,
-          code,
-          name,
-          price,
-          currency,
-          metadata,
-          duration_days,
-          quiz_duration_minutes,
-          daily_question_limit,
-          subscription_products:subscription_products!subscription_plans_product_id_fkey (
-            id,
-            code,
-            name,
-            department_id,
-            department:departments(id, name, slug),
-            color_theme
-          )
-        `
-      )
-      .eq('id', planId)
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) return null;
-    const product = data.subscription_products
-      ? {
-          id: data.subscription_products.id,
-          code: data.subscription_products.code,
-          name: data.subscription_products.name,
-          department_id: data.subscription_products.department_id,
-          department_name: data.subscription_products.department?.name || null,
-          department_slug: data.subscription_products.department?.slug || null,
-          color_theme: data.subscription_products.color_theme || null,
-        }
-      : null;
-    return {
-      id: data.id,
-      planId: data.id,
-      plan_code: data.code,
-      name: data.name,
-      price: data.price,
-      currency: data.currency,
-      metadata: data.metadata || {},
-      duration_days: data.duration_days,
-      quiz_duration_minutes: data.quiz_duration_minutes,
-      daily_question_limit: data.daily_question_limit,
-      product,
-    };
+    return await apiFetch(`/api/catalog/plans/${encodeURIComponent(planId)}`);
   } catch (error) {
     console.error('[Registration] Failed to fetch plan', error);
     throw new Error(
@@ -516,16 +427,17 @@ function buildUsernameCandidates(firstName, lastName, email) {
 }
 
 async function checkUsernameAvailability(username, allowedProfileId = null) {
-  const supabase = await ensureSupabaseClient();
   const normalized = username.toLowerCase();
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('username', normalized)
-    .maybeSingle();
-
-  if (error && error.code !== 'PGRST116') {
+  try {
+    const url = new URL('/api/users/availability', window.location.origin);
+    url.searchParams.set('username', normalized);
+    if (allowedProfileId) {
+      url.searchParams.set('allowedProfileId', allowedProfileId);
+    }
+    const result = await apiFetch(url.pathname + url.search);
+    return result.username || { available: true };
+  } catch (error) {
     console.error('[Registration] Username lookup failed', error);
     return {
       available: false,
@@ -533,16 +445,6 @@ async function checkUsernameAvailability(username, allowedProfileId = null) {
         'Unable to verify username availability. Check your connection and try again.',
     };
   }
-
-  if (!data) {
-    return { available: true };
-  }
-
-  if (allowedProfileId && data.id === allowedProfileId) {
-    return { available: true, reused: true };
-  }
-
-  return { available: false };
 }
 
 async function ensureUniqueUsername(firstName, lastName, email) {
@@ -779,27 +681,16 @@ function maybeFocusAccount() {
 
 async function checkEmailAvailability(email) {
   try {
-    const supabase = await ensureSupabaseClient();
+    const url = new URL('/api/users/availability', window.location.origin);
+    url.searchParams.set('email', email.toLowerCase());
+    const data = await apiFetch(url.pathname + url.search);
+    const result = data.email || { available: true };
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, username, subscription_status')
-      .eq('email', email.toLowerCase())
-      .maybeSingle();
-
-    if (error && error.code !== 'PGRST116') {
-      console.error('[Registration] Error checking email:', error);
-      return {
-        available: false,
-        error: 'Unable to verify email. Please try again.',
-      };
-    }
-
-    if (!data) {
+    if (result.available && !result.reused && !result.profileId) {
       return { available: true };
     }
 
-    if (['active', 'trialing'].includes(data.subscription_status || '')) {
+    if (['active', 'trialing'].includes(result.subscriptionStatus || '')) {
       return {
         available: false,
         status: 'active',
@@ -813,8 +704,8 @@ async function checkEmailAvailability(email) {
       status: 'pending',
       message:
         'Welcome back! We found your previous registration – continue below to finalise it.',
-      profileId: data.id,
-      username: data.username,
+      profileId: result.profileId,
+      username: result.username,
     };
   } catch (error) {
     console.error('[Registration] Email check failed:', error);
@@ -980,27 +871,16 @@ async function validateEmailField({ forceCheck = false } = {}) {
 
 async function checkPhoneAvailability(phone) {
   try {
-    const supabase = await ensureSupabaseClient();
+    const url = new URL('/api/users/availability', window.location.origin);
+    url.searchParams.set('phone', phone);
+    const data = await apiFetch(url.pathname + url.search);
+    const result = data.phone || { available: true };
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, subscription_status')
-      .eq('phone', phone)
-      .maybeSingle();
-
-    if (error && error.code !== 'PGRST116') {
-      console.error('[Registration] Error checking phone:', error);
-      return {
-        available: false,
-        error: 'Unable to verify phone number. Please try again.',
-      };
-    }
-
-    if (!data) {
+    if (result.available) {
       return { available: true };
     }
 
-    if (['active', 'trialing'].includes(data.subscription_status || '')) {
+    if (['active', 'trialing'].includes(result.subscriptionStatus || '')) {
       return {
         available: false,
         error:
@@ -1183,26 +1063,10 @@ function validatePasswords() {
 }
 
 async function createPendingUser(payload) {
-  const supabase = await ensureSupabaseClient();
-
-  const { data, error } = await supabase.functions.invoke(
-    'create-pending-user',
-    {
-      body: payload,
-    }
-  );
-
-  if (error) {
-    const userMessage = await extractEdgeFunctionError(
-      error,
-      'We could not create your profile. Please try again.'
-    );
-    throw new Error(userMessage);
-  }
-
-  if (data?.error) {
-    throw new Error(data.error);
-  }
+  const data = await apiFetch('/api/registration/pending', {
+    method: 'POST',
+    body: payload,
+  });
 
   if (!data?.userId) {
     throw new Error('Failed to get a user ID from the server.');
@@ -1242,18 +1106,11 @@ async function pollSubscriptionStatus(userId, options = {}) {
   if (!userId) return null;
   const { attempts = 6, interval = 4000 } = options;
 
-  const supabase = await ensureSupabaseClient();
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('subscription_status')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (error) {
-        console.warn('[Registration] Subscription status check failed', error);
-      }
+      const data = await apiFetch(
+        `/api/registration/status?userId=${encodeURIComponent(userId)}`
+      );
 
       const status = data?.subscription_status;
       if (isActiveSubscription(status)) {
@@ -1275,24 +1132,26 @@ async function pollSubscriptionStatus(userId, options = {}) {
 }
 
 async function verifyPayment(reference) {
-  const supabase = await ensureSupabaseClient();
-  const { error } = await supabase.functions.invoke('paystack-verify', {
+  await apiFetch('/api/payments/paystack/verify', {
+    method: 'POST',
     body: { reference },
   });
-
-  if (error) {
-    const message = await extractEdgeFunctionError(
-      error,
-      'Payment verification failed. Please contact support with your reference.'
-    );
-    throw new Error(message);
-  }
 }
 
 async function signInWithCredentials(email, password) {
-  const supabase = await ensureSupabaseClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  return { success: !error, error };
+  try {
+    await apiFetch('/api/auth/sign-in/email', {
+      method: 'POST',
+      body: {
+        email,
+        password,
+        rememberMe: true,
+      },
+    });
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error };
+  }
 }
 
 function showSuccessState(options) {
@@ -1470,19 +1329,16 @@ async function processPaymentVerification(reference, contact, options = {}) {
     );
     // Try a final server-side reconciliation as a last resort
     try {
-      const supabase = await ensureSupabaseClient();
-      await supabase.functions.invoke('reconcile-payments', {
+      await apiFetch('/api/jobs/reconcile-payments', {
+        method: 'POST',
         body: { userId: contact?.userId || pendingUserId },
       });
-      await supabase.rpc('refresh_profile_subscription_status', {
-        p_user_id: contact?.userId || pendingUserId,
-      });
-      const recheck = await supabase
-        .from('profiles')
-        .select('subscription_status')
-        .eq('id', contact?.userId || pendingUserId)
-        .maybeSingle();
-      const reStatus = (recheck?.data?.subscription_status || '').toLowerCase();
+      const recheck = await apiFetch(
+        `/api/registration/status?userId=${encodeURIComponent(
+          contact?.userId || pendingUserId
+        )}`
+      );
+      const reStatus = (recheck?.subscription_status || '').toLowerCase();
       if (reStatus === 'active' || reStatus === 'trialing') {
         await transitionToActiveState(contact);
         return;
@@ -1523,57 +1379,10 @@ async function processPaymentVerification(reference, contact, options = {}) {
 async function resetTodaysQuiz(userId) {
   if (!userId) return;
   try {
-    const supabase = await ensureSupabaseClient();
-    const today = new Date().toISOString().slice(0, 10);
-
-    const { data: quizzes, error: quizError } = await supabase
-      .from('daily_quizzes')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('assigned_date', today);
-
-    if (quizError) {
-      console.warn(
-        '[Registration] Failed to fetch existing daily quizzes',
-        quizError
-      );
-      return;
-    }
-
-    if (Array.isArray(quizzes) && quizzes.length > 0) {
-      const ids = quizzes.map((quiz) => quiz.id);
-      const { error: deleteQuestionsError } = await supabase
-        .from('daily_quiz_questions')
-        .delete()
-        .in('daily_quiz_id', ids);
-      if (deleteQuestionsError) {
-        console.warn(
-          '[Registration] Failed to clear quiz questions',
-          deleteQuestionsError
-        );
-      }
-
-      const { error: deleteQuizError } = await supabase
-        .from('daily_quizzes')
-        .delete()
-        .in('id', ids);
-      if (deleteQuizError) {
-        console.warn(
-          '[Registration] Failed to remove existing daily quiz',
-          deleteQuizError
-        );
-      }
-    }
-
-    const { error: regenerateError } = await supabase.rpc(
-      'generate_daily_quiz'
-    );
-    if (regenerateError) {
-      console.warn(
-        '[Registration] Failed to regenerate daily quiz',
-        regenerateError
-      );
-    }
+    await apiFetch('/api/quiz/daily/reset', {
+      method: 'POST',
+      body: { userId },
+    });
   } catch (error) {
     console.warn(
       '[Registration] Unexpected error while resetting daily quiz',
@@ -1697,14 +1506,13 @@ async function handleFormSubmit(event) {
 
     showFeedback('Signing you in…', 'info');
 
-    const supabase = await ensureSupabaseClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: registrationPayload.email,
-      password: storedPassword,
-    });
+    const signInResult = await signInWithCredentials(
+      registrationPayload.email,
+      storedPassword
+    );
 
-    if (signInError) {
-      console.error('[Registration] Auto sign-in failed', signInError);
+    if (!signInResult.success) {
+      console.error('[Registration] Auto sign-in failed', signInResult.error);
       throw new Error(
         'Your profile was created, but we could not sign you in automatically. Please use the login form with the password you just set.'
       );
@@ -1742,46 +1550,26 @@ async function initialise() {
   const initialPlanId = params.get('planId') || params.get('plan');
 
   try {
-    const supabase = await ensureSupabaseClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (session?.user) {
-      state.session = session;
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('subscription_status')
-          .eq('id', session.user.id)
-          .maybeSingle();
-
-        const status = (profile?.subscription_status || '').toLowerCase();
-        if (['pending_payment', 'awaiting_setup'].includes(status)) {
-          const redirectParams = new URLSearchParams();
-          const pendingPlanId =
-            initialPlanId || window.localStorage.getItem('pendingPlanId');
-          if (pendingPlanId) {
-            redirectParams.set('planId', pendingPlanId);
-          }
-          const target = redirectParams.toString()
-            ? `resume-registration.html?${redirectParams.toString()}`
-            : 'resume-registration.html';
-          window.location.replace(target);
-          return;
+    const current = await apiFetch('/api/me');
+    if (current?.user) {
+      state.session = { user: current.user };
+      const status = (current.profile?.subscription_status || '').toLowerCase();
+      if (['pending_payment', 'awaiting_setup'].includes(status)) {
+        const redirectParams = new URLSearchParams();
+        const pendingPlanId =
+          initialPlanId || window.localStorage.getItem('pendingPlanId');
+        if (pendingPlanId) {
+          redirectParams.set('planId', pendingPlanId);
         }
-      } catch (profileError) {
-        console.warn(
-          '[Registration] Unable to resolve profile status for session user',
-          profileError
-        );
+        const target = redirectParams.toString()
+          ? `resume-registration.html?${redirectParams.toString()}`
+          : 'resume-registration.html';
+        window.location.replace(target);
+        return;
       }
-    } else {
-      await supabase.auth.signOut();
-      clearSessionFingerprint();
     }
-  } catch (error) {
-    console.warn('[Registration] Failed to clear existing session', error);
+  } catch {
+    clearSessionFingerprint();
   }
 
   window.localStorage.removeItem('pendingPlanId');
@@ -1792,7 +1580,7 @@ async function initialise() {
 
   let plan = readStoredPlan(planId);
   if (!plan && planId) {
-    plan = await fetchPlanFromSupabase(planId);
+    plan = await fetchPlanFromApi(planId);
   }
 
   if (!plan) {

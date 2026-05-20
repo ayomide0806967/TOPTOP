@@ -1,7 +1,4 @@
-import { getSupabaseClient } from '../../shared/supabaseClient.js';
-import { installWhatsAppLogoFallbacks } from '../../shared/whatsappLogoFallback.js';
-
-installWhatsAppLogoFallbacks();
+import { apiFetch } from '../../shared/apiClient.js';
 
 const grid = document.querySelector('[data-role="pricing-grid"]');
 const errorEl = document.querySelector('[data-role="pricing-error"]');
@@ -26,11 +23,11 @@ const authChoicePanel = document.querySelector(
 const authChoiceCloseBtn = document.querySelector(
   '[data-role="auth-choice-close"]'
 );
-const authChoiceGoogleBtn = document.querySelector(
-  '[data-role="auth-choice-google"]'
+const authChoiceLoginBtn = document.querySelector(
+  '[data-role="auth-choice-login"]'
 );
-const authChoiceWhatsAppBtn = document.querySelector(
-  '[data-role="auth-choice-whatsapp"]'
+const authChoiceRegisterBtn = document.querySelector(
+  '[data-role="auth-choice-register"]'
 );
 const authLoadingOverlay = document.querySelector(
   '[data-role="auth-loading-overlay"]'
@@ -222,15 +219,15 @@ function buildLoginRedirectUrl(planId, { auth, mode } = {}) {
 
 function setAuthChoiceBusy(isBusy) {
   authChoiceBusy = isBusy;
-  if (authChoiceGoogleBtn) {
-    authChoiceGoogleBtn.disabled = isBusy;
-    authChoiceGoogleBtn.classList.toggle('opacity-60', isBusy);
-    authChoiceGoogleBtn.classList.toggle('cursor-wait', isBusy);
+  if (authChoiceLoginBtn) {
+    authChoiceLoginBtn.disabled = isBusy;
+    authChoiceLoginBtn.classList.toggle('opacity-60', isBusy);
+    authChoiceLoginBtn.classList.toggle('cursor-wait', isBusy);
   }
-  if (authChoiceWhatsAppBtn) {
-    authChoiceWhatsAppBtn.disabled = isBusy;
-    authChoiceWhatsAppBtn.classList.toggle('opacity-60', isBusy);
-    authChoiceWhatsAppBtn.classList.toggle('cursor-wait', isBusy);
+  if (authChoiceRegisterBtn) {
+    authChoiceRegisterBtn.disabled = isBusy;
+    authChoiceRegisterBtn.classList.toggle('opacity-60', isBusy);
+    authChoiceRegisterBtn.classList.toggle('cursor-wait', isBusy);
   }
   if (authChoiceCloseBtn) {
     authChoiceCloseBtn.disabled = isBusy;
@@ -244,13 +241,6 @@ function showAuthLoadingOverlay() {
   authLoadingOverlay.classList.remove('hidden');
   authLoadingOverlay.classList.add('flex');
   authLoadingOverlay.setAttribute('aria-hidden', 'false');
-}
-
-function hideAuthLoadingOverlay() {
-  if (!authLoadingOverlay) return;
-  authLoadingOverlay.classList.add('hidden');
-  authLoadingOverlay.classList.remove('flex');
-  authLoadingOverlay.setAttribute('aria-hidden', 'true');
 }
 
 function showCheckoutActivationOverlay() {
@@ -267,39 +257,14 @@ function hideCheckoutActivationOverlay() {
   checkoutActivationOverlay.setAttribute('aria-hidden', 'true');
 }
 
-async function startGoogleOAuth(planId) {
-  // Persist plan info so we can resume checkout after returning from Google.
+function startLogin(planId) {
   persistRegistrationPlan(planId);
   window.localStorage.setItem('pendingPlanId', planId);
 
   setAuthChoiceBusy(true);
   showAuthLoadingOverlay();
 
-  try {
-    const supabase = await getSupabaseClient();
-    const redirectTo = new URL('subscription-plans.html', window.location.href);
-
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectTo.toString(),
-      },
-    });
-
-    if (error) throw error;
-
-    // Some clients return a URL instead of redirecting automatically.
-    if (data?.url) {
-      window.location.assign(data.url);
-    }
-  } catch (error) {
-    console.error('[Pricing] Google sign-in failed', error);
-    hideAuthLoadingOverlay();
-    // Fallback: route to login page (which can still start Google).
-    window.location.href = buildLoginRedirectUrl(planId, { auth: 'google' });
-  } finally {
-    setAuthChoiceBusy(false);
-  }
+  window.location.href = buildLoginRedirectUrl(planId, { mode: 'login' });
 }
 
 function openAuthChoiceModal(planId) {
@@ -312,16 +277,13 @@ function openAuthChoiceModal(planId) {
     return;
   }
 
-  // Warm up Supabase JS so the Google redirect is faster.
-  getSupabaseClient().catch(() => {});
-
   pendingAuthChoicePlanId = planId;
   authChoiceModal.classList.remove('hidden');
   authChoiceModal.classList.add('flex');
   authChoiceModal.setAttribute('aria-hidden', 'false');
 
   window.setTimeout(() => {
-    (authChoiceGoogleBtn || authChoiceWhatsAppBtn)?.focus?.();
+    (authChoiceRegisterBtn || authChoiceLoginBtn)?.focus?.();
   }, 50);
 }
 
@@ -338,25 +300,22 @@ function bindAuthChoiceModalHandlers() {
 
   authChoiceCloseBtn?.addEventListener('click', closeAuthChoiceModal);
 
-  authChoiceWhatsAppBtn?.addEventListener('click', () => {
+  authChoiceRegisterBtn?.addEventListener('click', () => {
     if (authChoiceBusy) return;
     const planId = pendingAuthChoicePlanId;
     closeAuthChoiceModal();
     if (!planId) return;
     persistRegistrationPlan(planId);
     window.localStorage.setItem('pendingPlanId', planId);
-    window.location.href = buildLoginRedirectUrl(planId, {
-      auth: 'whatsapp',
-      mode: 'signup',
-    });
+    redirectToRegistration(planId);
   });
 
-  authChoiceGoogleBtn?.addEventListener('click', () => {
+  authChoiceLoginBtn?.addEventListener('click', () => {
     if (authChoiceBusy) return;
     const planId = pendingAuthChoicePlanId;
     closeAuthChoiceModal();
     if (!planId) return;
-    startGoogleOAuth(planId);
+    startLogin(planId);
   });
 
   authChoiceModal.addEventListener('click', (event) => {
@@ -692,42 +651,6 @@ function deriveDepartmentDisplayName(product) {
   return product.department_id;
 }
 
-async function hydrateDepartmentMetadata(supabase, products) {
-  const departmentIds = Array.from(
-    new Set(products.map((product) => product.department_id).filter(Boolean))
-  );
-  if (!departmentIds.length) return;
-
-  const needsHydration = products.some(
-    (product) =>
-      product.department_id &&
-      !product.department_name &&
-      !product.department_slug
-  );
-  if (!needsHydration) return;
-
-  try {
-    const { data, error } = await supabase
-      .from('departments')
-      .select('id,name,slug,color_theme')
-      .in('id', departmentIds);
-    if (error || !Array.isArray(data) || !data.length) return;
-    const lookup = new Map(data.map((row) => [row.id, row]));
-    products.forEach((product) => {
-      const dept = lookup.get(product.department_id);
-      if (!dept) return;
-      if (!product.department_name && dept.name)
-        product.department_name = dept.name;
-      if (!product.department_slug && dept.slug)
-        product.department_slug = dept.slug;
-      if (!product.color_theme && dept.color_theme)
-        product.color_theme = dept.color_theme;
-    });
-  } catch (error) {
-    console.warn('[Pricing] Unable to hydrate departments', error);
-  }
-}
-
 function deriveDepartments(products) {
   const lookup = new Map();
   products.forEach((product) => {
@@ -924,34 +847,17 @@ function renderProducts(products, heading) {
 
 async function ensureAuthSession() {
   try {
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase.auth.getSession();
-    if (!error) {
-      state.session = data.session;
-      state.user = data.session?.user ?? null;
-      if (state.user) {
-        await ensureProfile();
-      } else {
-        state.profile = null;
-        state.profileLoaded = false;
-      }
-    }
-    if (!state.authListenerBound) {
-      supabase.auth.onAuthStateChange((_event, session) => {
-        state.session = session;
-        state.user = session?.user ?? null;
-        state.profile = null;
-        state.profileLoaded = false;
-        if (state.user) {
-          ensureProfile().catch((profileError) => {
-            console.warn(
-              '[Pricing] Failed to refresh profile after auth change',
-              profileError
-            );
-          });
-        }
-      });
-      state.authListenerBound = true;
+    const data = await apiFetch('/api/me').catch((error) => {
+      if (error?.status === 401) return null;
+      throw error;
+    });
+    state.session = data?.user ? { user: data.user } : null;
+    state.user = data?.user || null;
+    state.profile = data?.profile || null;
+    state.profileLoaded = Boolean(data?.profile) || !state.user;
+
+    if (state.user && !state.profileLoaded) {
+      await ensureProfile();
     }
   } catch (error) {
     console.error('[Pricing] Unable to resolve auth session', error);
@@ -969,75 +875,10 @@ async function ensureProfile() {
   }
   state.profileLoading = true;
   try {
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase
-      .from('profiles')
-      .select(
-        'id, full_name, first_name, last_name, phone, email, username, subscription_status'
-      )
-      .eq('id', state.user.id)
-      .maybeSingle();
-    if (error) {
-      throw error;
-    }
-
-    if (!data) {
-      const fallbackName = state.user.email?.split('@')[0] ?? 'Learner';
-      const metadata = state.user.user_metadata || {};
-      const fullName =
-        metadata.full_name ||
-        metadata.name ||
-        metadata.fullName ||
-        fallbackName;
-      const parts = String(fullName || '')
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean);
-      const firstName =
-        metadata.first_name || (parts.length ? parts[0] : null) || null;
-      const lastName =
-        metadata.last_name ||
-        (parts.length > 1 ? parts.slice(1).join(' ') : null) ||
-        null;
-
-      const { data: inserted, error: insertError } = await supabase
-        .from('profiles')
-        .upsert(
-          {
-            id: state.user.id,
-            role: 'learner',
-            email: state.user.email ?? null,
-            full_name: fullName || null,
-            first_name: firstName,
-            last_name: lastName,
-            phone: metadata.phone || null,
-            last_seen_at: new Date().toISOString(),
-          },
-          { onConflict: 'id' }
-        )
-        .select(
-          'id, full_name, first_name, last_name, phone, email, username, subscription_status'
-        )
-        .single();
-      if (insertError) {
-        throw insertError;
-      }
-      state.profile = inserted || null;
-    } else {
-      const patch = {
-        last_seen_at: new Date().toISOString(),
-        ...(state.user.email ? { email: state.user.email } : {}),
-      };
-      const { data: updated, error: updateError } = await supabase
-        .from('profiles')
-        .update(patch)
-        .eq('id', state.user.id)
-        .select(
-          'id, full_name, first_name, last_name, phone, email, username, subscription_status'
-        )
-        .single();
-      state.profile = !updateError && updated ? updated : data;
-    }
+    const data = await apiFetch('/api/me');
+    state.session = data?.user ? { user: data.user } : state.session;
+    state.user = data?.user || state.user;
+    state.profile = data?.profile || null;
   } catch (error) {
     console.error('[Pricing] Failed to load profile for checkout', error);
     state.profile = null;
@@ -1129,50 +970,15 @@ function buildContactPayload(planId) {
   };
 }
 
-async function extractEdgeFunctionError(error, fallbackMessage) {
-  if (error?.context instanceof Response) {
-    try {
-      const cloned = error.context.clone();
-      const contentType = cloned.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        const json = await cloned.json();
-        if (json?.error) return json.error;
-        if (json?.message) return json.message;
-      }
-      const text = await cloned.text();
-      if (text) return text;
-    } catch (parseError) {
-      console.warn('[Pricing] Failed to parse edge error response', parseError);
-    }
-  }
-
-  if (
-    error?.message &&
-    error.message !== 'Edge Function returned a non-2xx status code'
-  ) {
-    return error.message;
-  }
-
-  return fallbackMessage;
-}
-
 async function verifyPaymentWithRetry(reference, options = {}) {
   const { maxAttempts = 12, intervalMs = 2500 } = options;
-  const supabase = await getSupabaseClient();
   let lastMessage = null;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const { data, error } = await supabase.functions.invoke('paystack-verify', {
+    const data = await apiFetch('/api/payments/paystack/verify', {
+      method: 'POST',
       body: { reference },
     });
-
-    if (error) {
-      const message = await extractEdgeFunctionError(
-        error,
-        'Payment verification failed. Please contact support with your reference.'
-      );
-      throw new Error(message);
-    }
 
     if (data?.status === 'success') {
       return { success: true };
@@ -1224,21 +1030,10 @@ async function waitForActiveProfile(options = {}) {
 async function refreshProfileStatus() {
   if (!state.user) return;
   try {
-    const supabase = await getSupabaseClient();
-    await supabase.rpc('refresh_profile_subscription_status', {
-      p_user_id: state.user.id,
+    await apiFetch('/api/jobs/reconcile-payments', {
+      method: 'POST',
+      body: { userId: state.user.id },
     });
-    // Also request a server-side reconciliation for this user to avoid client dependency
-    try {
-      await supabase.functions.invoke('reconcile-payments', {
-        body: { userId: state.user.id },
-      });
-    } catch (reconcileError) {
-      console.warn(
-        '[Pricing] reconcile-payments invocation failed',
-        reconcileError
-      );
-    }
   } catch (error) {
     console.warn(
       '[Pricing] Unable to refresh profile subscription status',
@@ -1273,34 +1068,13 @@ async function startExistingUserCheckout(planId) {
     setCheckoutLoading(planKey);
     showBanner('Starting secure checkout…', 'info');
 
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase.functions.invoke(
-      'paystack-initiate',
-      {
-        body: {
-          planId: planRecord.id || planId,
-          userId: state.user.id,
-          registration: {
-            first_name: contact.firstName,
-            last_name: contact.lastName,
-            phone: contact.phone,
-            username: contact.username,
-          },
-        },
-      }
-    );
-
-    if (error) {
-      const message = await extractEdgeFunctionError(
-        error,
-        'Unable to initialise checkout. Please try again.'
-      );
-      throw new Error(message);
-    }
-
-    if (data?.error) {
-      throw new Error(data.error);
-    }
+    const data = await apiFetch('/api/payments/paystack/initiate', {
+      method: 'POST',
+      body: {
+        planId: planRecord.id || planId,
+        userId: state.user.id,
+      },
+    });
 
     if (!data || !data.reference) {
       throw new Error('Paystack did not return a checkout reference.');
@@ -1440,10 +1214,9 @@ function persistRegistrationPlan(planId) {
 function redirectToRegistration(planId) {
   persistRegistrationPlan(planId);
   window.localStorage.setItem('pendingPlanId', planId);
-  window.location.href = buildLoginRedirectUrl(planId, {
-    auth: 'whatsapp',
-    mode: 'signup',
-  });
+  const url = new URL('registration-before-payment.html', window.location.href);
+  url.searchParams.set('planId', planId);
+  window.location.href = url.toString();
 }
 
 function redirectToResume(planId) {
@@ -1579,16 +1352,9 @@ async function loadPricing() {
   gateLoadingEl?.classList.remove('hidden');
   gateOptionsEl?.classList.add('hidden');
   try {
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase
-      .from('subscription_products_with_plans')
-      .select('*')
-      .order('department_name', { ascending: true })
-      .order('price', { ascending: true });
-    if (error) throw error;
+    const { rows } = await apiFetch('/api/catalog/products');
     clearError();
-    const products = groupProducts(data || []);
-    await hydrateDepartmentMetadata(supabase, products);
+    const products = groupProducts(rows || []);
     state.products = products.filter((product) => product.department_id);
     state.generalProducts = products.filter(
       (product) => !product.department_id

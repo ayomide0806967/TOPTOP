@@ -113,11 +113,7 @@ function renderQuestionForm(question) {
             <span class="text-gray-700">Explanation</span>
             <textarea name="explanation" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" rows="2">${question?.explanation ?? ''}</textarea>
           </label>
-          <div>
-            <span class="text-gray-700">Image</span>
-            <input type="file" name="image" accept="image/*" class="mt-1 block w-full">
-            ${question?.image_url ? `<img src="${question.image_url}" class="mt-2 max-h-48">` : ''}
-          </div>
+          ${question?.image_url ? `<img src="${question.image_url}" class="mt-2 max-h-48">` : ''}
           <div id="options-container"></div>
           <button type="button" id="add-option" class="bg-gray-200 py-2 px-4 rounded-lg">Add Option</button>
         </div>
@@ -163,8 +159,6 @@ function attachFormListeners(container, question, actions, close, topicId) {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(form);
-    const imageFile = formData.get('image');
-
     const payload = {
       stem: formData.get('stem'),
       explanation: formData.get('explanation'),
@@ -175,7 +169,6 @@ function attachFormListeners(container, question, actions, close, topicId) {
           isCorrect: inputs[1].checked,
         };
       }),
-      imageFile: imageFile.size > 0 ? imageFile : null,
     };
 
     try {

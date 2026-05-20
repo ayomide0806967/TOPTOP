@@ -1,6 +1,5 @@
 import { dataService } from '../services/dataService.js';
 import { showToast } from '../components/toast.js';
-import { authService } from '../services/authService.js';
 
 const EMPTY_STATE_COPY = `Invite learners or generate credentials in bulk to kick-start a cohort.`;
 
@@ -534,8 +533,6 @@ export async function usersView() {
 
             <div class="flex flex-col gap-3 border-t border-slate-100 pt-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
               <div class="flex flex-wrap gap-2" data-role="user-secondary-actions">
-                <button type="button" data-role="send-reset" class="inline-flex items-center rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300">Send reset email</button>
-                <button type="button" data-role="impersonate" class="inline-flex items-center rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300">Impersonate</button>
                 <button type="button" data-role="suspend" class="inline-flex items-center rounded-full border border-amber-200 px-3 py-1 text-xs font-semibold text-amber-700 hover:border-amber-300">Suspend</button>
               </div>
               <div class="flex flex-wrap items-center gap-2">
@@ -577,10 +574,6 @@ export async function usersView() {
         '[data-role="user-plan-meta"]'
       );
       const suspendBtn = container.querySelector('[data-role="suspend"]');
-      const impersonateBtn = container.querySelector(
-        '[data-role="impersonate"]'
-      );
-      const resetBtn = container.querySelector('[data-role="send-reset"]');
       const deleteBtn = container.querySelector('[data-role="delete-user"]');
       let bulkDownloadUrl = null;
       let activeProfile = null;
@@ -1027,33 +1020,6 @@ export async function usersView() {
         }
       });
 
-      impersonateBtn?.addEventListener('click', async () => {
-        if (!activeProfile) return;
-        if (!confirm('Impersonate this user in the learner app?')) return;
-        try {
-          await authService.impersonateUser(activeProfile.id);
-          window.location.href = '/apps/learner/';
-        } catch (error) {
-          console.error('[Users] Failed to impersonate', error);
-          showToast(error.message || 'Unable to impersonate user.', {
-            type: 'error',
-          });
-        }
-      });
-
-      resetBtn?.addEventListener('click', async () => {
-        if (!activeProfile) return;
-        try {
-          await authService.resetPasswordForUser(activeProfile.email);
-          showToast('Password reset email sent.', { type: 'success' });
-        } catch (error) {
-          console.error('[Users] Failed to send reset email', error);
-          showToast(error.message || 'Unable to send reset email.', {
-            type: 'error',
-          });
-        }
-      });
-
       deleteBtn?.addEventListener('click', async () => {
         if (!activeProfile) return;
         if (
@@ -1064,7 +1030,6 @@ export async function usersView() {
           return;
         try {
           await dataService.deleteUserProfile(activeProfile.id);
-          await authService.deleteUser(activeProfile.id);
           showToast('User deleted.', { type: 'success' });
           closeModal(managedUserModal);
           actions.refresh();

@@ -1,12 +1,9 @@
-import { getSupabaseClient } from '../../shared/supabaseClient.js';
+import { apiFetch } from '../../shared/apiClient.js';
 import { clearSessionFingerprint } from '../../shared/sessionFingerprint.js';
 import {
   getQuizSnapshot,
   listQuizSnapshots,
 } from '../../shared/quizSnapshotStore.js';
-import { installWhatsAppLogoFallbacks } from '../../shared/whatsappLogoFallback.js';
-
-installWhatsAppLogoFallbacks();
 
 const CARD_PALETTES = {
   default: {
@@ -102,10 +99,6 @@ const elements = {
   planSubheading: document.querySelector('[data-role="plan-subheading"]'),
   planBrowseBtn: document.querySelector('[data-role="plan-browse"]'),
   planCollection: document.querySelector('[data-role="plan-collection"]'),
-  extraSetsSection: document.querySelector('[data-role="extra-sets-section"]'),
-  extraSetsList: document.querySelector('[data-role="extra-sets-list"]'),
-  bonusNavButton: document.querySelector('[data-nav-target="bonus"]'),
-  bonusNotification: document.querySelector('[data-role="bonus-notification"]'),
   globalNotice: document.querySelector('[data-role="global-notice"]'),
   globalNoticeText: document.querySelector('[data-role="global-notice-text"]'),
   globalNoticeDismiss: document.querySelector(
@@ -134,47 +127,9 @@ const elements = {
   ),
   profileFeedback: document.querySelector('[data-role="profile-feedback"]'),
   profileEmail: document.querySelector('[data-role="profile-email"]'),
-  connectGoogleBtn: document.querySelector('[data-role="connect-google"]'),
-  authMethodsFeedback: document.querySelector(
-    '[data-role="auth-methods-feedback"]'
-  ),
-  whatsappLinkPhoneInput: document.querySelector(
-    '[data-role="whatsapp-link-phone"]'
-  ),
-  whatsappLinkSendBtn: document.querySelector(
-    '[data-role="whatsapp-link-send"]'
-  ),
-  whatsappLinkVerifyRow: document.querySelector(
-    '[data-role="whatsapp-link-verify-row"]'
-  ),
-  whatsappLinkCodeInput: document.querySelector(
-    '[data-role="whatsapp-link-code"]'
-  ),
-  whatsappLinkVerifyBtn: document.querySelector(
-    '[data-role="whatsapp-link-verify"]'
-  ),
-  whatsappLinkResendBtn: document.querySelector(
-    '[data-role="whatsapp-link-resend"]'
-  ),
-  whatsappLinkFeedback: document.querySelector(
-    '[data-role="whatsapp-link-feedback"]'
-  ),
-  whatsappBioSection: document.querySelector('[data-role="whatsapp-bio"]'),
-  whatsappBioFirstInput: document.querySelector(
-    '[data-role="whatsapp-bio-first"]'
-  ),
-  whatsappBioLastInput: document.querySelector(
-    '[data-role="whatsapp-bio-last"]'
-  ),
-  whatsappBioSchoolInput: document.querySelector(
-    '[data-role="whatsapp-bio-school"]'
-  ),
-  whatsappBioEmail: document.querySelector('[data-role="whatsapp-bio-email"]'),
-  whatsappBioSaveBtn: document.querySelector('[data-role="whatsapp-bio-save"]'),
 };
 
 const state = {
-  supabase: null,
   user: null,
   profile: null,
   todayQuiz: null,
@@ -182,12 +137,8 @@ const state = {
   scheduleHealth: null,
   subscriptions: [],
   defaultSubscriptionId: null,
-  extraQuestionSets: [],
-  extraPlanId: null,
-  isLoadingExtraSets: false,
   activeView: 'dashboard',
   globalAnnouncement: null,
-  profileChannel: null,
   entitlementsRefreshing: false,
 };
 
@@ -280,19 +231,6 @@ const STATUS_SORT_WEIGHT = {
   inactive: 5,
   none: 6,
 };
-
-const DEFAULT_ASSIGNMENT_RULES = Object.freeze({
-  default: { mode: 'full_set', value: null },
-  overrides: [],
-});
-
-const ASSIGNMENT_MODES = new Set([
-  'full_set',
-  'fixed_count',
-  'percentage',
-  'tier_auto',
-  'equal_split',
-]);
 
 const ACTIVE_PLAN_STATUSES = new Set(['active', 'trialing']);
 
@@ -524,17 +462,9 @@ function renderGlobalAnnouncement(announcement) {
 }
 
 async function loadGlobalAnnouncement() {
-  if (!state.supabase || !state.user) return;
+  if (!state.user) return;
   try {
-    const { data, error } = await state.supabase
-      .from('global_announcements')
-      .select('id, message, created_at')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(1);
-    if (error) throw error;
-
-    const announcement = Array.isArray(data) && data.length ? data[0] : null;
+    const { announcement } = await apiFetch('/api/dashboard/announcement');
     state.globalAnnouncement = announcement;
     renderGlobalAnnouncement(state.globalAnnouncement);
   } catch (error) {
@@ -551,29 +481,6 @@ function formatDate(dateString) {
     day: 'numeric',
     year: 'numeric',
   });
-}
-
-function formatDateTime(dateString) {
-  if (!dateString) return '—';
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return formatDate(dateString);
-  return date.toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-}
-
-function escapeHtml(value) {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  return value
-    .toString()
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 function formatCurrency(amount, currency = 'NGN') {
@@ -593,90 +500,6 @@ function formatCurrency(amount, currency = 'NGN') {
     }
     return `${currency} ${numeric.toLocaleString()}`;
   }
-}
-
-function normalizeAssignmentValue(mode, value) {
-  if (mode === 'full_set') return null;
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric <= 0) {
-    return null;
-  }
-  if (mode === 'fixed_count') {
-    return Math.max(1, Math.round(numeric));
-  }
-  if (mode === 'percentage') {
-    return Math.min(100, Math.max(1, Math.round(numeric)));
-  }
-  return null;
-}
-
-function normalizeAssignmentRules(value) {
-  const source = value && typeof value === 'object' ? value : {};
-  const defaultSource =
-    source.default && typeof source.default === 'object' ? source.default : {};
-  const mode = ASSIGNMENT_MODES.has(defaultSource.mode)
-    ? defaultSource.mode
-    : 'full_set';
-  const normalizedDefaultValue = normalizeAssignmentValue(
-    mode,
-    defaultSource.value
-  );
-
-  const overridesSource = Array.isArray(source.overrides)
-    ? source.overrides
-    : [];
-  const overrides = overridesSource
-    .map((override) => {
-      if (!override || typeof override !== 'object') return null;
-      const planId = override.planId || override.plan_id;
-      if (!planId) return null;
-      const overrideMode = ASSIGNMENT_MODES.has(override.mode)
-        ? override.mode
-        : 'full_set';
-      const overrideValue = normalizeAssignmentValue(
-        overrideMode,
-        override.value
-      );
-      if (overrideMode !== 'full_set' && overrideValue === null) {
-        return null;
-      }
-      return {
-        planId: String(planId),
-        mode: overrideMode,
-        value: overrideMode === 'full_set' ? null : overrideValue,
-      };
-    })
-    .filter(Boolean);
-
-  return {
-    default: {
-      mode,
-      value: mode === 'full_set' ? null : normalizedDefaultValue,
-    },
-    overrides,
-  };
-}
-
-function describeExtraAssignment(rules) {
-  const normalized = normalizeAssignmentRules(rules);
-  const baseRule = normalized.default || DEFAULT_ASSIGNMENT_RULES.default;
-  if (baseRule.mode === 'fixed_count') {
-    return baseRule.value
-      ? `${baseRule.value} question${baseRule.value === 1 ? '' : 's'} per attempt`
-      : 'Fixed number (not configured)';
-  }
-  if (baseRule.mode === 'percentage') {
-    return baseRule.value
-      ? `${baseRule.value}% of the set per attempt`
-      : 'Percentage (not configured)';
-  }
-  if (baseRule.mode === 'tier_auto') {
-    return 'Auto by tier (250=100%, 200=75%, 100=50%)';
-  }
-  if (baseRule.mode === 'equal_split') {
-    return 'Equal split across selected tiers';
-  }
-  return 'Entire set delivered';
 }
 
 function getSubscriptionStatus(subscription) {
@@ -1194,18 +1017,15 @@ function handlePlanCollectionClick(event) {
 }
 
 async function setDefaultSubscription(subscriptionId) {
-  if (!subscriptionId || !state.supabase) {
+  if (!subscriptionId) {
     return;
   }
 
   try {
-    const { data, error } = await state.supabase.rpc(
-      'set_default_subscription',
-      {
-        p_subscription_id: subscriptionId,
-      }
-    );
-    if (error) throw error;
+    const data = await apiFetch('/api/dashboard/default-subscription', {
+      method: 'POST',
+      body: { subscriptionId },
+    });
 
     const resolvedId = data?.default_subscription_id || subscriptionId;
     state.defaultSubscriptionId = resolvedId;
@@ -1225,7 +1045,7 @@ async function setDefaultSubscription(subscriptionId) {
 }
 
 async function startDailyQuizForSubscription(subscriptionId) {
-  if (!subscriptionId || !state.supabase) {
+  if (!subscriptionId) {
     showToast('We could not determine which plan to use.', 'error');
     return;
   }
@@ -1272,13 +1092,10 @@ async function startDailyQuizForSubscription(subscriptionId) {
     }
 
     if (subscriptionId !== state.defaultSubscriptionId) {
-      const { data, error } = await state.supabase.rpc(
-        'set_default_subscription',
-        {
-          p_subscription_id: subscriptionId,
-        }
-      );
-      if (error) throw error;
+      const data = await apiFetch('/api/dashboard/default-subscription', {
+        method: 'POST',
+        body: { subscriptionId },
+      });
       const resolvedId = data?.default_subscription_id || subscriptionId;
       state.defaultSubscriptionId = resolvedId;
       if (state.profile) {
@@ -1323,12 +1140,13 @@ async function startDailyQuizForSubscription(subscriptionId) {
     }
 
     showToast('Preparing your daily questions...', 'info');
-    const { data, error } = await state.supabase.rpc('generate_daily_quiz', {
-      p_subscription_id: subscriptionId,
+    const data = await apiFetch('/api/dashboard/daily-quiz/generate', {
+      method: 'POST',
+      body: { subscriptionId },
     });
 
-    if (error) {
-      const message = error.message || '';
+    if (data?.error) {
+      const message = data.error || '';
       if (message.includes('no active subscription')) {
         showToast(
           'You need an active subscription to access daily questions',
@@ -1358,12 +1176,10 @@ async function startDailyQuizForSubscription(subscriptionId) {
         updatePlanCollectionLabels();
         return;
       }
-      throw error;
+      throw new Error(message);
     }
 
-    const quizId = Array.isArray(data)
-      ? data[0]?.daily_quiz_id
-      : data?.daily_quiz_id;
+    const quizId = data?.dailyQuizId || data?.daily_quiz_id;
     if (!quizId) {
       throw new Error('Failed to generate quiz');
     }
@@ -1723,7 +1539,7 @@ function updatePaymentGate(profile) {
       : 'Add a plan to unlock personalised drills';
   const message =
     registrationStage === 'awaiting_payment'
-      ? `We saved ${planName}. Complete checkout now to unlock daily exams, streak tracking, and bonus questions.`
+      ? `We saved ${planName}. Complete checkout now to unlock daily exams and streak tracking.`
       : 'Choose the plan that fits your goals. Once activated, your personalised study schedule appears here.';
   const actionHref =
     registrationStage === 'awaiting_payment'
@@ -1763,30 +1579,17 @@ function setRefreshPaymentLoading(loading) {
 }
 
 async function refreshPaymentStatusNow() {
-  if (!state.supabase || !state.user) return;
+  if (!state.user) return;
   if (state.entitlementsRefreshing) return;
   try {
     state.entitlementsRefreshing = true;
     setRefreshPaymentLoading(true);
-    await state.supabase.rpc('refresh_profile_subscription_status', {
-      p_user_id: state.user.id,
+    await apiFetch('/api/jobs/reconcile-payments', {
+      method: 'POST',
+      body: { userId: state.user.id },
     });
-    // Also trigger a targeted reconciliation for this user
-    try {
-      await state.supabase.functions.invoke('reconcile-payments', {
-        body: { userId: state.user.id },
-      });
-    } catch (reconcileError) {
-      console.warn(
-        '[Dashboard] reconcile-payments (manual refresh) failed',
-        reconcileError
-      );
-    }
   } catch (error) {
-    console.warn(
-      '[Dashboard] refresh_profile_subscription_status failed',
-      error
-    );
+    console.warn('[Dashboard] payment reconciliation failed', error);
   } finally {
     await ensureProfile();
     await loadSubscriptions();
@@ -1815,31 +1618,19 @@ async function refreshPaymentStatusNow() {
 }
 
 async function refreshEntitlementsOnFocus() {
-  if (!state.supabase || !state.user) return;
+  if (!state.user) return;
   if (state.entitlementsRefreshing) return;
   const status = (state.profile?.subscription_status || '').toLowerCase();
   try {
     state.entitlementsRefreshing = true;
-    // If we were pending, ask the server to recompute status first
     if (status === 'pending_payment' || status === 'awaiting_setup') {
-      await state.supabase.rpc('refresh_profile_subscription_status', {
-        p_user_id: state.user.id,
+      await apiFetch('/api/jobs/reconcile-payments', {
+        method: 'POST',
+        body: { userId: state.user.id },
       });
-      // Proactively ask the server to reconcile this user's latest pending checkout
-      try {
-        await state.supabase.functions.invoke('reconcile-payments', {
-          body: { userId: state.user.id },
-        });
-      } catch (reconcileError) {
-        console.warn(
-          '[Dashboard] reconcile-payments invocation failed',
-          reconcileError
-        );
-      }
     }
   } catch (error) {
-    // Non-fatal; proceed to refetch
-    console.warn('[Dashboard] refresh on focus RPC failed', error);
+    console.warn('[Dashboard] refresh on focus reconciliation failed', error);
   } finally {
     await ensureProfile();
     await loadSubscriptions();
@@ -1848,93 +1639,12 @@ async function refreshEntitlementsOnFocus() {
   }
 }
 
-function subscribeToProfileRealtime() {
-  if (!state.supabase || !state.user || state.profileChannel) return;
-  try {
-    const channel = state.supabase
-      .channel(`profile-updates-${state.user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${state.user.id}`,
-        },
-        async (payload) => {
-          try {
-            const next = payload?.new || null;
-            if (next) {
-              state.profile = next;
-              updatePaymentGate(state.profile);
-              updateHeader();
-              const status = (next.subscription_status || '').toLowerCase();
-              if (ACTIVE_PLAN_STATUSES.has(status)) {
-                await loadSubscriptions();
-                showToast('Your subscription is now active.', 'success');
-              }
-            }
-          } catch (err) {
-            console.warn('[Dashboard] Realtime profile handler failed', err);
-          }
-        }
-      )
-      .subscribe();
-    state.profileChannel = channel;
-  } catch (error) {
-    console.warn('[Dashboard] Failed to subscribe to profile updates', error);
-  }
-}
-
-function unsubscribeProfileRealtime() {
-  try {
-    if (
-      state.profileChannel &&
-      typeof state.profileChannel.unsubscribe === 'function'
-    ) {
-      state.profileChannel.unsubscribe();
-    }
-  } catch (error) {
-    console.warn('[Dashboard] Failed to unsubscribe profile updates', error);
-  } finally {
-    state.profileChannel = null;
-  }
-}
-
 async function attemptVerificationByLookup() {
-  if (!state.supabase || !state.user) return false;
+  if (!state.user) return false;
   try {
-    const email = state.user?.email || state.profile?.email || '';
-    const full =
-      state.profile?.full_name || state.user?.user_metadata?.full_name || '';
-    const [firstName, ...rest] = String(full).trim().split(/\s+/);
-    const lastName = rest.join(' ');
-    const phone =
-      state.profile?.phone || state.user?.user_metadata?.phone || '';
-
-    if (!email) return false;
-
-    const { data: lookup, error: lookupError } =
-      await state.supabase.functions.invoke('find-pending-registration', {
-        body: { email, firstName, lastName, phone },
-      });
-    if (lookupError || !lookup?.reference) {
-      return false;
-    }
-
-    const { error: verifyError } = await state.supabase.functions.invoke(
-      'paystack-verify',
-      {
-        body: { reference: lookup.reference },
-      }
-    );
-    if (verifyError) {
-      console.warn('[Dashboard] Server-side verify failed', verifyError);
-      return false;
-    }
-
-    await state.supabase.rpc('refresh_profile_subscription_status', {
-      p_user_id: state.user.id,
+    await apiFetch('/api/jobs/reconcile-payments', {
+      method: 'POST',
+      body: { userId: state.user.id },
     });
     return true;
   } catch (error) {
@@ -2017,35 +1727,20 @@ async function handleProfileSubmit(event) {
   }
 
   try {
-    const updates = {};
-    if (fullName) {
-      updates.full_name = fullName;
-      const [firstName, ...rest] = fullName.split(' ');
-      updates.first_name = firstName || null;
-      updates.last_name = rest.join(' ').trim() || null;
-    }
-    if (schoolName) {
-      updates.school_name = schoolName;
-    }
-
-    if (Object.keys(updates).length) {
-      const { error: profileError } = await state.supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', state.user.id);
-      if (profileError) {
-        throw profileError;
-      }
-    }
-
     if (newPassword) {
-      const { error: passwordError } = await state.supabase.auth.updateUser({
-        password: newPassword,
-      });
-      if (passwordError) {
-        throw passwordError;
-      }
+      throw new Error(
+        'Password changes now use the password reset flow from the sign-in page.'
+      );
     }
+
+    const result = await apiFetch('/api/me/profile', {
+      method: 'PATCH',
+      body: {
+        fullName,
+        schoolName,
+      },
+    });
+    state.profile = result.profile || state.profile;
 
     if (feedback) {
       feedback.textContent = 'Profile updated successfully.';
@@ -2071,446 +1766,6 @@ async function handleProfileSubmit(event) {
     if (elements.profilePasswordInput) elements.profilePasswordInput.value = '';
     if (elements.profilePasswordConfirmInput)
       elements.profilePasswordConfirmInput.value = '';
-  }
-}
-
-function setAuthMethodsFeedback(message, type = 'info') {
-  const target = elements.authMethodsFeedback;
-  if (!target) return;
-  target.textContent = message;
-  target.classList.remove('hidden');
-  target.className = 'rounded-xl border px-3.5 py-2.5 text-sm';
-  if (type === 'success') {
-    target.className =
-      'rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-700';
-  } else if (type === 'error') {
-    target.className =
-      'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
-  } else {
-    target.className =
-      'rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-600';
-  }
-}
-
-const OTP_CODE_PATTERN = /^[0-9]{6}$/;
-const NIGERIA_COUNTRY_CODE = '+234';
-const WHATSAPP_SEND_COOLDOWN_SECONDS = 600;
-const COOLDOWN_TIMER_PROP = '__cooldownTimerId';
-
-function normalizeNigeriaPhone(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  let cleaned = raw.replace(/[^\d+]/g, '');
-  if (cleaned.startsWith('00')) {
-    cleaned = `+${cleaned.slice(2)}`;
-  }
-  if (cleaned.startsWith('+')) {
-    const digits = cleaned.slice(1).replace(/\D/g, '');
-    return `+${digits}`;
-  }
-  const digits = cleaned.replace(/\D/g, '');
-  if (!digits) return '';
-  if (digits.startsWith('234')) return `+${digits}`;
-  if (digits.startsWith('0'))
-    return `${NIGERIA_COUNTRY_CODE}${digits.slice(1)}`;
-  if (digits.length === 10) return `${NIGERIA_COUNTRY_CODE}${digits}`;
-  return `${NIGERIA_COUNTRY_CODE}${digits}`;
-}
-
-function isPlausibleE164(phone) {
-  return /^\+[1-9][0-9]{8,14}$/.test(String(phone || ''));
-}
-
-function isCooldownActive(button) {
-  const until = Number(button?.dataset?.cooldownUntil || 0);
-  return Number.isFinite(until) && until > Date.now();
-}
-
-function formatCooldownLabel(seconds) {
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
-}
-
-function getButtonLabelEl(button) {
-  return button?.querySelector?.('[data-role="btn-label"]') || null;
-}
-
-function getButtonLabel(button) {
-  const labelEl = getButtonLabelEl(button);
-  return labelEl ? labelEl.textContent : button?.textContent || '';
-}
-
-function setButtonLabel(button, text) {
-  if (!button) return;
-  const labelEl = getButtonLabelEl(button);
-  if (labelEl) {
-    labelEl.textContent = text;
-    return;
-  }
-  button.textContent = text;
-}
-
-function startCooldown(button, seconds, { doneText, prefixText } = {}) {
-  if (!button) return;
-
-  if (button[COOLDOWN_TIMER_PROP]) {
-    window.clearInterval(button[COOLDOWN_TIMER_PROP]);
-    button[COOLDOWN_TIMER_PROP] = null;
-  }
-
-  const original =
-    button.dataset?.originalText ||
-    getButtonLabel(button) ||
-    doneText ||
-    'Send';
-  if (button.dataset && !button.dataset.originalText) {
-    button.dataset.originalText = original;
-  }
-
-  const cooldownUntil = Date.now() + seconds * 1000;
-  if (button.dataset) {
-    button.dataset.cooldownUntil = String(cooldownUntil);
-  }
-
-  const prefix = prefixText || 'Send again in';
-
-  const tick = () => {
-    const remaining = Math.ceil((cooldownUntil - Date.now()) / 1000);
-    if (remaining <= 0) {
-      if (button.dataset) delete button.dataset.cooldownUntil;
-      button.disabled = false;
-      button.classList.remove('opacity-60');
-      setButtonLabel(button, original);
-      return false;
-    }
-    button.disabled = true;
-    button.classList.add('opacity-60');
-    setButtonLabel(button, `${prefix} ${formatCooldownLabel(remaining)}`);
-    return true;
-  };
-
-  tick();
-  const timer = window.setInterval(() => {
-    const keep = tick();
-    if (!keep) {
-      window.clearInterval(timer);
-      if (button[COOLDOWN_TIMER_PROP] === timer) {
-        button[COOLDOWN_TIMER_PROP] = null;
-      }
-    }
-  }, 1000);
-  button[COOLDOWN_TIMER_PROP] = timer;
-}
-
-function startWhatsAppLinkCooldown(seconds = WHATSAPP_SEND_COOLDOWN_SECONDS) {
-  startCooldown(elements.whatsappLinkSendBtn, seconds, {
-    doneText: 'Send code',
-    prefixText: 'Send again in',
-  });
-  startCooldown(elements.whatsappLinkResendBtn, seconds, {
-    doneText: 'Resend code',
-    prefixText: 'Resend in',
-  });
-}
-
-function setWhatsAppLinkFeedback(message, type = 'info') {
-  const target = elements.whatsappLinkFeedback;
-  if (!target) return;
-  target.textContent = message;
-  target.classList.remove('hidden');
-  target.className = 'rounded-xl border px-3.5 py-2.5 text-sm';
-  if (type === 'success') {
-    target.className =
-      'rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-700';
-  } else if (type === 'error') {
-    target.className =
-      'rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700';
-  } else {
-    target.className =
-      'rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-600';
-  }
-}
-
-async function extractEdgeFunctionError(error, fallbackMessage) {
-  if (error?.context instanceof Response) {
-    try {
-      const cloned = error.context.clone();
-      const contentType = cloned.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        const json = await cloned.json();
-        if (json?.error) return json.error;
-        if (json?.message) return json.message;
-      }
-      const text = await cloned.text();
-      if (text) return text;
-    } catch (parseError) {
-      console.warn(
-        '[Dashboard] Failed to parse function error response',
-        parseError
-      );
-    }
-  }
-
-  if (
-    error?.message &&
-    error.message !== 'Edge Function returned a non-2xx status code'
-  ) {
-    return error.message;
-  }
-
-  return fallbackMessage;
-}
-
-function showWhatsAppVerifyRow() {
-  elements.whatsappLinkVerifyRow?.classList.remove('hidden');
-  elements.whatsappLinkVerifyRow?.classList.add('flex');
-}
-
-function showWhatsAppBioEditor() {
-  const bio = elements.whatsappBioSection;
-  if (!bio) return;
-  bio.classList.remove('hidden');
-
-  if (elements.whatsappBioFirstInput) {
-    elements.whatsappBioFirstInput.value = state.profile?.first_name || '';
-  }
-  if (elements.whatsappBioLastInput) {
-    elements.whatsappBioLastInput.value = state.profile?.last_name || '';
-  }
-  if (elements.whatsappBioSchoolInput) {
-    elements.whatsappBioSchoolInput.value = state.profile?.school_name || '';
-  }
-  if (elements.whatsappBioEmail) {
-    elements.whatsappBioEmail.textContent =
-      state.user?.email || state.profile?.email || '—';
-  }
-}
-
-async function handleWhatsAppLinkSend() {
-  if (!state.supabase) return;
-  setWhatsAppLinkFeedback('', 'info');
-
-  const phone = normalizeNigeriaPhone(elements.whatsappLinkPhoneInput?.value);
-  if (!phone || !isPlausibleE164(phone) || !phone.startsWith('+234')) {
-    setWhatsAppLinkFeedback('Enter a valid Nigerian WhatsApp number.', 'error');
-    elements.whatsappLinkPhoneInput?.focus();
-    return;
-  }
-
-  try {
-    if (elements.whatsappLinkSendBtn)
-      elements.whatsappLinkSendBtn.disabled = true;
-
-    const { data, error } = await state.supabase.functions.invoke(
-      'whatsapp-link-request',
-      { body: { phone } }
-    );
-    if (error) {
-      const message = await extractEdgeFunctionError(
-        error,
-        'Unable to send code right now. Please try again.'
-      );
-      throw new Error(message);
-    }
-    if (data?.error) throw new Error(data.error);
-
-    startWhatsAppLinkCooldown();
-
-    showWhatsAppVerifyRow();
-    setWhatsAppLinkFeedback(
-      'Code sent to WhatsApp. Enter it below. The code expires after 10 minutes.',
-      'info'
-    );
-    elements.whatsappLinkCodeInput?.focus();
-  } catch (error) {
-    console.error('[Dashboard] WhatsApp link send failed', error);
-    setWhatsAppLinkFeedback(
-      error?.message || 'Unable to send code right now. Please try again.',
-      'error'
-    );
-  } finally {
-    if (
-      elements.whatsappLinkSendBtn &&
-      !isCooldownActive(elements.whatsappLinkSendBtn)
-    ) {
-      elements.whatsappLinkSendBtn.disabled = false;
-    }
-  }
-}
-
-async function handleWhatsAppLinkVerify() {
-  if (!state.supabase) return;
-  const phone = normalizeNigeriaPhone(elements.whatsappLinkPhoneInput?.value);
-  const code = String(elements.whatsappLinkCodeInput?.value || '')
-    .replace(/\D/g, '')
-    .slice(0, 6);
-
-  if (!phone || !isPlausibleE164(phone)) {
-    setWhatsAppLinkFeedback('Enter your WhatsApp number again.', 'error');
-    elements.whatsappLinkPhoneInput?.focus();
-    return;
-  }
-  if (!OTP_CODE_PATTERN.test(code)) {
-    setWhatsAppLinkFeedback('Enter the 6-digit code.', 'error');
-    elements.whatsappLinkCodeInput?.focus();
-    return;
-  }
-
-  try {
-    if (elements.whatsappLinkVerifyBtn)
-      elements.whatsappLinkVerifyBtn.disabled = true;
-    if (elements.whatsappLinkResendBtn)
-      elements.whatsappLinkResendBtn.disabled = true;
-
-    const { data, error } = await state.supabase.functions.invoke(
-      'whatsapp-link-confirm',
-      { body: { phone, code } }
-    );
-    if (error) {
-      const message = await extractEdgeFunctionError(
-        error,
-        'Unable to verify the code. Please try again.'
-      );
-      throw new Error(message);
-    }
-    if (data?.error) throw new Error(data.error);
-
-    setWhatsAppLinkFeedback('WhatsApp login enabled successfully.', 'success');
-
-    // Refresh profile to reflect new phone.
-    await ensureProfile();
-    populateProfileForm();
-
-    showWhatsAppBioEditor();
-  } catch (error) {
-    console.error('[Dashboard] WhatsApp link verify failed', error);
-    setWhatsAppLinkFeedback(
-      error?.message || 'Unable to verify the code. Please try again.',
-      'error'
-    );
-  } finally {
-    if (elements.whatsappLinkVerifyBtn)
-      elements.whatsappLinkVerifyBtn.disabled = false;
-    if (
-      elements.whatsappLinkResendBtn &&
-      !isCooldownActive(elements.whatsappLinkResendBtn)
-    ) {
-      elements.whatsappLinkResendBtn.disabled = false;
-    }
-  }
-}
-
-async function handleWhatsAppLinkResend() {
-  await handleWhatsAppLinkSend();
-}
-
-async function handleWhatsAppBioSave() {
-  if (!state.supabase || !state.user) return;
-
-  const firstName = String(elements.whatsappBioFirstInput?.value || '').trim();
-  const lastName = String(elements.whatsappBioLastInput?.value || '').trim();
-  const schoolName = String(
-    elements.whatsappBioSchoolInput?.value || ''
-  ).trim();
-
-  if (!firstName) {
-    setWhatsAppLinkFeedback('Enter your first name.', 'error');
-    elements.whatsappBioFirstInput?.focus();
-    return;
-  }
-  if (!lastName) {
-    setWhatsAppLinkFeedback('Enter your last name.', 'error');
-    elements.whatsappBioLastInput?.focus();
-    return;
-  }
-  if (!schoolName) {
-    setWhatsAppLinkFeedback('Enter your school name.', 'error');
-    elements.whatsappBioSchoolInput?.focus();
-    return;
-  }
-
-  try {
-    if (elements.whatsappBioSaveBtn)
-      elements.whatsappBioSaveBtn.disabled = true;
-
-    const fullName = `${firstName} ${lastName}`.trim();
-    const { error } = await state.supabase
-      .from('profiles')
-      .update({
-        first_name: firstName,
-        last_name: lastName,
-        full_name: fullName,
-        school_name: schoolName,
-      })
-      .eq('id', state.user.id);
-    if (error) throw error;
-
-    setWhatsAppLinkFeedback('Bio saved.', 'success');
-    await ensureProfile();
-    populateProfileForm();
-  } catch (error) {
-    console.error('[Dashboard] WhatsApp bio save failed', error);
-    setWhatsAppLinkFeedback(
-      error?.message || 'Unable to save right now. Please try again.',
-      'error'
-    );
-  } finally {
-    if (elements.whatsappBioSaveBtn)
-      elements.whatsappBioSaveBtn.disabled = false;
-  }
-}
-
-async function handleConnectGoogle() {
-  if (!state.supabase || !state.user) return;
-
-  setAuthMethodsFeedback('Connecting Google…', 'info');
-
-  try {
-    if (typeof state.supabase.auth.linkIdentity !== 'function') {
-      setAuthMethodsFeedback(
-        'Google linking is not available in this build. Please update the app.',
-        'error'
-      );
-      return;
-    }
-
-    const redirectTo = new URL(window.location.href);
-    redirectTo.hash = '';
-
-    const { data, error } = await state.supabase.auth.linkIdentity({
-      provider: 'google',
-      options: {
-        redirectTo: redirectTo.toString(),
-      },
-    });
-
-    if (error) {
-      const msg =
-        error.message?.includes('manual linking') ||
-        error.message?.includes('disabled')
-          ? 'Google linking is disabled in Supabase settings. Enable manual linking, then try again.'
-          : error.message || 'Unable to connect Google right now.';
-      setAuthMethodsFeedback(msg, 'error');
-      return;
-    }
-
-    if (data?.url) {
-      window.location.assign(data.url);
-      return;
-    }
-
-    setAuthMethodsFeedback(
-      'Continue in the Google window to finish linking.',
-      'success'
-    );
-  } catch (error) {
-    console.error('[Dashboard] Google linking failed', error);
-    setAuthMethodsFeedback(
-      error?.message || 'Unable to connect Google right now.',
-      'error'
-    );
   }
 }
 
@@ -2819,530 +2074,12 @@ function renderHistory() {
   }
 }
 
-function getExtraSetAvailability(set, nowMs = Date.now()) {
-  if (!set) {
-    return {
-      isAvailable: false,
-      isUpcoming: false,
-      isExpired: true,
-      startsAt: null,
-      endsAt: null,
-    };
-  }
-  const startsAt = set.starts_at ? new Date(set.starts_at) : null;
-  const endsAt = set.ends_at ? new Date(set.ends_at) : null;
-  const isActive = Boolean(set.is_active);
-  const startsInFuture = startsAt ? startsAt.getTime() > nowMs : false;
-  const ended = endsAt ? endsAt.getTime() < nowMs : false;
-
-  return {
-    isAvailable: isActive && !startsInFuture && !ended,
-    isUpcoming: isActive && startsInFuture,
-    isExpired: ended || !isActive,
-    startsAt,
-    endsAt,
-  };
-}
-
-function deriveExtraSetStatus(set, attempts) {
-  const availability = set.availability || getExtraSetAvailability(set);
-  if (availability.isUpcoming) return 'upcoming';
-  if (availability.isAvailable) {
-    if (!attempts.length) return 'new';
-    const latest = attempts[0];
-    if (latest?.status === 'completed') {
-      return 'completed';
-    }
-    return 'in_progress';
-  }
-  if (attempts.some((attempt) => attempt.status === 'completed')) {
-    return 'completed_archived';
-  }
-  return 'inactive';
-}
-
-function describeExtraSchedule(set) {
-  if (!set) return 'Available anytime';
-  const availability = set.availability || getExtraSetAvailability(set);
-  const { startsAt, endsAt } = availability;
-  if (startsAt && endsAt) {
-    return `${formatDateTime(startsAt.toISOString())} → ${formatDateTime(
-      endsAt.toISOString()
-    )}`;
-  }
-  if (startsAt) {
-    return `Opens ${formatDateTime(startsAt.toISOString())}`;
-  }
-  if (endsAt) {
-    return `Available until ${formatDateTime(endsAt.toISOString())}`;
-  }
-  return 'Available anytime';
-}
-
-function describeExtraTimer(seconds) {
-  const value = Number(seconds);
-  if (!Number.isFinite(value) || value <= 0) {
-    return 'No timer';
-  }
-  const minutes = Math.round(value / 60);
-  if (minutes < 60) {
-    return `${minutes} minute${minutes === 1 ? '' : 's'}`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const remaining = minutes % 60;
-  if (remaining === 0) {
-    return `${hours} hour${hours === 1 ? '' : 's'}`;
-  }
-  return `${hours}h ${remaining}m`;
-}
-
-function renderExtraStatusChip(set) {
-  const base =
-    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold';
-  switch (set.status) {
-    case 'new':
-      return `<span class="${base} bg-indigo-100 text-indigo-700">New</span>`;
-    case 'in_progress':
-      return `<span class="${base} bg-amber-100 text-amber-700">In progress</span>`;
-    case 'completed':
-      return `<span class="${base} bg-emerald-100 text-emerald-700">Completed</span>`;
-    case 'completed_archived':
-      return `<span class="${base} bg-emerald-100 text-emerald-700">Completed</span>`;
-    case 'upcoming':
-      return `<span class="${base} bg-sky-100 text-sky-700">Opens soon</span>`;
-    default:
-      return `<span class="${base} bg-slate-200 text-slate-600">Inactive</span>`;
-  }
-}
-
-function renderExtraAttemptSummary(set) {
-  const availability = set.availability || getExtraSetAvailability(set);
-  const limitSummary =
-    set.max_attempts_per_user && set.max_attempts_per_user > 0
-      ? ` • Max ${set.max_attempts_per_user} attempt${set.max_attempts_per_user === 1 ? '' : 's'}`
-      : '';
-  if (availability.isUpcoming) {
-    if (availability.startsAt) {
-      return `Opens ${formatDateTime(availability.startsAt.toISOString())}${limitSummary}`;
-    }
-    return `Opens soon${limitSummary}`;
-  }
-
-  const completed = set.lastCompletedAttempt;
-  if (completed) {
-    const score = Number(completed.score_percent);
-    const scoreText = Number.isFinite(score)
-      ? `${score.toFixed(1)}%`
-      : `${Number(completed.correct_answers ?? 0)}/${Number(completed.total_questions ?? 0)}`;
-    const completedAt = completed.completed_at
-      ? formatDateTime(completed.completed_at)
-      : 'Recently';
-    return `Last attempt: ${scoreText} • ${completedAt}${limitSummary}`;
-  }
-
-  const latest = set.latestAttempt;
-  if (latest?.status === 'in_progress') {
-    const startedAt = latest.started_at
-      ? formatDateTime(latest.started_at)
-      : 'Recently';
-    return `Attempt in progress • Started ${startedAt}${limitSummary}`;
-  }
-
-  return `Not attempted yet.${limitSummary}`;
-}
-
-function updateBonusNavNotification() {
-  const badge = elements.bonusNotification;
-  if (!badge) return;
-  const sets = Array.isArray(state.extraQuestionSets)
-    ? state.extraQuestionSets
-    : [];
-  const newCount = sets.filter((set) => {
-    const availability = set.availability || getExtraSetAvailability(set);
-    if (!availability) return false;
-    if (['completed', 'completed_archived'].includes(set.status)) return false;
-    return availability.isAvailable || availability.isUpcoming;
-  }).length;
-
-  if (newCount > 0) {
-    badge.textContent = newCount > 9 ? '9+' : String(newCount);
-    badge.classList.add('is-visible');
-    badge.setAttribute('aria-hidden', 'false');
-  } else {
-    badge.textContent = '';
-    badge.classList.remove('is-visible');
-    badge.setAttribute('aria-hidden', 'true');
-  }
-}
-
 function handleVisibilityChange() {
   if (document.visibilityState === 'visible') {
     // Refresh entitlements and UI when the app regains focus
     refreshEntitlementsOnFocus();
-    loadExtraQuestionSets();
     loadGlobalAnnouncement();
   }
-}
-
-function renderExtraQuestionSets() {
-  const section = elements.extraSetsSection;
-  const list = elements.extraSetsList;
-  if (!section || !list) return;
-
-  const sets = Array.isArray(state.extraQuestionSets)
-    ? state.extraQuestionSets
-    : [];
-
-  if (!sets.length) {
-    section.classList.remove('hidden');
-    list.innerHTML = `
-      <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-        No bonus practice sets are available for your profile yet. Check back later!
-      </div>
-    `;
-    updateBonusNavNotification();
-    return;
-  }
-
-  const cards = sets
-    .map((set) => {
-      const availability = set.availability || getExtraSetAvailability(set);
-      const schedule = describeExtraSchedule(set);
-      const timer = describeExtraTimer(set.time_limit_seconds);
-      const assignmentSummary = describeExtraAssignment(set.assignment_rules);
-      const maxAttemptsSummary = set.max_attempts_per_user
-        ? `${set.max_attempts_per_user} attempt${set.max_attempts_per_user === 1 ? '' : 's'} max`
-        : 'Unlimited attempts';
-      const canStart = Boolean(availability.isAvailable);
-      let primaryLabel = 'Start practice';
-      if (!canStart) {
-        primaryLabel = availability.isUpcoming ? 'Opens soon' : 'Unavailable';
-      } else if (set.status === 'in_progress') {
-        primaryLabel = 'Resume practice';
-      } else if (set.status === 'completed') {
-        primaryLabel = 'Retake practice';
-      }
-      const primaryClasses = canStart
-        ? 'inline-flex items-center gap-2 rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-800 focus:outline-none focus:ring focus:ring-cyan-200'
-        : 'inline-flex items-center gap-2 rounded-md bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 cursor-not-allowed';
-      const summary = escapeHtml(renderExtraAttemptSummary(set));
-      const resultAttemptId = set.lastCompletedAttempt?.id
-        ? `&attempt_id=${encodeURIComponent(set.lastCompletedAttempt.id)}`
-        : '';
-      const viewResultsButton = set.lastCompletedAttempt
-        ? `<a
-              class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-cyan-200 hover:text-cyan-700 focus:outline-none focus:ring focus:ring-cyan-200"
-              href="result-face.html?extra_question_set_id=${encodeURIComponent(set.id)}${resultAttemptId}"
-            >
-              View results
-            </a>`
-        : '';
-      return `
-        <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-cyan-200 hover:shadow-md">
-          <header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div class="space-y-1">
-              <h4 class="text-lg font-semibold text-slate-900">${escapeHtml(set.title || 'Untitled set')}</h4>
-              <p class="text-sm text-slate-600">${escapeHtml(set.description || 'Topical questions curated for your department.')}</p>
-            </div>
-            ${renderExtraStatusChip(set)}
-          </header>
-          <p class="mt-2 text-sm text-slate-500">${summary}</p>
-          <dl class="mt-4 flex flex-wrap gap-3 text-xs text-slate-500">
-            <div class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
-              <span class="font-semibold text-slate-700">Questions:</span>
-              <span>${Number(set.question_count ?? 0)}</span>
-            </div>
-            <div class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
-              <span class="font-semibold text-slate-700">Schedule:</span>
-              <span>${escapeHtml(schedule)}</span>
-            </div>
-            <div class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
-              <span class="font-semibold text-slate-700">Timer:</span>
-              <span>${escapeHtml(timer)}</span>
-            </div>
-            <div class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
-              <span class="font-semibold text-slate-700">Distribution:</span>
-              <span>${escapeHtml(assignmentSummary)}</span>
-            </div>
-            <div class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
-              <span class="font-semibold text-slate-700">Attempts:</span>
-              <span>${escapeHtml(maxAttemptsSummary)}</span>
-            </div>
-          </dl>
-          <div class="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              class="${primaryClasses}"
-              data-action="start-extra-set"
-              data-set-id="${escapeHtml(set.id)}"
-              ${canStart ? '' : 'disabled aria-disabled="true"'}
-            >
-              ${escapeHtml(primaryLabel)}
-            </button>
-            ${viewResultsButton}
-          </div>
-        </article>
-      `;
-    })
-    .join('');
-
-  section.classList.remove('hidden');
-  list.innerHTML = cards;
-  updateBonusNavNotification();
-}
-
-async function fetchExtraAttempts(setIds) {
-  if (
-    !state.supabase ||
-    !state.user ||
-    !Array.isArray(setIds) ||
-    !setIds.length
-  ) {
-    return new Map();
-  }
-
-  const { data, error } = await state.supabase
-    .from('extra_question_attempts')
-    .select(
-      'id, set_id, status, attempt_number, started_at, completed_at, duration_seconds, total_questions, correct_answers, score_percent'
-    )
-    .eq('user_id', state.user.id)
-    .in('set_id', setIds)
-    .order('attempt_number', { ascending: false });
-  if (error) throw error;
-
-  const map = new Map();
-  (data || []).forEach((row) => {
-    const entry = {
-      ...row,
-      score_percent:
-        row.score_percent !== null ? Number(row.score_percent) : null,
-      total_questions:
-        row.total_questions !== null ? Number(row.total_questions) : null,
-      correct_answers:
-        row.correct_answers !== null ? Number(row.correct_answers) : null,
-    };
-    if (!map.has(row.set_id)) {
-      map.set(row.set_id, []);
-    }
-    map.get(row.set_id).push(entry);
-  });
-  return map;
-}
-
-async function hydrateExtraQuestionSets(rawSets) {
-  if (!Array.isArray(rawSets) || !rawSets.length) {
-    return [];
-  }
-
-  const sanitized = rawSets
-    .map((set) => ({
-      ...set,
-      time_limit_seconds:
-        set.time_limit_seconds !== undefined ? set.time_limit_seconds : null,
-      assignment_rules: normalizeAssignmentRules(set.assignment_rules),
-      max_attempts_per_user:
-        set.max_attempts_per_user !== undefined &&
-        set.max_attempts_per_user !== null
-          ? Number(set.max_attempts_per_user)
-          : null,
-    }))
-    .filter((set) => Number(set.question_count ?? 0) > 0);
-
-  if (!sanitized.length) {
-    return [];
-  }
-
-  let attemptsBySet = new Map();
-  try {
-    attemptsBySet = await fetchExtraAttempts(
-      sanitized.map((set) => set.id).filter(Boolean)
-    );
-  } catch (error) {
-    console.error('[Dashboard] fetchExtraAttempts failed', error);
-    showToast('Unable to load bonus practice history.', 'error');
-    attemptsBySet = new Map();
-  }
-
-  const nowMs = Date.now();
-
-  const enriched = sanitized.map((set) => {
-    const attempts = attemptsBySet.get(set.id) || [];
-    const availability = getExtraSetAvailability(set, nowMs);
-    const latestAttempt = attempts[0] || null;
-    const lastCompletedAttempt =
-      attempts.find((attempt) => attempt.status === 'completed') || null;
-    const status = deriveExtraSetStatus({ ...set, availability }, attempts);
-    return {
-      ...set,
-      availability,
-      attempts,
-      latestAttempt,
-      lastCompletedAttempt,
-      status,
-    };
-  });
-
-  const weight = (set) => {
-    if (set.availability.isAvailable) return 0;
-    if (set.availability.isUpcoming) return 1;
-    return 2;
-  };
-
-  return enriched
-    .filter((set) => {
-      const hasCompleted = Boolean(set.lastCompletedAttempt);
-      return (
-        set.availability.isAvailable ||
-        set.availability.isUpcoming ||
-        hasCompleted
-      );
-    })
-    .sort((a, b) => {
-      const weightDiff = weight(a) - weight(b);
-      if (weightDiff !== 0) return weightDiff;
-      const updatedA = a.updated_at ? new Date(a.updated_at).getTime() : 0;
-      const updatedB = b.updated_at ? new Date(b.updated_at).getTime() : 0;
-      return updatedB - updatedA;
-    });
-}
-
-async function loadExtraQuestionSets() {
-  if (!state.supabase || state.isLoadingExtraSets) return;
-  state.isLoadingExtraSets = true;
-
-  const list = elements.extraSetsList;
-  const section = elements.extraSetsSection;
-  if (section) {
-    section.classList.remove('hidden');
-  }
-  if (list) {
-    list.innerHTML = `
-      <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-        Loading bonus practice sets…
-      </div>
-    `;
-  }
-
-  try {
-    const { data, error } = await state.supabase
-      .from('extra_question_sets')
-      .select(
-        'id, title, description, is_active, question_count, starts_at, ends_at, time_limit_seconds, max_attempts_per_user, assignment_rules, updated_at'
-      )
-      .order('updated_at', { ascending: false });
-    if (error) throw error;
-
-    const sets = await hydrateExtraQuestionSets(
-      Array.isArray(data) ? data : []
-    );
-    state.extraQuestionSets = sets;
-    renderExtraQuestionSets();
-  } catch (error) {
-    const errorMessage =
-      typeof error?.message === 'string' ? error.message : '';
-    const isMissingTimer = errorMessage.includes('time_limit_seconds');
-    const isMissingAssignment =
-      errorMessage.includes('assignment_rules') ||
-      errorMessage.includes('max_attempts_per_user');
-    if (isMissingTimer || isMissingAssignment) {
-      try {
-        const { data: fallbackData, error: fallbackError } =
-          await state.supabase
-            .from('extra_question_sets')
-            .select(
-              'id, title, description, is_active, question_count, starts_at, ends_at, updated_at'
-            )
-            .order('updated_at', { ascending: false });
-        if (fallbackError) throw fallbackError;
-        const sets = await hydrateExtraQuestionSets(
-          (Array.isArray(fallbackData) ? fallbackData : []).map((set) => ({
-            ...set,
-            time_limit_seconds: null,
-            assignment_rules: DEFAULT_ASSIGNMENT_RULES,
-            max_attempts_per_user: null,
-          }))
-        );
-        state.extraQuestionSets = sets;
-        renderExtraQuestionSets();
-        return;
-      } catch (fallbackError) {
-        console.error(
-          '[Dashboard] loadExtraQuestionSets fallback failed',
-          fallbackError
-        );
-        state.extraQuestionSets = [];
-        if (list) {
-          list.innerHTML = `
-            <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-6 text-sm text-rose-700">
-              Unable to load bonus practice sets. Please refresh to try again.
-            </div>
-          `;
-        }
-        showToast('Unable to load bonus practice sets.', 'error');
-        return;
-      }
-    }
-    console.error('[Dashboard] loadExtraQuestionSets failed', error);
-    state.extraQuestionSets = [];
-    if (list) {
-      list.innerHTML = `
-        <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-6 text-sm text-rose-700">
-          Unable to load bonus practice sets. Please refresh to try again.
-        </div>
-      `;
-    }
-    showToast('Unable to load bonus practice sets.', 'error');
-    updateBonusNavNotification();
-  } finally {
-    state.isLoadingExtraSets = false;
-  }
-}
-
-function handleExtraSetsClick(event) {
-  const startBtn = event.target.closest('[data-action="start-extra-set"]');
-  if (!startBtn) return;
-
-  if (startBtn.disabled) return;
-
-  const setId = startBtn.dataset.setId;
-  if (!setId) return;
-
-  let debugPayload = null;
-  try {
-    debugPayload = {
-      setId,
-      clickedAt: new Date().toISOString(),
-      source: window.location.href,
-      buttonState: {
-        disabled: Boolean(startBtn.disabled),
-        text: startBtn.textContent?.trim() || null,
-      },
-    };
-    sessionStorage.setItem(
-      'extra_set_launch_debug',
-      JSON.stringify(debugPayload)
-    );
-  } catch (storageError) {
-    console.debug(
-      '[Dashboard] Unable to persist extra set launch debug info',
-      storageError
-    );
-  }
-
-  console.debug(
-    '[Dashboard] Navigating to extra practice set',
-    debugPayload || { setId }
-  );
-
-  const url = new URL('exam-face.html', window.location.href);
-  url.searchParams.set('extra_question_set_id', setId);
-  const activeSubscription = getSelectedSubscription();
-  if (activeSubscription?.plan?.id) {
-    url.searchParams.set('subscription_id', activeSubscription.id);
-    url.searchParams.set('plan_id', activeSubscription.plan.id);
-  }
-  window.location.href = `${url.pathname}${url.search}`;
 }
 
 function calculateStreak(history) {
@@ -3376,16 +2113,9 @@ function calculateStreak(history) {
 }
 
 async function loadScheduleHealth() {
-  if (!state.supabase) {
-    updateScheduleNotice(null);
-    return;
-  }
   try {
-    const { data, error } = await state.supabase.rpc(
-      'get_user_schedule_health'
-    );
-    if (error) throw error;
-    state.scheduleHealth = data || null;
+    const { health } = await apiFetch('/api/dashboard/schedule-health');
+    state.scheduleHealth = health || null;
     updateScheduleNotice(state.scheduleHealth);
   } catch (error) {
     console.error('[Dashboard] loadScheduleHealth failed', error);
@@ -3395,19 +2125,8 @@ async function loadScheduleHealth() {
 }
 
 async function checkTodayQuiz() {
-  const today = new Date().toISOString().slice(0, 10);
-
   try {
-    const { data: quiz, error } = await state.supabase
-      .from('daily_quizzes')
-      .select(
-        'id, status, total_questions, correct_answers, started_at, completed_at, assigned_date, subscription_id'
-      )
-      .eq('user_id', state.user.id)
-      .eq('assigned_date', today)
-      .maybeSingle();
-
-    if (error) throw error;
+    const { quiz } = await apiFetch('/api/dashboard/daily-quiz/today');
     state.todayQuiz = quiz;
     updateQuizSection();
     updatePlanCollectionLabels(state.todayQuiz);
@@ -3431,11 +2150,14 @@ async function startOrResumeQuiz() {
     const rpcArgs = { p_subscription_id: selectedSubscription.id };
 
     if (!state.todayQuiz) {
-      // Generate new quiz first
       showToast('Generating your daily questions...', 'info');
-      const { data: generated, error: generateError } =
-        await state.supabase.rpc('generate_daily_quiz', rpcArgs);
-      if (generateError) {
+      let generated;
+      try {
+        generated = await apiFetch('/api/dashboard/daily-quiz/generate', {
+          method: 'POST',
+          body: { subscriptionId: rpcArgs.p_subscription_id },
+        });
+      } catch (generateError) {
         // Handle specific error messages
         const message = String(generateError.message || '').toLowerCase();
         if (message.includes('no active subscription')) {
@@ -3474,9 +2196,7 @@ async function startOrResumeQuiz() {
         throw generateError;
       }
 
-      const quizId = Array.isArray(generated)
-        ? generated[0]?.daily_quiz_id
-        : generated?.daily_quiz_id;
+      const quizId = generated?.dailyQuizId || generated?.daily_quiz_id;
       if (!quizId) {
         throw new Error('Failed to generate quiz');
       }
@@ -3520,13 +2240,12 @@ async function regenerateQuiz() {
     }
 
     showToast('Generating new questions...', 'info');
-    const { error: genError } = await state.supabase.rpc(
-      'generate_daily_quiz',
-      {
-        p_subscription_id: selectedSubscription.id,
-      }
-    );
-    if (genError) {
+    try {
+      await apiFetch('/api/dashboard/daily-quiz/generate', {
+        method: 'POST',
+        body: { subscriptionId: selectedSubscription.id },
+      });
+    } catch (genError) {
       const message = String(genError.message || '').toLowerCase();
       if (
         message.includes('selected subscription is no longer active') ||
@@ -3563,17 +2282,10 @@ async function regenerateQuiz() {
 
 async function refreshHistory() {
   try {
-    const { data, error } = await state.supabase
-      .from('daily_quizzes')
-      .select(
-        'id, assigned_date, status, total_questions, correct_answers, completed_at'
-      )
-      .eq('user_id', state.user.id)
-      .order('assigned_date', { ascending: false })
-      .limit(QUIZ_HISTORY_FETCH_LIMIT);
-    if (error) throw error;
-
-    state.history = data || [];
+    const { history } = await apiFetch(
+      `/api/dashboard/daily-quiz/history?limit=${QUIZ_HISTORY_FETCH_LIMIT}`
+    );
+    state.history = history || [];
     renderHistory();
     updatePlanCollectionLabels(state.todayQuiz);
   } catch (error) {
@@ -3583,7 +2295,7 @@ async function refreshHistory() {
 }
 
 async function loadSubscriptions() {
-  if (!state.supabase || !state.user) return;
+  if (!state.user) return;
 
   try {
     if (
@@ -3593,39 +2305,8 @@ async function loadSubscriptions() {
       state.defaultSubscriptionId = state.profile.default_subscription_id;
     }
 
-    const { data, error } = await state.supabase
-      .from('user_subscriptions')
-      .select(
-        `id, status, started_at, expires_at, purchased_at, quantity, renewed_from_subscription_id,
-         plan:subscription_plans (
-           id,
-           name,
-           duration_days,
-           price,
-           currency,
-           daily_question_limit,
-           plan_tier,
-           metadata,
-           product:subscription_products (
-             id,
-             name,
-             department_id,
-             department:departments (
-               id,
-               name,
-               slug,
-               color_theme
-             )
-           )
-         )`
-      )
-      .eq('user_id', state.user.id)
-      .order('expires_at', { ascending: true, nullsLast: true })
-      .order('started_at', { ascending: true });
-
-    if (error) throw error;
-
-    state.subscriptions = Array.isArray(data) ? data : [];
+    const { subscriptions } = await apiFetch('/api/dashboard/subscriptions');
+    state.subscriptions = Array.isArray(subscriptions) ? subscriptions : [];
 
     const hasActive = state.subscriptions.some(isSubscriptionActive);
     if (
@@ -3651,70 +2332,16 @@ async function loadSubscriptions() {
 async function ensureProfile() {
   const fallbackName = state.user.email?.split('@')[0] ?? 'Learner';
   try {
-    const { data, error } = await state.supabase
-      .from('profiles')
-      .select(
-        'id, full_name, role, last_seen_at, subscription_status, default_subscription_id, registration_stage, pending_plan_id, pending_plan_snapshot, phone, email, first_name, last_name, school_name'
-      )
-      .eq('id', state.user.id)
-      .maybeSingle();
-    if (error) throw error;
-
-    if (!data) {
-      const metadata = state.user.user_metadata || {};
-      const fullName =
-        metadata.full_name ||
-        metadata.name ||
-        metadata.fullName ||
-        fallbackName;
-      const parts = String(fullName || '')
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean);
-      const firstName =
-        metadata.first_name || (parts.length ? parts[0] : null) || null;
-      const lastName =
-        metadata.last_name ||
-        (parts.length > 1 ? parts.slice(1).join(' ') : null) ||
-        null;
-
-      const { data: inserted, error: insertError } = await state.supabase
-        .from('profiles')
-        .upsert({
-          id: state.user.id,
-          full_name: fullName || null,
-          first_name: firstName,
-          last_name: lastName,
-          email: state.user.email ?? null,
-          role: 'learner',
-          phone: metadata.phone || null,
-          last_seen_at: new Date().toISOString(),
-        })
-        .select(
-          'id, full_name, role, last_seen_at, subscription_status, default_subscription_id, registration_stage, pending_plan_id, pending_plan_snapshot, phone, email, first_name, last_name, school_name'
-        )
-        .single();
-      if (insertError) throw insertError;
-      state.profile = inserted;
-    } else {
-      const patch = {
-        last_seen_at: new Date().toISOString(),
-        ...(state.user.email ? { email: state.user.email } : {}),
-      };
-      const { data: updated, error: updateError } = await state.supabase
-        .from('profiles')
-        .update(patch)
-        .eq('id', state.user.id)
-        .select(
-          'id, full_name, role, last_seen_at, subscription_status, default_subscription_id, registration_stage, pending_plan_id, pending_plan_snapshot, phone, email, first_name, last_name, school_name'
-        )
-        .single();
-      if (!updateError && updated) {
-        state.profile = updated;
-      } else {
-        state.profile = data;
-      }
+    const data = await apiFetch('/api/me');
+    if (data?.user) {
+      state.user = data.user;
     }
+    state.profile = data?.profile || {
+      full_name: fallbackName,
+      subscription_status: 'inactive',
+      default_subscription_id: null,
+      registration_stage: 'profile_created',
+    };
 
     state.defaultSubscriptionId =
       state.profile?.default_subscription_id || null;
@@ -3737,7 +2364,9 @@ async function ensureProfile() {
 
 async function handleLogout() {
   try {
-    await state.supabase.auth.signOut();
+    await apiFetch('/api/auth/sign-out', { method: 'POST' }).catch((error) => {
+      if (error?.status !== 401) throw error;
+    });
     clearSessionFingerprint();
     window.location.replace('login.html');
   } catch (error) {
@@ -3748,21 +2377,16 @@ async function handleLogout() {
 
 async function initialise() {
   try {
-    state.supabase = await getSupabaseClient();
-    const {
-      data: { session },
-    } = await state.supabase.auth.getSession();
-    if (!session?.user) {
+    const sessionData = await apiFetch('/api/me').catch((error) => {
+      if (error?.status === 401) return null;
+      throw error;
+    });
+    if (!sessionData?.user) {
       window.location.replace('login.html');
       return;
     }
-    state.user = session.user;
-
-    state.supabase.auth.onAuthStateChange((_event, newSession) => {
-      if (!newSession?.user) {
-        window.location.replace('login.html');
-      }
-    });
+    state.user = sessionData.user;
+    state.profile = sessionData.profile || null;
 
     await ensureProfile();
     await loadSubscriptions();
@@ -3772,9 +2396,6 @@ async function initialise() {
     // If the user paid while offline (or never returned to the callback),
     // try to reconcile immediately on first load (not only on focus/online).
     await refreshEntitlementsOnFocus();
-
-    // Realtime: listen for profile updates to flip UI immediately on webhook
-    subscribeToProfileRealtime();
 
     // Bind event listeners
     elements.resumeBtn?.addEventListener('click', startOrResumeQuiz);
@@ -3787,33 +2408,7 @@ async function initialise() {
       'click',
       handlePlanCollectionClick
     );
-    elements.extraSetsList?.addEventListener('click', handleExtraSetsClick);
     elements.profileForm?.addEventListener('submit', handleProfileSubmit);
-    elements.connectGoogleBtn?.addEventListener('click', handleConnectGoogle);
-    elements.whatsappLinkSendBtn?.addEventListener(
-      'click',
-      handleWhatsAppLinkSend
-    );
-    elements.whatsappLinkVerifyBtn?.addEventListener(
-      'click',
-      handleWhatsAppLinkVerify
-    );
-    elements.whatsappLinkResendBtn?.addEventListener(
-      'click',
-      handleWhatsAppLinkResend
-    );
-    elements.whatsappBioSaveBtn?.addEventListener(
-      'click',
-      handleWhatsAppBioSave
-    );
-    elements.whatsappLinkCodeInput?.addEventListener('input', () => {
-      if (!elements.whatsappLinkCodeInput) return;
-      elements.whatsappLinkCodeInput.value = String(
-        elements.whatsappLinkCodeInput.value || ''
-      )
-        .replace(/\D/g, '')
-        .slice(0, 6);
-    });
     document.addEventListener('visibilitychange', handleVisibilityChange);
     elements.globalNoticeDismiss?.addEventListener(
       'click',
@@ -3830,7 +2425,6 @@ async function initialise() {
     await loadScheduleHealth();
     await checkTodayQuiz();
     await refreshHistory();
-    await loadExtraQuestionSets();
     await loadGlobalAnnouncement();
   } catch (error) {
     console.error('[Dashboard] initialisation failed', error);
@@ -3843,25 +2437,7 @@ function cleanup() {
     'click',
     handlePlanCollectionClick
   );
-  elements.extraSetsList?.removeEventListener('click', handleExtraSetsClick);
   elements.profileForm?.removeEventListener('submit', handleProfileSubmit);
-  elements.connectGoogleBtn?.removeEventListener('click', handleConnectGoogle);
-  elements.whatsappLinkSendBtn?.removeEventListener(
-    'click',
-    handleWhatsAppLinkSend
-  );
-  elements.whatsappLinkVerifyBtn?.removeEventListener(
-    'click',
-    handleWhatsAppLinkVerify
-  );
-  elements.whatsappLinkResendBtn?.removeEventListener(
-    'click',
-    handleWhatsAppLinkResend
-  );
-  elements.whatsappBioSaveBtn?.removeEventListener(
-    'click',
-    handleWhatsAppBioSave
-  );
   document.removeEventListener('visibilitychange', handleVisibilityChange);
   elements.globalNoticeDismiss?.removeEventListener(
     'click',
@@ -3873,7 +2449,6 @@ function cleanup() {
   );
   window.removeEventListener('focus', refreshEntitlementsOnFocus);
   window.removeEventListener('online', refreshEntitlementsOnFocus);
-  unsubscribeProfileRealtime();
 }
 
 window.addEventListener('beforeunload', cleanup);

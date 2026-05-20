@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "node server/index.js",
+    "server:dev": "node --watch server/index.js",
+    "auth:generate": "auth generate --config server/auth.js --output migrations/self_hosted/010_better_auth.sql",
+    "auth:migrate": "auth migrate --config server/auth.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
@@ -12,6 +16,8 @@
     "watch:css": "npx tailwindcss -i styles/tailwind.css -o apps/assets/tailwind.css --watch"
   },
   "devDependencies": {
+    "@types/node": "^22.7.5",
+    "auth": "^1.6.11",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.36.0",
     "eslint-config-prettier": "^10.1.8",
@@ -19,9 +25,17 @@
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "tailwindcss": "^3.4.18",
-    "vitest": "^3.2.4",
-    "vite": "^5.4.10",
     "typescript": "^5.6.3",
-    "@types/node": "^22.7.5"
+    "vite": "^5.4.10",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.3",
+    "better-auth": "^1.6.11",
+    "dotenv": "^17.4.2",
+    "hono": "^4.12.21",
+    "ioredis": "^5.10.1",
+    "pg": "^8.21.0",
+    "zod": "^4.4.3"
   }
 }

@@ -61,7 +61,12 @@
         right: 0;
         height: 4px;
         background: var(--bg-accent);
-        background: linear-gradient(90deg, var(--color-primary-500), var(--color-primary-600), var(--color-primary-500));
+        background: linear-gradient(
+          90deg,
+          var(--color-primary-500),
+          var(--color-primary-600),
+          var(--color-primary-500)
+        );
       }
       .gf-card.pad {
         padding: 28px;
@@ -735,7 +740,11 @@
 
       <div id="header-card" class="gf-card pad mt-3.5">
         <div class="flex items-start gap-3">
-          <img src="../assets/academicnightingale-logo.jpg" alt="Academic Nightingale" class="h-12 w-12 rounded-lg object-cover shadow-sm" />
+          <img
+            src="../assets/academicnightingale-logo.jpg"
+            alt="Academic Nightingale"
+            class="h-12 w-12 rounded-lg object-cover shadow-sm"
+          />
           <div class="flex-1">
             <h1 id="quiz-title" class="gf-title"></h1>
             <p id="quiz-description" class="gf-desc"></p>
@@ -1158,12 +1167,6 @@
 
         document.addEventListener('DOMContentLoaded', initializeQuiz);
       }
-      // Provide Supabase credentials (override before this script if you prefer env injection)
-      window.__SUPABASE_CONFIG__ = window.__SUPABASE_CONFIG__ || {
-        url: 'https://ghnhfagydcynhkgbazbj.supabase.co',
-        anonKey:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobmhmYWd5ZGN5bmhrZ2JhemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwMDM2MjQsImV4cCI6MjA3NDU3OTYyNH0.KHgZ_ESTneR0CqWBGfu-JOmI3eBBLCZr1XG-g2vpclw',
-      };
       // Load live implementation
     </script>
 

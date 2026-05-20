@@ -223,7 +223,7 @@ export async function dashboardView(_appState, actions = {}) {
       <section class="space-y-6">
         <div>
           <h1 class="text-2xl font-semibold text-gray-900">Overview</h1>
-          <p class="text-gray-500">Track performance across products, content, and exams.</p>
+          <p class="text-gray-500">Track performance across products, content, and learner activity.</p>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
           ${cards}
@@ -231,16 +231,16 @@ export async function dashboardView(_appState, actions = {}) {
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <article class="bg-white rounded-lg shadow p-6">
             <h2 class="text-lg font-semibold text-gray-800">Content Pipeline</h2>
-            <p class="mt-2 text-sm text-gray-500">Departments with the highest question growth will surface here once Supabase data is connected.</p>
+            <p class="mt-2 text-sm text-gray-500">Departments with the highest question growth will surface here as content data grows.</p>
             <div class="mt-4 border border-dashed border-gray-200 rounded-lg p-4 text-sm text-gray-400">
-              Connect Supabase to unlock live analytics for content creation velocity, question review backlog, and publishing cadence.
+              Content analytics can be expanded from the VPS PostgreSQL data model without browser database access.
             </div>
           </article>
           <article class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-800">Upcoming Exams</h2>
-            <p class="mt-2 text-sm text-gray-500">Study cycles and real-time exam sessions will appear with schedule, enrolment, and readiness score.</p>
+            <h2 class="text-lg font-semibold text-gray-800">Learner Activity</h2>
+            <p class="mt-2 text-sm text-gray-500">Inactive learners and subscription movement are tracked from the admin API.</p>
             <div class="mt-4 border border-dashed border-gray-200 rounded-lg p-4 text-sm text-gray-400">
-              Create study cycles under <strong>Study Cycles</strong> to populate upcoming exam insights.
+              Daily quiz and subscription health can be expanded here after the VPS data has production volume.
             </div>
           </article>
         </div>
@@ -294,11 +294,19 @@ export async function dashboardView(_appState, actions = {}) {
       </section>
     `,
     onMount(container) {
-      const form = container.querySelector('[data-role="global-notification-form"]');
+      const form = container.querySelector(
+        '[data-role="global-notification-form"]'
+      );
       if (!form) return;
-      const input = form.querySelector('[data-role="global-notification-input"]');
-      const submitBtn = form.querySelector('[data-role="global-notification-submit"]');
-      const errorEl = form.querySelector('[data-role="global-notification-error"]');
+      const input = form.querySelector(
+        '[data-role="global-notification-input"]'
+      );
+      const submitBtn = form.querySelector(
+        '[data-role="global-notification-submit"]'
+      );
+      const errorEl = form.querySelector(
+        '[data-role="global-notification-error"]'
+      );
 
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -340,7 +348,9 @@ export async function dashboardView(_appState, actions = {}) {
         }
       });
 
-      const list = container.querySelector('[data-role="global-notification-list"]');
+      const list = container.querySelector(
+        '[data-role="global-notification-list"]'
+      );
       if (list) {
         list.addEventListener('click', async (event) => {
           const button = event.target.closest('button[data-action][data-id]');

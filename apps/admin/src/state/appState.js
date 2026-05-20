@@ -5,10 +5,9 @@ export class AppState extends EventTarget {
     this.selectedDepartmentId = null;
     this.selectedCourseId = null;
     this.selectedTopicId = null;
-    this.selectedExtraQuestionSetId = null;
   }
 
-  setView(view, { departmentId, courseId, topicId, extraQuestionSetId } = {}) {
+  setView(view, { departmentId, courseId, topicId } = {}) {
     if (this.currentView !== view) {
       this.currentView = view;
     }
@@ -21,9 +20,6 @@ export class AppState extends EventTarget {
     if (topicId !== undefined) {
       this.selectedTopicId = topicId;
     }
-    if (extraQuestionSetId !== undefined) {
-      this.selectedExtraQuestionSetId = extraQuestionSetId;
-    }
     this._notify();
   }
 
@@ -31,7 +27,6 @@ export class AppState extends EventTarget {
     this.selectedDepartmentId = null;
     this.selectedCourseId = null;
     this.selectedTopicId = null;
-    this.selectedExtraQuestionSetId = null;
     this._notify();
   }
 
@@ -53,16 +48,6 @@ export class AppState extends EventTarget {
     this._notify();
   }
 
-  selectExtraQuestionSet(setId) {
-    this.selectedExtraQuestionSetId = setId;
-    this._notify();
-  }
-
-  clearExtraQuestionSet() {
-    this.selectedExtraQuestionSetId = null;
-    this._notify();
-  }
-
   _notify() {
     this.dispatchEvent(
       new CustomEvent('change', {
@@ -71,7 +56,6 @@ export class AppState extends EventTarget {
           selectedDepartmentId: this.selectedDepartmentId,
           selectedCourseId: this.selectedCourseId,
           selectedTopicId: this.selectedTopicId,
-          selectedExtraQuestionSetId: this.selectedExtraQuestionSetId,
         },
       })
     );

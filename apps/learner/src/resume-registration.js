@@ -1,4 +1,4 @@
-import { getSupabaseClient } from '../../shared/supabaseClient.js';
+import { apiFetch } from '../../shared/apiClient.js';
 
 const statusBanner = document.getElementById('status-banner');
 const planSummary = document.getElementById('planSummary');
@@ -40,7 +40,6 @@ const STORAGE_PLAN = 'registrationPlan';
 const STORAGE_PENDING_PLAN_ID = 'pendingPlanId';
 
 const state = {
-  supabase: null,
   user: null,
   profile: null,
   products: [],
@@ -113,59 +112,10 @@ function readStoredPlan(planId) {
   return null;
 }
 
-async function fetchPlanFromSupabase(planId) {
-  if (!planId || !state.supabase) return null;
+async function fetchPlanFromApi(planId) {
+  if (!planId) return null;
   try {
-    const { data, error } = await state.supabase
-      .from('subscription_plans')
-      .select(
-        `
-          id,
-          code,
-          name,
-          price,
-          currency,
-          metadata,
-          duration_days,
-          quiz_duration_minutes,
-          daily_question_limit,
-          subscription_products:subscription_products!subscription_plans_product_id_fkey (
-            id,
-            code,
-            name,
-            department_id,
-            department:departments(id, name, slug),
-            color_theme
-          )
-        `
-      )
-      .eq('id', planId)
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) return null;
-    const product = data.subscription_products
-      ? {
-          id: data.subscription_products.id,
-          code: data.subscription_products.code,
-          name: data.subscription_products.name,
-          department_id: data.subscription_products.department_id,
-          department_name: data.subscription_products.department?.name || null,
-          department_slug: data.subscription_products.department?.slug || null,
-          color_theme: data.subscription_products.color_theme || null,
-        }
-      : null;
-    return {
-      id: data.id,
-      code: data.code,
-      name: data.name,
-      price: data.price,
-      currency: data.currency,
-      metadata: data.metadata || {},
-      duration_days: data.duration_days,
-      quiz_duration_minutes: data.quiz_duration_minutes,
-      daily_question_limit: data.daily_question_limit,
-      product,
-    };
+    return await apiFetch(`/api/catalog/plans/${encodeURIComponent(planId)}`);
   } catch (error) {
     console.error('[ResumeRegistration] Failed to fetch plan snapshot', error);
     return null;
@@ -257,42 +207,6 @@ function deriveDepartmentDisplayName(product) {
   return product.department_id;
 }
 
-async function hydrateDepartmentMetadata(supabase, products) {
-  const departmentIds = Array.from(
-    new Set(products.map((product) => product.department_id).filter(Boolean))
-  );
-  if (!departmentIds.length) return;
-
-  const needsHydration = products.some(
-    (product) =>
-      product.department_id &&
-      !product.department_name &&
-      !product.department_slug
-  );
-  if (!needsHydration) return;
-
-  try {
-    const { data, error } = await supabase
-      .from('departments')
-      .select('id,name,slug,color_theme')
-      .in('id', departmentIds);
-    if (error || !Array.isArray(data) || !data.length) return;
-    const lookup = new Map(data.map((row) => [row.id, row]));
-    products.forEach((product) => {
-      const dept = lookup.get(product.department_id);
-      if (!dept) return;
-      if (!product.department_name && dept.name)
-        product.department_name = dept.name;
-      if (!product.department_slug && dept.slug)
-        product.department_slug = dept.slug;
-      if (!product.color_theme && dept.color_theme)
-        product.color_theme = dept.color_theme;
-    });
-  } catch (error) {
-    console.warn('[ResumeRegistration] Unable to hydrate departments', error);
-  }
-}
-
 function deriveDepartments(products) {
   const lookup = new Map();
   products.forEach((product) => {
@@ -354,7 +268,7 @@ async function ensurePendingPlanContext() {
   }
 
   if (!plan && pendingPlanId) {
-    plan = await fetchPlanFromSupabase(pendingPlanId);
+    plan = await fetchPlanFromApi(pendingPlanId);
   }
 
   if (!plan) {
@@ -523,21 +437,8 @@ function buildContactPayload() {
 }
 
 async function loadProducts() {
-  if (!state.supabase) {
-    throw new Error('Supabase client missing.');
-  }
-  const { data, error } = await state.supabase
-    .from('subscription_products_with_plans')
-    .select('*')
-    .order('department_name', { ascending: true })
-    .order('price', { ascending: true });
-
-  if (error) {
-    throw error;
-  }
-
-  const products = groupProducts(data || []);
-  await hydrateDepartmentMetadata(state.supabase, products);
+  const { rows } = await apiFetch('/api/catalog/products');
+  const products = groupProducts(rows || []);
   state.products = products;
   state.departments = deriveDepartments(products);
   state.generalProducts = products.filter((product) => !product.department_id);
@@ -735,55 +636,19 @@ function handlePlanSelection(event) {
   updatePayButtonState();
 }
 
-async function extractEdgeFunctionError(error, fallbackMessage) {
-  if (error?.context instanceof Response) {
-    try {
-      const cloned = error.context.clone();
-      const contentType = cloned.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        const json = await cloned.json();
-        if (json?.error) return json.error;
-        if (json?.message) return json.message;
-      }
-      const text = await cloned.text();
-      if (text) return text;
-    } catch (parseError) {
-      console.warn(
-        '[ResumeRegistration] Failed to parse edge error response',
-        parseError
-      );
-    }
-  }
-
-  if (
-    error?.message &&
-    error.message !== 'Edge Function returned a non-2xx status code'
-  ) {
-    return error.message;
-  }
-
-  return fallbackMessage;
-}
-
 async function verifyPayment(reference) {
-  if (!state.supabase) return;
-  const { error } = await state.supabase.functions.invoke('paystack-verify', {
+  await apiFetch('/api/payments/paystack/verify', {
+    method: 'POST',
     body: { reference },
   });
-  if (error) {
-    const message = await extractEdgeFunctionError(
-      error,
-      'Payment verification failed. Please contact support with your reference.'
-    );
-    throw new Error(message);
-  }
 }
 
 async function refreshProfileStatus() {
-  if (!state.supabase || !state.user) return;
+  if (!state.user) return;
   try {
-    await state.supabase.rpc('refresh_profile_subscription_status', {
-      p_user_id: state.user.id,
+    await apiFetch('/api/jobs/reconcile-payments', {
+      method: 'POST',
+      body: { userId: state.user.id },
     });
   } catch (error) {
     console.warn(
@@ -794,29 +659,11 @@ async function refreshProfileStatus() {
 }
 
 async function fetchProfile() {
-  if (!state.supabase || !state.user) return null;
-  const { data, error } = await state.supabase
-    .from('profiles')
-    .select(
-      `
-        id,
-        full_name,
-        first_name,
-        last_name,
-        phone,
-        email,
-        username,
-        subscription_status,
-        registration_stage,
-        pending_plan_id,
-        pending_plan_snapshot,
-        pending_plan_selected_at
-      `
-    )
-    .eq('id', state.user.id)
-    .maybeSingle();
-  if (error) throw error;
-  return data;
+  const current = await apiFetch('/api/me');
+  if (current?.user) {
+    state.user = current.user;
+  }
+  return current?.profile || null;
 }
 
 async function pollForActivation({ attempts = 6, interval = 3000 } = {}) {
@@ -942,7 +789,7 @@ async function handlePaymentSuccess(reference) {
 }
 
 async function startCheckout() {
-  if (!state.supabase || !state.user) return;
+  if (!state.user) return;
   if (!state.selectedPlan) {
     showBanner(
       'We could not detect your selected plan. Please refresh and try again.',
@@ -966,33 +813,13 @@ async function startCheckout() {
   clearBanner();
 
   try {
-    const { data, error } = await state.supabase.functions.invoke(
-      'paystack-initiate',
-      {
-        body: {
-          planId: plan.id,
-          userId: state.user.id,
-          registration: {
-            first_name: contact.firstName,
-            last_name: contact.lastName,
-            phone: contact.phone,
-            username: contact.username,
-          },
-        },
-      }
-    );
-
-    if (error) {
-      const message = await extractEdgeFunctionError(
-        error,
-        'Unable to initialise checkout. Please try again.'
-      );
-      throw new Error(message);
-    }
-
-    if (data?.error) {
-      throw new Error(data.error);
-    }
+    const data = await apiFetch('/api/payments/paystack/initiate', {
+      method: 'POST',
+      body: {
+        planId: plan.id,
+        userId: state.user.id,
+      },
+    });
 
     if (!data?.reference) {
       throw new Error('Paystack did not return a checkout reference.');
@@ -1044,19 +871,16 @@ async function initialise() {
   bindEventListeners();
 
   try {
-    state.supabase = await getSupabaseClient();
-    const {
-      data: { session },
-    } = await state.supabase.auth.getSession();
+    const current = await apiFetch('/api/me').catch(() => null);
 
-    if (!session?.user) {
+    if (!current?.user) {
       const redirect = encodeURIComponent('resume-registration.html');
       window.location.href = `login.html?redirect=${redirect}`;
       return;
     }
 
-    state.user = session.user;
-    state.profile = await fetchProfile();
+    state.user = current.user;
+    state.profile = current.profile;
     if (!state.profile) {
       throw new Error('Unable to load your profile. Please refresh.');
     }
@@ -1076,7 +900,8 @@ async function initialise() {
 
     // Proactively trigger server-side reconciliation for this user
     try {
-      await state.supabase.functions.invoke('reconcile-payments', {
+      await apiFetch('/api/jobs/reconcile-payments', {
+        method: 'POST',
         body: { userId: state.user.id },
       });
       // Refresh local status after reconcile attempt
@@ -1104,7 +929,8 @@ async function initialise() {
     try {
       await refreshProfileStatus();
       try {
-        await state.supabase.functions.invoke('reconcile-payments', {
+        await apiFetch('/api/jobs/reconcile-payments', {
+          method: 'POST',
           body: { userId: state.user.id },
         });
       } catch (reconcileError) {

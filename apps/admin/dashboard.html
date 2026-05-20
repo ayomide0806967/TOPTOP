@@ -79,14 +79,6 @@
     </style>
   </head>
   <body class="bg-gray-100 font-sans">
-    <script>
-      // Provide default Supabase credentials (override before this script if you prefer env injection)
-      window.__SUPABASE_CONFIG__ = window.__SUPABASE_CONFIG__ || {
-        url: 'https://ghnhfagydcynhkgbazbj.supabase.co',
-        anonKey:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobmhmYWd5ZGN5bmhrZ2JhemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwMDM2MjQsImV4cCI6MjA3NDU3OTYyNH0.KHgZ_ESTneR0CqWBGfu-JOmI3eBBLCZr1XG-g2vpclw',
-      };
-    </script>
     <div class="flex h-screen bg-gray-200">
       <aside
         id="sidebar"
@@ -142,25 +134,6 @@
           <a
             href="#"
             class="sidebar-nav-item flex items-center px-4 py-2 rounded-md"
-            data-view="slots"
-          >
-            <svg
-              class="h-5 w-5 mr-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              /></svg
-            >Study Cycles
-          </a>
-          <a
-            href="#"
-            class="sidebar-nav-item flex items-center px-4 py-2 rounded-md"
             data-view="subscriptions"
           >
             <svg
@@ -177,67 +150,6 @@
               /></svg
             >Subscriptions
           </a>
-          <a
-            href="#"
-            class="sidebar-nav-item flex items-center px-4 py-2 rounded-md"
-            data-view="freequizzes"
-          >
-            <svg
-              class="h-5 w-5 mr-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-              />
-            </svg>
-            Free Quiz
-          </a>
-          <a
-            href="#"
-            class="sidebar-nav-item flex items-center px-4 py-2 rounded-md"
-            data-view="examinationhall"
-          >
-            <svg
-              class="h-5 w-5 mr-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"
-              />
-            </svg>
-            Examination Hall
-          </a>
-          <a
-            href="#"
-            class="sidebar-nav-item flex items-center px-4 py-2 rounded-md"
-            data-view="extraquestions"
-          >
-            <svg
-              class="h-5 w-5 mr-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M8 9l4-4 4 4m0 6l-4 4-4-4"
-              />
-            </svg>
-            Extra Questions
-          </a>
-
           <a
             href="#"
             class="sidebar-nav-item flex items-center px-4 py-2 rounded-md"
@@ -326,7 +238,7 @@
         <div class="space-y-1">
           <h1 class="text-2xl font-semibold text-gray-900">Admin Access</h1>
           <p id="auth-message" class="text-sm text-gray-500">
-            Sign in with your Supabase admin credentials.
+            Sign in with your admin email and password.
           </p>
         </div>
         <div
@@ -362,7 +274,7 @@
           </button>
         </form>
         <p id="auth-meta" class="text-xs leading-relaxed text-gray-400">
-          Accounts must exist in Supabase Auth and have the
+          Accounts must exist in Better Auth and have the
           <code>admin</code> role in <code>public.profiles</code>.
         </p>
       </div>

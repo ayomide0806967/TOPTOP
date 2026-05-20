@@ -69,7 +69,6 @@ self.addEventListener('activate', (event) => {
 
 const GOOGLE_FONTS_HOST = 'fonts.googleapis.com';
 const GOOGLE_STATIC_HOST = 'fonts.gstatic.com';
-const SUPABASE_HOST_FRAGMENT = 'supabase.co';
 
 function cacheFirst(request) {
   return caches.match(request).then((cached) => {
@@ -210,11 +209,6 @@ self.addEventListener('fetch', (event) => {
 
   if (url.hostname === GOOGLE_STATIC_HOST) {
     event.respondWith(cacheFirst(request));
-    return;
-  }
-
-  if (url.hostname.includes(SUPABASE_HOST_FRAGMENT)) {
-    event.respondWith(networkFirst(request));
     return;
   }
 
