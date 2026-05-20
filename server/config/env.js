@@ -23,7 +23,7 @@ const envSchema = z
     CORS_ORIGINS: z.string().optional(),
     BETTER_AUTH_REDIS_PREFIX: z.string().default('cbt-fast:auth'),
     BETTER_AUTH_STORE_SESSIONS_IN_POSTGRES: booleanFromEnv.default(false),
-    BETTER_AUTH_SECURE_COOKIES: booleanFromEnv.default(false),
+    BETTER_AUTH_SECURE_COOKIES: booleanFromEnv,
     PAYSTACK_PUBLIC_KEY: z.string().optional(),
     PAYSTACK_SECRET_KEY: z.string().optional(),
     PAYSTACK_TEST_PUBLIC_KEY: z.string().optional(),

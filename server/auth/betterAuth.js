@@ -25,6 +25,6 @@ export const auth = betterAuth({
     database: {
       generateId: 'uuid',
     },
-    useSecureCookies: env.BETTER_AUTH_SECURE_COOKIES || isProduction,
+    useSecureCookies: env.BETTER_AUTH_SECURE_COOKIES ?? isProduction,
   },
 });
