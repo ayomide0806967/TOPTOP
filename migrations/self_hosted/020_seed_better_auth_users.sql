@@ -1,6 +1,6 @@
 insert into public."user" (id, name, email, "emailVerified", image, "createdAt", "updatedAt")
 select
-  au.id::text,
+  au.id,
   coalesce(nullif(p.full_name, ''), au.email, au.id::text) as name,
   au.email,
   true,
