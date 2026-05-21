@@ -12,6 +12,14 @@ export const usernameLookupSchema = z.object({
     ),
 });
 
+export const loginIdentifierSchema = z.object({
+  identifier: z
+    .string()
+    .trim()
+    .min(3, 'Enter your username, phone, or email.')
+    .max(128, 'Login identifier is too long.'),
+});
+
 export const userAvailabilitySchema = z
   .object({
     username: z.string().trim().toLowerCase().min(3).optional(),

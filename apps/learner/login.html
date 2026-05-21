@@ -133,18 +133,19 @@
           >
             <div class="rounded-md shadow-sm -space-y-px">
               <div>
-                <label for="username" class="sr-only">Username</label>
+                <label for="identifier" class="sr-only"
+                  >Username, phone, or email</label
+                >
                 <input
-                  id="username"
-                  name="username"
+                  id="identifier"
+                  name="identifier"
                   type="text"
                   autocomplete="username"
                   required
                   minlength="3"
-                  pattern="[a-zA-Z0-9_-]+"
                   class="form-input appearance-none rounded-none relative block w-full px-3 py-3 border placeholder-gray-500 text-gray-900 rounded-t-md focus:z-10 sm:text-sm"
-                  placeholder="Username"
-                  title="Username must be at least 3 characters and contain only letters, numbers, hyphens, and underscores"
+                  placeholder="Username, phone, or email"
+                  title="Enter your username, phone, or email"
                 />
               </div>
               <div class="relative">
@@ -244,23 +245,15 @@
             data-role="claim-form"
           >
             <div class="rounded-md shadow-sm -space-y-px">
+              <input name="identifier" type="hidden" />
               <input
                 name="username"
                 type="text"
                 autocomplete="username"
-                required
                 minlength="3"
                 pattern="[a-zA-Z0-9_-]+"
                 class="form-input appearance-none rounded-none relative block w-full px-3 py-3 border placeholder-gray-500 text-gray-900 rounded-t-md focus:z-10 sm:text-sm"
-                placeholder="Old username"
-              />
-              <input
-                name="email"
-                type="email"
-                autocomplete="email"
-                required
-                class="form-input appearance-none rounded-none relative block w-full px-3 py-3 border placeholder-gray-500 text-gray-900 focus:z-10 sm:text-sm"
-                placeholder="Old account email"
+                placeholder="Old username if using phone"
               />
               <input
                 name="phone"
@@ -310,7 +303,7 @@
               class="font-medium text-cyan-700 hover:text-cyan-800"
               data-role="claim-toggle"
             >
-              Returning old user? Claim migrated account
+              Forgot password or old account?
             </button>
           </div>
         </div>
@@ -355,7 +348,7 @@
         });
       });
     </script>
-    <script type="module" src="./src/auth.js?v=20260521a"></script>
+    <script type="module" src="./src/auth.js?v=20260521b"></script>
     <script type="module" src="src/pwa-bootstrap.js?v=20260406b"></script>
   </body>
 </html>

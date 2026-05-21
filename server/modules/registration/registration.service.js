@@ -39,15 +39,22 @@ function normalizeComparable(value) {
 
 function claimError() {
   return badRequest(
-    'We could not verify this migrated account. Check the email, username, and phone or payment reference.'
+    'We could not verify this migrated account. Check the username, phone, or payment reference.'
   );
 }
 
-async function enforceClaimRateLimit(email) {
+function getCredentialEmail(profile) {
+  return (
+    profile.email ||
+    `${String(profile.username || profile.id).toLowerCase()}@migrated.academicnightingale.local`
+  );
+}
+
+async function enforceClaimRateLimit(identifier) {
   const redis = await ensureRedisConnected().catch(() => null);
   if (!redis) return;
 
-  const key = `account-claim:${createHash('sha256').update(email).digest('hex')}`;
+  const key = `account-claim:${createHash('sha256').update(identifier).digest('hex')}`;
   const attempts = await redis.incr(key);
   if (attempts === 1) {
     await redis.expire(key, CLAIM_RATE_LIMIT_TTL_SECONDS);
@@ -138,13 +145,20 @@ export async function getRegistrationStatus(userId) {
 }
 
 export async function claimMigratedAccount(input) {
-  await enforceClaimRateLimit(input.email);
+  const rateLimitKey =
+    input.identifier ||
+    input.email ||
+    input.username ||
+    input.phone ||
+    'unknown';
+  await enforceClaimRateLimit(rateLimitKey);
 
   const profile = await findMigratedProfileForClaim({
+    identifier: input.identifier,
     email: input.email,
     username: input.username,
   });
-  if (!profile?.id || !profile.email) {
+  if (!profile?.id) {
     throw claimError();
   }
 
@@ -152,6 +166,11 @@ export async function claimMigratedAccount(input) {
   const storedPhone = normalizeComparable(profile.phone);
   const phoneMatches =
     providedPhone && storedPhone && providedPhone === storedPhone;
+  const usernameMatches =
+    input.username &&
+    profile.username &&
+    normalizeComparable(input.username) ===
+      normalizeComparable(profile.username);
 
   let paymentMatches = false;
   if (input.paymentReference) {
@@ -163,10 +182,15 @@ export async function claimMigratedAccount(input) {
       normalizeComparable(latestReference);
   }
 
-  if (!phoneMatches && !paymentMatches) {
+  if (profile.identifier_type === 'phone') {
+    if (!usernameMatches && !paymentMatches) {
+      throw claimError();
+    }
+  } else if (!phoneMatches && !paymentMatches) {
     throw claimError();
   }
 
+  const email = getCredentialEmail(profile);
   const passwordHash = await hashPassword(input.password);
   await claimMigratedProfileCredentials({
     profile,
@@ -175,7 +199,7 @@ export async function claimMigratedAccount(input) {
 
   return {
     userId: profile.id,
-    email: profile.email,
+    email,
     username: profile.username,
     claimed: true,
   };

@@ -3,8 +3,10 @@ import { badRequest } from '../utils/httpError.js';
 import {
   checkUserAvailability,
   lookupUsername,
+  resolveLoginIdentifier,
 } from '../modules/users/users.service.js';
 import {
+  loginIdentifierSchema,
   userAvailabilitySchema,
   usernameLookupSchema,
 } from '../modules/users/users.schemas.js';
@@ -18,6 +20,14 @@ function parseLookupInput(input) {
       'Invalid username lookup request.',
       parsed.error.flatten()
     );
+  }
+  return parsed.data;
+}
+
+function parseLoginIdentifierInput(input) {
+  const parsed = loginIdentifierSchema.safeParse(input);
+  if (!parsed.success) {
+    throw badRequest('Invalid login lookup request.', parsed.error.flatten());
   }
   return parsed.data;
 }
@@ -36,6 +46,23 @@ usersRoutes.post('/users/lookup-username', async (c) => {
   const input = parseLookupInput(body);
 
   const result = await lookupUsername(input.username);
+  return c.json(result);
+});
+
+usersRoutes.get('/users/resolve-login', async (c) => {
+  const input = parseLoginIdentifierInput({
+    identifier: c.req.query('identifier') || '',
+  });
+
+  const result = await resolveLoginIdentifier(input.identifier);
+  return c.json(result);
+});
+
+usersRoutes.post('/users/resolve-login', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const input = parseLoginIdentifierInput(body);
+
+  const result = await resolveLoginIdentifier(input.identifier);
   return c.json(result);
 });
 

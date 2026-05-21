@@ -200,7 +200,58 @@ export async function findRegistrationStatus(userId) {
   );
 }
 
-export async function findMigratedProfileForClaim({ email, username }) {
+export async function findMigratedProfileForClaim({
+  identifier,
+  email,
+  username,
+}) {
+  if (identifier) {
+    return oneOrNone(
+      `
+        with input as (
+          select
+            lower($1::text) as value,
+            regexp_replace($1::text, '[^0-9]', '', 'g') as phone_digits
+        )
+        select
+          p.id,
+          p.email,
+          p.username,
+          p.phone,
+          p.full_name,
+          p.first_name,
+          p.last_name,
+          p.subscription_status,
+          p.registration_stage,
+          case
+            when lower(coalesce(p.email, '')) = input.value then 'email'
+            when lower(coalesce(p.username, '')) = input.value then 'username'
+            when length(input.phone_digits) >= 5
+              and regexp_replace(coalesce(p.phone, ''), '[^0-9]', '', 'g') = input.phone_digits
+              then 'phone'
+            else 'unknown'
+          end as identifier_type
+        from public.profiles p
+        cross join input
+        where lower(coalesce(p.email, '')) = input.value
+           or lower(coalesce(p.username, '')) = input.value
+           or (
+             length(input.phone_digits) >= 5
+             and regexp_replace(coalesce(p.phone, ''), '[^0-9]', '', 'g') = input.phone_digits
+           )
+        order by
+          case
+            when lower(coalesce(p.email, '')) = input.value then 1
+            when lower(coalesce(p.username, '')) = input.value then 2
+            else 3
+          end,
+          p.updated_at desc nulls last
+        limit 1
+      `,
+      [identifier]
+    );
+  }
+
   return oneOrNone(
     `
       select
@@ -212,7 +263,8 @@ export async function findMigratedProfileForClaim({ email, username }) {
         p.first_name,
         p.last_name,
         p.subscription_status,
-        p.registration_stage
+        p.registration_stage,
+        'legacy' as identifier_type
       from public.profiles p
       where lower(p.email) = $1
         and lower(p.username) = $2
@@ -242,11 +294,14 @@ export async function claimMigratedProfileCredentials({
   profile,
   passwordHash,
 }) {
+  const email =
+    profile.email ||
+    `${String(profile.username || profile.id).toLowerCase()}@migrated.academicnightingale.local`;
   const fullName =
     profile.full_name ||
     [profile.first_name, profile.last_name].filter(Boolean).join(' ') ||
     profile.username ||
-    profile.email;
+    email;
 
   return withTransaction(async (client) => {
     await client.query(
@@ -257,7 +312,7 @@ export async function claimMigratedProfileCredentials({
         set email = excluded.email,
             updated_at = now()
       `,
-      [profile.id, profile.email]
+      [profile.id, email]
     );
 
     await client.query(
@@ -269,7 +324,7 @@ export async function claimMigratedProfileCredentials({
             email = excluded.email,
             "updatedAt" = now()
       `,
-      [profile.id, fullName, profile.email]
+      [profile.id, fullName, email]
     );
 
     const accountUpdate = await client.query(
@@ -313,7 +368,7 @@ export async function claimMigratedProfileCredentials({
             updated_at = now()
         where id = $1
       `,
-      [profile.id, profile.email]
+      [profile.id, email]
     );
 
     const sessionTable = await client.query(

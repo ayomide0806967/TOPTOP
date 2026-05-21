@@ -1,15 +1,14 @@
 import { apiFetch } from '../../shared/apiClient.js';
 
 const DASHBOARD_URL = 'admin-board.html';
-const MIN_USERNAME_LENGTH = 3;
+const MIN_IDENTIFIER_LENGTH = 3;
 const MIN_PASSWORD_LENGTH = 6;
-const USERNAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
 const loginForm = document.getElementById('loginForm');
 const feedbackEl = document.querySelector('[data-role="feedback"]');
 const submitBtn = document.querySelector('[data-role="submit"]');
 const submitText = submitBtn?.querySelector('[data-role="submit-text"]');
-const usernameInput = document.getElementById('username');
+const identifierInput = document.getElementById('identifier');
 const passwordInput = document.getElementById('password');
 const authChooserEl = document.getElementById('authChooser');
 const quickAuthOptionsEl = document.getElementById('quickAuthOptions');
@@ -20,6 +19,8 @@ const claimSubmitBtn = document.querySelector('[data-role="claim-submit"]');
 const claimSubmitText = document.querySelector(
   '[data-role="claim-submit-text"]'
 );
+const claimIdentifierInput = claimForm?.querySelector('[name="identifier"]');
+const claimUsernameInput = claimForm?.querySelector('[name="username"]');
 
 function showFeedback(message, type = 'error') {
   if (!feedbackEl) return;
@@ -84,24 +85,37 @@ function setClaimMode(enabled) {
   if (claimToggleBtn) {
     claimToggleBtn.textContent = enabled
       ? 'Back to sign in'
-      : 'Returning old user? Claim migrated account';
+      : 'Forgot password or old account?';
   }
   clearFeedback();
 }
 
-function validateUsername(username) {
-  if (!username) return { valid: false, error: 'Username is required.' };
-  if (username.length < MIN_USERNAME_LENGTH) {
-    return {
-      valid: false,
-      error: `Username must be at least ${MIN_USERNAME_LENGTH} characters.`,
-    };
+function setClaimIdentifier(identifier = '') {
+  if (claimIdentifierInput) {
+    claimIdentifierInput.value = identifier.trim();
   }
-  if (!USERNAME_PATTERN.test(username)) {
+}
+
+function openClaimForLookup(identifier, lookup = {}) {
+  setClaimIdentifier(identifier);
+  if (claimUsernameInput && lookup.identifierType !== 'phone') {
+    claimUsernameInput.value = lookup.username || '';
+  }
+  setClaimMode(true);
+  showFeedback(
+    'We found your old account. Verify it with your phone number or payment reference, then create a new password.',
+    'info'
+  );
+}
+
+function validateIdentifier(identifier) {
+  if (!identifier) {
+    return { valid: false, error: 'Username, phone, or email is required.' };
+  }
+  if (identifier.length < MIN_IDENTIFIER_LENGTH) {
     return {
       valid: false,
-      error:
-        'Username can only contain letters, numbers, hyphens, and underscores.',
+      error: `Enter at least ${MIN_IDENTIFIER_LENGTH} characters.`,
     };
   }
   return { valid: true };
@@ -140,9 +154,9 @@ function maybePersistPendingPlanFromUrl() {
   }
 }
 
-async function getEmailFromUsername(username) {
-  const url = new URL('/api/users/lookup-username', window.location.origin);
-  url.searchParams.set('username', username.toLowerCase());
+async function resolveLoginIdentifier(identifier) {
+  const url = new URL('/api/users/resolve-login', window.location.origin);
+  url.searchParams.set('identifier', identifier);
 
   return apiFetch(url.pathname + url.search);
 }
@@ -170,13 +184,13 @@ async function handleLogin(event) {
   clearFeedback();
 
   const formData = new FormData(loginForm);
-  const username = String(formData.get('username') || '').trim();
+  const identifier = String(formData.get('identifier') || '').trim();
   const password = String(formData.get('password') || '');
 
-  const usernameValidation = validateUsername(username);
-  if (!usernameValidation.valid) {
-    showFeedback(usernameValidation.error);
-    usernameInput?.focus();
+  const identifierValidation = validateIdentifier(identifier);
+  if (!identifierValidation.valid) {
+    showFeedback(identifierValidation.error);
+    identifierInput?.focus();
     return;
   }
 
@@ -190,7 +204,7 @@ async function handleLogin(event) {
   setLoading(true);
 
   try {
-    const lookup = await getEmailFromUsername(username);
+    const lookup = await resolveLoginIdentifier(identifier);
     if (lookup.needsSupport) {
       showFeedback(
         'This account is currently inactive. Please contact support for assistance.'
@@ -205,13 +219,25 @@ async function handleLogin(event) {
       );
     }
 
+    if (lookup.needsPasswordSetup) {
+      openClaimForLookup(identifier, lookup);
+      return;
+    }
+
+    if (!lookup.email) {
+      showFeedback(
+        'This account needs support before sign-in. Please contact support.'
+      );
+      return;
+    }
+
     await signInWithCredentials(lookup.email, password);
 
     try {
       window.sessionStorage.setItem(
         'welcome_credentials',
         JSON.stringify({
-          username,
+          username: lookup.username || identifier,
           password,
           userId: lookup.userId,
           savedAt: new Date().toISOString(),
@@ -229,7 +255,7 @@ async function handleLogin(event) {
     console.error('[Auth] Login failed', error);
     showFeedback(
       error?.message ||
-        'Invalid username or password. If registration is pending, continue registration first.'
+        'Invalid login details. If this is an old account, use your username, phone, or email to set a new password.'
     );
   } finally {
     setLoading(false);
@@ -241,12 +267,11 @@ async function handleClaim(event) {
   clearFeedback();
 
   const formData = new FormData(claimForm);
+  const identifier = String(formData.get('identifier') || '').trim();
   const username = String(formData.get('username') || '')
     .trim()
     .toLowerCase();
-  const email = String(formData.get('email') || '')
-    .trim()
-    .toLowerCase();
+  const recoveryIdentifier = identifier || username;
   const phone = String(formData.get('phone') || '').trim();
   const paymentReference = String(
     formData.get('paymentReference') || ''
@@ -254,19 +279,16 @@ async function handleClaim(event) {
   const password = String(formData.get('password') || '');
   const confirmPassword = String(formData.get('confirmPassword') || '');
 
-  const usernameValidation = validateUsername(username);
-  if (!usernameValidation.valid) {
-    showFeedback(usernameValidation.error);
+  const identifierValidation = validateIdentifier(recoveryIdentifier);
+  if (!identifierValidation.valid) {
+    showFeedback(identifierValidation.error);
     return;
   }
 
-  if (!email || !email.includes('@')) {
-    showFeedback('Enter the email on your old account.');
-    return;
-  }
-
-  if (!phone && !paymentReference) {
-    showFeedback('Enter your phone number or payment reference.');
+  if (!phone && !paymentReference && !username) {
+    showFeedback(
+      'Enter your phone number, old username, or payment reference to verify this account.'
+    );
     return;
   }
 
@@ -285,14 +307,14 @@ async function handleClaim(event) {
 
   try {
     const claimed = await claimMigratedAccount({
+      identifier: recoveryIdentifier,
       username,
-      email,
       phone,
       paymentReference,
       password,
     });
 
-    await signInWithCredentials(claimed.email || email, password);
+    await signInWithCredentials(claimed.email, password);
 
     showFeedback('Account claimed successfully. Redirecting...', 'success');
     window.setTimeout(() => {
@@ -335,9 +357,13 @@ async function init() {
   loginForm.addEventListener('submit', handleLogin);
   claimForm?.addEventListener('submit', handleClaim);
   claimToggleBtn?.addEventListener('click', () => {
-    setClaimMode(claimForm?.classList.contains('hidden'));
+    const enabling = claimForm?.classList.contains('hidden');
+    if (enabling) {
+      setClaimIdentifier(identifierInput?.value || '');
+    }
+    setClaimMode(enabling);
   });
-  usernameInput?.focus();
+  identifierInput?.focus();
 }
 
 document.addEventListener('DOMContentLoaded', () => {

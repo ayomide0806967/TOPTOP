@@ -28,13 +28,28 @@ export const createPendingRegistrationSchema = z.object({
 
 export const claimMigratedAccountSchema = z
   .object({
-    email: z.string().trim().toLowerCase().email(),
+    identifier: z
+      .string()
+      .trim()
+      .min(3)
+      .max(128)
+      .optional()
+      .or(z.literal('').transform(() => undefined)),
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email()
+      .optional()
+      .or(z.literal('').transform(() => undefined)),
     username: z
       .string()
       .trim()
       .toLowerCase()
       .min(3)
-      .regex(/^[a-z0-9_-]+$/),
+      .regex(/^[a-z0-9_-]+$/)
+      .optional()
+      .or(z.literal('').transform(() => undefined)),
     phone: z
       .string()
       .trim()
@@ -51,7 +66,7 @@ export const claimMigratedAccountSchema = z
       .or(z.literal('').transform(() => undefined)),
     password: z.string().min(8, 'Password must be at least 8 characters long.'),
   })
-  .refine((value) => value.phone || value.paymentReference, {
-    path: ['phone'],
-    message: 'Phone number or payment reference is required.',
+  .refine((value) => value.identifier || (value.email && value.username), {
+    path: ['identifier'],
+    message: 'Username, phone, or email is required.',
   });

@@ -3,6 +3,7 @@ import {
   findProfileByEmail,
   findProfileByPhone,
   findLatestSuccessfulPaystackReference,
+  findProfileByLoginIdentifier,
   findProfileByUsername,
 } from './users.repo.js';
 
@@ -32,6 +33,34 @@ export async function lookupUsername(username) {
       : false,
     needsSupport: subscriptionStatus === 'suspended',
     latestReference,
+  };
+}
+
+export async function resolveLoginIdentifier(identifier) {
+  const profile = await findProfileByLoginIdentifier(identifier);
+
+  if (!profile?.id) {
+    throw notFound(
+      'Account not found. Check your username, phone, or email and try again.'
+    );
+  }
+
+  const subscriptionStatus = profile.subscription_status || null;
+  const hasPassword = Boolean(profile.has_password && profile.email);
+
+  return {
+    email: profile.email || null,
+    userId: profile.id,
+    username: profile.username || null,
+    subscriptionStatus,
+    registrationStage: profile.registration_stage || null,
+    pendingRegistration: subscriptionStatus
+      ? RESUMABLE_STATUSES.has(subscriptionStatus)
+      : false,
+    needsSupport: subscriptionStatus === 'suspended',
+    identifierType: profile.identifier_type || 'unknown',
+    hasPassword,
+    needsPasswordSetup: !hasPassword,
   };
 }
 
