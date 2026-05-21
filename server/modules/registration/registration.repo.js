@@ -276,9 +276,9 @@ export async function claimMigratedProfileCredentials({
       `
         update public.account
         set password = $2,
-            "accountId" = $1,
+            "accountId" = $1::text,
             "updatedAt" = now()
-        where "userId" = $1
+        where "userId" = $1::uuid
           and "providerId" = 'credential'
       `,
       [profile.id, passwordHash]
@@ -296,7 +296,7 @@ export async function claimMigratedProfileCredentials({
             "createdAt",
             "updatedAt"
           )
-          values (gen_random_uuid(), $1, 'credential', $1, $2, now(), now())
+          values (gen_random_uuid(), $1::text, 'credential', $1::uuid, $2, now(), now())
         `,
         [profile.id, passwordHash]
       );
