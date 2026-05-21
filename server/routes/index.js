@@ -15,14 +15,14 @@ export function createApiRoutes() {
 
   api.route('/', healthRoutes);
   api.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw));
-  api.route('/', adminRoutes);
   api.route('/', catalogRoutes);
-  api.route('/', dashboardRoutes);
-  api.route('/', meRoutes);
-  api.route('/', paymentsRoutes);
-  api.route('/', quizRoutes);
   api.route('/', registrationRoutes);
   api.route('/', usersRoutes);
+  api.route('/', paymentsRoutes);
+  api.route('/', adminRoutes);
+  api.route('/', meRoutes);
+  api.route('/', quizRoutes);
+  api.route('/', dashboardRoutes);
   api.use('/*', async (c) =>
     c.json({ error: { code: 'NOT_FOUND', message: 'Not found.' } }, 404)
   );
