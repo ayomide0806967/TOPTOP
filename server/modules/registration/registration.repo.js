@@ -316,8 +316,13 @@ export async function claimMigratedProfileCredentials({
       [profile.id, profile.email]
     );
 
-    await client
-      .query('delete from public.session where "userId" = $1', [profile.id])
-      .catch(() => {});
+    const sessionTable = await client.query(
+      "select to_regclass('public.session') as table_name"
+    );
+    if (sessionTable.rows[0]?.table_name) {
+      await client.query('delete from public.session where "userId" = $1', [
+        profile.id,
+      ]);
+    }
   });
 }
