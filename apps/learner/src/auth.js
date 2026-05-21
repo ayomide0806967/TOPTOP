@@ -194,13 +194,6 @@ async function handleLogin(event) {
     return;
   }
 
-  const passwordValidation = validatePassword(password);
-  if (!passwordValidation.valid) {
-    showFeedback(passwordValidation.error);
-    passwordInput?.focus();
-    return;
-  }
-
   setLoading(true);
 
   try {
@@ -228,6 +221,13 @@ async function handleLogin(event) {
       showFeedback(
         'This account needs support before sign-in. Please contact support.'
       );
+      return;
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      showFeedback(passwordValidation.error);
+      passwordInput?.focus();
       return;
     }
 
