@@ -1,11 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { hashPassword } from '@better-auth/utils/password';
 import { auth } from '../../auth/betterAuth.js';
-import { conflict, notFound } from '../../utils/httpError.js';
+import { ensureRedisConnected } from '../../redis/client.js';
+import { badRequest, conflict, notFound } from '../../utils/httpError.js';
 import {
+  claimMigratedProfileCredentials,
   deleteBetterAuthUser,
   deleteCompatAuthUser,
+  findLatestSuccessfulPaymentReference,
   findActiveProfileByEmail,
   findActiveProfileByPhone,
+  findMigratedProfileForClaim,
   findPlanSnapshot,
   findProfileByUsername,
   findRegistrationStatus,
@@ -14,6 +19,8 @@ import {
 } from './registration.repo.js';
 
 const TOKEN_TTL_MS = 60 * 60 * 1000;
+const CLAIM_RATE_LIMIT_TTL_SECONDS = 15 * 60;
+const CLAIM_RATE_LIMIT_MAX_ATTEMPTS = 8;
 
 function generateRegistrationToken() {
   return `${randomUUID()}${randomUUID()}`.replaceAll('-', '');
@@ -21,6 +28,33 @@ function generateRegistrationToken() {
 
 function hashToken(token) {
   return createHash('sha256').update(token).digest('hex');
+}
+
+function normalizeComparable(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s\-()+]/g, '');
+}
+
+function claimError() {
+  return badRequest(
+    'We could not verify this migrated account. Check the email, username, and phone or payment reference.'
+  );
+}
+
+async function enforceClaimRateLimit(email) {
+  const redis = await ensureRedisConnected().catch(() => null);
+  if (!redis) return;
+
+  const key = `account-claim:${createHash('sha256').update(email).digest('hex')}`;
+  const attempts = await redis.incr(key);
+  if (attempts === 1) {
+    await redis.expire(key, CLAIM_RATE_LIMIT_TTL_SECONDS);
+  }
+  if (attempts > CLAIM_RATE_LIMIT_MAX_ATTEMPTS) {
+    throw badRequest('Too many account recovery attempts. Try again later.');
+  }
 }
 
 export async function createPendingRegistration(input, headers) {
@@ -101,4 +135,48 @@ export async function createPendingRegistration(input, headers) {
 export async function getRegistrationStatus(userId) {
   if (!userId) return null;
   return findRegistrationStatus(userId);
+}
+
+export async function claimMigratedAccount(input) {
+  await enforceClaimRateLimit(input.email);
+
+  const profile = await findMigratedProfileForClaim({
+    email: input.email,
+    username: input.username,
+  });
+  if (!profile?.id || !profile.email) {
+    throw claimError();
+  }
+
+  const providedPhone = normalizeComparable(input.phone);
+  const storedPhone = normalizeComparable(profile.phone);
+  const phoneMatches =
+    providedPhone && storedPhone && providedPhone === storedPhone;
+
+  let paymentMatches = false;
+  if (input.paymentReference) {
+    const latestReference = await findLatestSuccessfulPaymentReference(
+      profile.id
+    );
+    paymentMatches =
+      normalizeComparable(input.paymentReference) ===
+      normalizeComparable(latestReference);
+  }
+
+  if (!phoneMatches && !paymentMatches) {
+    throw claimError();
+  }
+
+  const passwordHash = await hashPassword(input.password);
+  await claimMigratedProfileCredentials({
+    profile,
+    passwordHash,
+  });
+
+  return {
+    userId: profile.id,
+    email: profile.email,
+    username: profile.username,
+    claimed: true,
+  };
 }

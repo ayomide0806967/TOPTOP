@@ -14,6 +14,12 @@ const passwordInput = document.getElementById('password');
 const authChooserEl = document.getElementById('authChooser');
 const quickAuthOptionsEl = document.getElementById('quickAuthOptions');
 const authBackBtn = document.querySelector('[data-role="auth-back"]');
+const claimForm = document.querySelector('[data-role="claim-form"]');
+const claimToggleBtn = document.querySelector('[data-role="claim-toggle"]');
+const claimSubmitBtn = document.querySelector('[data-role="claim-submit"]');
+const claimSubmitText = document.querySelector(
+  '[data-role="claim-submit-text"]'
+);
 
 function showFeedback(message, type = 'error') {
   if (!feedbackEl) return;
@@ -58,6 +64,29 @@ function setLoading(loading) {
   }
   submitBtn.classList.toggle('opacity-70', loading);
   submitBtn.classList.toggle('cursor-wait', loading);
+}
+
+function setClaimLoading(loading) {
+  if (!claimSubmitBtn) return;
+  claimSubmitBtn.disabled = loading;
+  if (claimSubmitText) {
+    claimSubmitText.textContent = loading
+      ? 'Claiming account...'
+      : 'Claim account';
+  }
+  claimSubmitBtn.classList.toggle('opacity-70', loading);
+  claimSubmitBtn.classList.toggle('cursor-wait', loading);
+}
+
+function setClaimMode(enabled) {
+  loginForm?.classList.toggle('hidden', enabled);
+  claimForm?.classList.toggle('hidden', !enabled);
+  if (claimToggleBtn) {
+    claimToggleBtn.textContent = enabled
+      ? 'Back to sign in'
+      : 'Returning old user? Claim migrated account';
+  }
+  clearFeedback();
 }
 
 function validateUsername(username) {
@@ -126,6 +155,13 @@ async function signInWithCredentials(email, password) {
       password,
       rememberMe: true,
     },
+  });
+}
+
+async function claimMigratedAccount(payload) {
+  return apiFetch('/api/registration/claim-migrated-account', {
+    method: 'POST',
+    body: payload,
   });
 }
 
@@ -200,6 +236,79 @@ async function handleLogin(event) {
   }
 }
 
+async function handleClaim(event) {
+  event.preventDefault();
+  clearFeedback();
+
+  const formData = new FormData(claimForm);
+  const username = String(formData.get('username') || '')
+    .trim()
+    .toLowerCase();
+  const email = String(formData.get('email') || '')
+    .trim()
+    .toLowerCase();
+  const phone = String(formData.get('phone') || '').trim();
+  const paymentReference = String(
+    formData.get('paymentReference') || ''
+  ).trim();
+  const password = String(formData.get('password') || '');
+  const confirmPassword = String(formData.get('confirmPassword') || '');
+
+  const usernameValidation = validateUsername(username);
+  if (!usernameValidation.valid) {
+    showFeedback(usernameValidation.error);
+    return;
+  }
+
+  if (!email || !email.includes('@')) {
+    showFeedback('Enter the email on your old account.');
+    return;
+  }
+
+  if (!phone && !paymentReference) {
+    showFeedback('Enter your phone number or payment reference.');
+    return;
+  }
+
+  const passwordValidation = validatePassword(password);
+  if (!passwordValidation.valid || password.length < 8) {
+    showFeedback('New password must be at least 8 characters.');
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    showFeedback('Passwords do not match.');
+    return;
+  }
+
+  setClaimLoading(true);
+
+  try {
+    const claimed = await claimMigratedAccount({
+      username,
+      email,
+      phone,
+      paymentReference,
+      password,
+    });
+
+    await signInWithCredentials(claimed.email || email, password);
+
+    showFeedback('Account claimed successfully. Redirecting...', 'success');
+    window.setTimeout(() => {
+      window.location.replace(getRedirectTarget());
+    }, 350);
+  } catch (error) {
+    console.error('[Auth] Account claim failed', error);
+    showFeedback(
+      error?.message ||
+        'We could not claim this account. Check the details and try again.'
+    );
+  } finally {
+    setClaimLoading(false);
+  }
+}
+
 async function init() {
   maybePersistPendingPlanFromUrl();
 
@@ -207,6 +316,7 @@ async function init() {
   quickAuthOptionsEl?.classList.add('hidden');
   authBackBtn?.classList.add('hidden');
   loginForm?.classList.remove('hidden');
+  claimForm?.classList.add('hidden');
 
   const session = await apiFetch('/api/me').catch((error) => {
     if (error?.status === 401) return null;
@@ -223,6 +333,10 @@ async function init() {
   }
 
   loginForm.addEventListener('submit', handleLogin);
+  claimForm?.addEventListener('submit', handleClaim);
+  claimToggleBtn?.addEventListener('click', () => {
+    setClaimMode(claimForm?.classList.contains('hidden'));
+  });
   usernameInput?.focus();
 }
 

@@ -25,3 +25,33 @@ export const createPendingRegistrationSchema = z.object({
     .optional()
     .or(z.literal('').transform(() => undefined)),
 });
+
+export const claimMigratedAccountSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email(),
+    username: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .min(3)
+      .regex(/^[a-z0-9_-]+$/),
+    phone: z
+      .string()
+      .trim()
+      .min(5)
+      .max(32)
+      .optional()
+      .or(z.literal('').transform(() => undefined)),
+    paymentReference: z
+      .string()
+      .trim()
+      .min(6)
+      .max(128)
+      .optional()
+      .or(z.literal('').transform(() => undefined)),
+    password: z.string().min(8, 'Password must be at least 8 characters long.'),
+  })
+  .refine((value) => value.phone || value.paymentReference, {
+    path: ['phone'],
+    message: 'Phone number or payment reference is required.',
+  });

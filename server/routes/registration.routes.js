@@ -1,10 +1,14 @@
 import { Hono } from 'hono';
 import { getSessionContext, requireSession } from '../auth/requireSession.js';
 import {
+  claimMigratedAccount,
   createPendingRegistration,
   getRegistrationStatus,
 } from '../modules/registration/registration.service.js';
-import { createPendingRegistrationSchema } from '../modules/registration/registration.schemas.js';
+import {
+  claimMigratedAccountSchema,
+  createPendingRegistrationSchema,
+} from '../modules/registration/registration.schemas.js';
 import { badRequest, forbidden, notFound } from '../utils/httpError.js';
 
 export const registrationRoutes = new Hono();
@@ -21,6 +25,21 @@ registrationRoutes.post('/registration/pending', async (c) => {
     parsed.data,
     c.req.raw.headers
   );
+  return c.json(result);
+});
+
+registrationRoutes.post('/registration/claim-migrated-account', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = claimMigratedAccountSchema.safeParse(body);
+
+  if (!parsed.success) {
+    throw badRequest(
+      'Invalid account recovery request.',
+      parsed.error.flatten()
+    );
+  }
+
+  const result = await claimMigratedAccount(parsed.data);
   return c.json(result);
 });
 

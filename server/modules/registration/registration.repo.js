@@ -1,4 +1,5 @@
 import { query, oneOrNone } from '../../db/query.js';
+import { withTransaction } from '../../db/tx.js';
 
 const ACTIVE_STATUSES = ['active', 'trialing'];
 
@@ -197,4 +198,126 @@ export async function findRegistrationStatus(userId) {
     `,
     [userId]
   );
+}
+
+export async function findMigratedProfileForClaim({ email, username }) {
+  return oneOrNone(
+    `
+      select
+        p.id,
+        p.email,
+        p.username,
+        p.phone,
+        p.full_name,
+        p.first_name,
+        p.last_name,
+        p.subscription_status,
+        p.registration_stage
+      from public.profiles p
+      where lower(p.email) = $1
+        and lower(p.username) = $2
+      limit 1
+    `,
+    [email, username]
+  );
+}
+
+export async function findLatestSuccessfulPaymentReference(userId) {
+  const row = await oneOrNone(
+    `
+      select reference
+      from public.payment_transactions
+      where user_id = $1
+        and provider = 'paystack'
+        and status = 'success'
+      order by paid_at desc nulls last, created_at desc
+      limit 1
+    `,
+    [userId]
+  );
+  return row?.reference || null;
+}
+
+export async function claimMigratedProfileCredentials({
+  profile,
+  passwordHash,
+}) {
+  const fullName =
+    profile.full_name ||
+    [profile.first_name, profile.last_name].filter(Boolean).join(' ') ||
+    profile.username ||
+    profile.email;
+
+  return withTransaction(async (client) => {
+    await client.query(
+      `
+        insert into auth.users (id, email, raw_user_meta_data, raw_app_meta_data)
+        values ($1, $2, '{}'::jsonb, '{}'::jsonb)
+        on conflict (id) do update
+        set email = excluded.email,
+            updated_at = now()
+      `,
+      [profile.id, profile.email]
+    );
+
+    await client.query(
+      `
+        insert into public."user" (id, name, email, "emailVerified", image, "createdAt", "updatedAt")
+        values ($1, $2, $3, true, null, now(), now())
+        on conflict (id) do update
+        set name = excluded.name,
+            email = excluded.email,
+            "updatedAt" = now()
+      `,
+      [profile.id, fullName, profile.email]
+    );
+
+    const accountUpdate = await client.query(
+      `
+        update public.account
+        set password = $2,
+            "accountId" = $1,
+            "updatedAt" = now()
+        where "userId" = $1
+          and "providerId" = 'credential'
+      `,
+      [profile.id, passwordHash]
+    );
+
+    if (!accountUpdate.rowCount) {
+      await client.query(
+        `
+          insert into public.account (
+            id,
+            "accountId",
+            "providerId",
+            "userId",
+            password,
+            "createdAt",
+            "updatedAt"
+          )
+          values (gen_random_uuid(), $1, 'credential', $1, $2, now(), now())
+        `,
+        [profile.id, passwordHash]
+      );
+    }
+
+    await client.query(
+      `
+        update public.profiles
+        set email = $2,
+            registration_stage = case
+              when registration_stage is null or registration_stage = 'profile_created' then 'active'
+              else registration_stage
+            end,
+            updated_at = now()
+        where id = $1
+      `,
+      [profile.id, profile.email]
+    );
+
+    await client
+      .query('delete from public.session where "userId" = $1', [profile.id])
+      .catch(() => {});
+  });
 }
