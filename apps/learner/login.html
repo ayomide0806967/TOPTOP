@@ -243,6 +243,12 @@
             class="hidden mt-6 space-y-4"
             data-role="claim-form"
           >
+            <div
+              class="rounded-md border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"
+            >
+              We found an existing account with those details. If this is not
+              your account, start a fresh registration with different details.
+            </div>
             <div class="rounded-md shadow-sm -space-y-px">
               <input name="identifier" type="hidden" />
               <input
@@ -292,8 +298,14 @@
               class="btn-primary group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500"
               data-role="claim-submit"
             >
-              <span data-role="claim-submit-text">Claim account</span>
+              <span data-role="claim-submit-text">Set new password</span>
             </button>
+            <a
+              href="subscription-plans.html"
+              class="block text-center text-sm font-medium text-cyan-700 hover:text-cyan-800"
+            >
+              Create a different new account
+            </a>
           </form>
 
           <div class="mt-5 text-center text-sm">
@@ -347,7 +359,7 @@
         });
       });
     </script>
-    <script type="module" src="./src/auth.js?v=20260521c"></script>
+    <script type="module" src="./src/auth.js?v=20260521d"></script>
     <script type="module" src="src/pwa-bootstrap.js?v=20260406b"></script>
   </body>
 </html>

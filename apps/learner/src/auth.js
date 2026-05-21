@@ -73,7 +73,7 @@ function setClaimLoading(loading) {
   if (claimSubmitText) {
     claimSubmitText.textContent = loading
       ? 'Claiming account...'
-      : 'Claim account';
+      : 'Set new password';
   }
   claimSubmitBtn.classList.toggle('opacity-70', loading);
   claimSubmitBtn.classList.toggle('cursor-wait', loading);
@@ -103,7 +103,7 @@ function openClaimForLookup(identifier, lookup = {}) {
   }
   setClaimMode(true);
   showFeedback(
-    'We found your old account. Verify it with your phone number or payment reference, then create a new password.',
+    'This detail matches an existing account. Verify it with your phone number or payment reference, then create a new password.',
     'info'
   );
 }
