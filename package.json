@@ -12,6 +12,11 @@
     "test:watch": "vitest",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "mobile:start": "npm --prefix apps/mobile start",
+    "mobile:android": "npm --prefix apps/mobile run android",
+    "mobile:ios": "npm --prefix apps/mobile run ios",
+    "mobile:web": "npm --prefix apps/mobile run web",
+    "mobile:typecheck": "npm --prefix apps/mobile run typecheck",
     "build:css": "npx tailwindcss -i styles/tailwind.css -o apps/assets/tailwind.css --minify",
     "watch:css": "npx tailwindcss -i styles/tailwind.css -o apps/assets/tailwind.css --watch"
   },
